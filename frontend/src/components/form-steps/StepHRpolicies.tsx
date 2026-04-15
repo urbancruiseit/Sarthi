@@ -61,7 +61,7 @@ export function StepHRpoliciest({ data, onChange }: StepProps) {
       <div className="border rounded-lg p-4 bg-muted/30 w-full">
         <h3 className="text-sm font-semibold mb-3">HR Policy Information</h3>
 
-        <ScrollArea className="h-40 w-full rounded-md border p-4 text-md">
+        <ScrollArea className="h-48 w-full rounded-md  p-4 text-md">
           <HRPolicyContent />
         </ScrollArea>
       </div>
@@ -85,7 +85,7 @@ export function StepHRpoliciest({ data, onChange }: StepProps) {
       <div className="border rounded-lg p-4 bg-muted/30 w-full">
         <h3 className="text-sm font-semibold mb-3">Commitment Declaration</h3>
 
-        <ScrollArea className="h-30 w-full rounded-md border p-4 text-md">
+        <ScrollArea className="h-30 w-full rounded-md p-4 text-md">
           <CommitmentContent />
         </ScrollArea>
       </div>
@@ -110,7 +110,7 @@ export function StepHRpoliciest({ data, onChange }: StepProps) {
       <div className="border rounded-lg p-4 bg-muted/30 w-full">
         <h3 className="text-sm font-semibold mb-3">Information Declaration</h3>
 
-        <ScrollArea className="h-30 w-full rounded-md border p-4 text-md">
+        <ScrollArea className="h-30 w-full rounded-md  p-4 text-md">
           <div className="w-full whitespace-pre-line leading-relaxed">
             {INFORMATION_TEXT}
           </div>

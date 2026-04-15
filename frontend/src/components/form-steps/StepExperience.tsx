@@ -105,7 +105,7 @@ function calculateDuration(startDate: string, endDate: string): string {
 
 export function StepExperience({ data, onChange }: StepProps) {
   const [employeeType, setEmployeeType] = useState<"fresher" | "experienced">(
-    (data.employeeType as "fresher" | "experienced") || "fresher",
+    data.employeeType as "fresher" | "experienced",
   );
 
   const experienceList: Experience[] = data.experience || [

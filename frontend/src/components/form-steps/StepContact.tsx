@@ -55,7 +55,24 @@ export function StepContact({ data, onChange }: StepProps) {
         />
       </F>
 
-      <F label="Local Emergency Number ">
+      <F label=" Local Guardian/Contact Name ">
+        <Input
+          value={data.localName || ""}
+          onChange={(e) => onChange({ localName: e.target.value })}
+          placeholder="Enter Local Name"
+          maxLength={15}
+        />
+      </F>
+      <F label=" Local Guardian/Contact Relation ">
+        <Input
+          value={data.localRelation || ""}
+          onChange={(e) => onChange({ localRelation: e.target.value })}
+          placeholder="Enter Last Name"
+          maxLength={15}
+        />
+      </F>
+
+      <F label="Local Guardian/Contact Number ">
         <Input
           value={data.alternateNumber || ""}
           maxLength={10}
@@ -67,22 +84,6 @@ export function StepContact({ data, onChange }: StepProps) {
             })
           }
           placeholder="Enter Local Emergency Number"
-        />
-      </F>
-      <F label=" Local Name ">
-        <Input
-          value={data.localName || ""}
-          onChange={(e) => onChange({ localName: e.target.value })}
-          placeholder="Enter Local Name"
-          maxLength={15}
-        />
-      </F>
-      <F label=" Local Relation ">
-        <Input
-          value={data.localRelation || ""}
-          onChange={(e) => onChange({ localRelation: e.target.value })}
-          placeholder="Enter Last Name"
-          maxLength={15}
         />
       </F>
     </div>

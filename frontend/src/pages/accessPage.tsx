@@ -86,6 +86,8 @@ type MultiSelectProps = {
   placeholder?: string;
   disabled?: boolean;
   error?: boolean;
+  disabledIds?: Set<number>;
+  fieldName?: string;
 };
 
 function MultiSelect({
@@ -95,8 +97,22 @@ function MultiSelect({
   placeholder,
   disabled,
   error,
+  disabledIds = new Set(),
+  fieldName = "field",
 }: MultiSelectProps) {
+  console.log(
+    `MultiSelect [${fieldName}] rendering, disabledIds:`,
+    Array.from(disabledIds),
+  );
+
   const toggle = (id: number) => {
+    if (disabledIds.has(id)) {
+      console.log(
+        `MultiSelect [${fieldName}]: ID ${id} is disabled, ignoring toggle`,
+      );
+      return; // Already assigned — skip
+    }
+    console.log(`MultiSelect [${fieldName}] toggling ID:`, id);
     onChange(
       selected.includes(id)
         ? selected.filter((s) => s !== id)
@@ -116,20 +132,33 @@ function MultiSelect({
         </p>
       ) : (
         <div className="max-h-36 overflow-y-auto">
-          {options.map((opt) => (
-            <label
-              key={opt.id}
-              className="flex cursor-pointer items-center gap-2 border-b px-3 py-2 text-sm last:border-0 hover:bg-muted"
-            >
-              <input
-                type="checkbox"
-                checked={selected.includes(opt.id)}
-                onChange={() => toggle(opt.id)}
-                className="rounded"
-              />
-              {opt.name}
-            </label>
-          ))}
+          {options.map((opt) => {
+            const isDisabled = disabledIds.has(opt.id);
+            return (
+              <label
+                key={opt.id}
+                className={`flex cursor-pointer items-center gap-2 border-b px-3 py-2 text-sm last:border-0 ${
+                  isDisabled
+                    ? "cursor-not-allowed bg-muted/50 opacity-50"
+                    : "hover:bg-muted"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt.id)}
+                  onChange={() => toggle(opt.id)}
+                  disabled={isDisabled}
+                  className="rounded"
+                />
+                <span>{opt.name}</span>
+                {isDisabled && (
+                  <span className="ml-auto text-xs text-red-400">
+                    Already assigned
+                  </span>
+                )}
+              </label>
+            );
+          })}
         </div>
       )}
       {selected.length > 0 && (
@@ -261,6 +290,80 @@ export default function EmployeeManager() {
   );
 
   // ============================
+  // Already Assigned IDs - Only disable if same subdepartment AND same role
+  // ============================
+  const alreadyAssignedIds = useMemo(() => {
+    const regionIds = new Set<number>();
+    const zoneIds = new Set<number>();
+    const cityIds = new Set<number>();
+
+    const currentSubDeptId = form.subDepartment_id;
+    const currentRoleId = form.role_id;
+
+    console.log("=== alreadyAssignedIds computation ===");
+    console.log(
+      "currentSubDeptId:",
+      currentSubDeptId,
+      "currentRoleId:",
+      currentRoleId,
+    );
+
+    if (!currentSubDeptId || !currentRoleId) {
+      console.log("No current subDept or role, returning empty");
+      return { regionIds, zoneIds, cityIds };
+    }
+
+    console.log("accessControlList length:", accessControlList.length);
+
+    // Check first few items - log role_id specifically
+    if (accessControlList.length > 0) {
+      const sample = accessControlList[0];
+      console.log("Sample item role_id:", sample.role_id);
+      console.log(
+        "Sample item subdepartment_id:",
+        sample.subdepartment_id || sample.subDepartment_id,
+      );
+    }
+
+    accessControlList.forEach((item: any) => {
+      // Edit mode mein current item ko skip karo
+      if (editId !== null && item.id === editId) return;
+
+      // Only disable if same subdepartment AND same role
+      const itemSubDeptId = Number(
+        item.subdepartment_id || item.subDepartment_id,
+      );
+      const itemRoleId = Number(item.role_id);
+
+      const isSameSubDeptAndRole =
+        currentSubDeptId &&
+        currentRoleId &&
+        itemSubDeptId === Number(currentSubDeptId) &&
+        itemRoleId === Number(currentRoleId);
+
+      if (isSameSubDeptAndRole) {
+        console.log(
+          "MATCH FOUND! disabling item:",
+          item.employee_id,
+          "subDept:",
+          itemSubDeptId,
+          "role:",
+          itemRoleId,
+        );
+        (item.region_ids || []).forEach((id: number) => regionIds.add(id));
+        (item.zone_ids || []).forEach((id: number) => zoneIds.add(id));
+        (item.city_ids || []).forEach((id: number) => cityIds.add(id));
+      }
+    });
+
+    console.log("Final disabled - regionIds:", Array.from(regionIds));
+    console.log("Final disabled - zoneIds:", Array.from(zoneIds));
+    console.log("Final disabled - cityIds:", Array.from(cityIds));
+
+    return { regionIds, zoneIds, cityIds };
+  }, [accessControlList, editId, form.subDepartment_id, form.role_id]);
+
+  // ============================
   // Validation
   // ============================
   const errors = useMemo(() => {
@@ -279,6 +382,12 @@ export default function EmployeeManager() {
   }, [form, locationVisibility]);
 
   const hasErrors = useMemo(() => Object.keys(errors).length > 0, [errors]);
+
+  useEffect(() => {
+    console.log("=== Form state changed ===");
+    console.log("subDepartment_id:", form.subDepartment_id);
+    console.log("role_id:", form.role_id);
+  }, [form.subDepartment_id, form.role_id]);
 
   useEffect(() => {
     dispatch(fetchEmployeesThunk());
@@ -644,7 +753,7 @@ export default function EmployeeManager() {
           );
           setForm((prev) => ({
             ...prev,
-            zone_ids: [], // Don't set zone_ids in form for team lead
+            zone_ids: [],
             city_ids: [],
           }));
           return;
@@ -700,7 +809,7 @@ export default function EmployeeManager() {
           setCities(allCities);
           setForm((prev) => ({
             ...prev,
-            zone_ids: [], // Don't set zone_ids in form
+            zone_ids: [],
             city_ids: [],
           }));
           return;
@@ -715,7 +824,6 @@ export default function EmployeeManager() {
       console.log("managerId:", managerId);
 
       if (isPreSalesExecutive && managerId) {
-        // Get Pre-Sales Team Leader's access control (directly, since manager IS the team leader)
         const managerAccess = accessControlList.find(
           (item: any) => Number(item.employee_id) === Number(managerId),
         );
@@ -737,7 +845,6 @@ export default function EmployeeManager() {
           managerRegionIds,
         );
 
-        // Load cities from Pre-Sales Team Leader's zones
         if (managerZoneIds.length > 0) {
           console.log(
             "=== Loading cities from Pre-Sales Team Leader's zones ===",
@@ -775,7 +882,6 @@ export default function EmployeeManager() {
           return;
         }
 
-        // If team leader has only regions, get zones from regions then cities
         if (managerRegionIds.length > 0) {
           console.log(
             "=== Getting zones from Pre-Sales Team Leader's regions ===",
@@ -840,8 +946,7 @@ export default function EmployeeManager() {
   };
 
   // ============================
-  // Load dept/role/location for a given employee data
-  // Reused in both Add and Edit
+  // Load dept/role/location
   // ============================
   const loadEmployeeDeptRoleLocation = async (
     departmentId: number,
@@ -904,7 +1009,6 @@ export default function EmployeeManager() {
     setCurrentSubDeptName(subDeptName);
     setCurrentRoleName(roleName);
 
-    // Edit mode: prefilled ids se zones/cities load karo
     if (prefilledRegionIds && prefilledRegionIds.length > 0) {
       const allZones: any[] = [];
       for (const regionId of prefilledRegionIds) {
@@ -927,7 +1031,6 @@ export default function EmployeeManager() {
       setCities(allCities);
     }
 
-    // Manager hai aur prefilled ids nahi hain → manager se load karo
     console.log("=== loadEmployeeDeptRoleLocation check ===");
     console.log("managerId:", managerId);
     console.log("roleName:", roleName);
@@ -950,7 +1053,6 @@ export default function EmployeeManager() {
       await loadManagerLocationAccess(managerId, roleName, subDeptName);
     }
 
-    // No manager → country se regions
     if (!hasManager && countryId) {
       await loadRegionsByCountry(countryId);
     }
@@ -1128,7 +1230,6 @@ export default function EmployeeManager() {
     });
 
     try {
-      // Country se regions load karo (edit mode mein bhi chahiye)
       if (item.country_id) {
         await loadRegionsByCountry(item.country_id);
       }
@@ -1140,8 +1241,8 @@ export default function EmployeeManager() {
         item.manager_id,
         item.country_id,
         hasManager,
-        item.region_ids, // prefilled — zones load honge
-        item.zone_ids, // prefilled — cities load hongi
+        item.region_ids,
+        item.zone_ids,
         item.city_ids,
       );
     } catch (error) {
@@ -1275,14 +1376,12 @@ export default function EmployeeManager() {
 
     try {
       if (editId !== null) {
-        // UPDATE
         await dispatch(
           updateAccessControlThunk({ id: editId, payload }),
         ).unwrap();
         await dispatch(fetchAccessControlListThunk()).unwrap();
         toast.success("Assignment updated successfully");
       } else {
-        // CREATE
         await dispatch(createAccessControlThunk(payload)).unwrap();
         await dispatch(fetchAccessControlListThunk()).unwrap();
         toast.success("Assignment saved successfully");
@@ -1438,7 +1537,7 @@ export default function EmployeeManager() {
                 <Select
                   value={form.employee_id?.toString() || ""}
                   onValueChange={handleEmployeeChange}
-                  disabled={editId !== null} // edit mode mein employee change nahi hoga
+                  disabled={editId !== null}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select employee" />
@@ -1560,7 +1659,7 @@ export default function EmployeeManager() {
                         : availableCountries
                       ).map((c: any) => (
                         <SelectItem key={c.id} value={c.id.toString()}>
-                          {c.country_name || c.name || c.name}
+                          {c.country_name || c.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1589,6 +1688,8 @@ export default function EmployeeManager() {
                     }
                     disabled={regions.length === 0}
                     error={showErrors && !!errors.region_ids}
+                    disabledIds={alreadyAssignedIds.regionIds}
+                    fieldName="region"
                   />
                 </F>
               )}
@@ -1614,6 +1715,8 @@ export default function EmployeeManager() {
                     }
                     disabled={zones.length === 0}
                     error={showErrors && !!errors.zone_ids}
+                    disabledIds={alreadyAssignedIds.zoneIds}
+                    fieldName="zone"
                   />
                 </F>
               )}
@@ -1641,6 +1744,8 @@ export default function EmployeeManager() {
                     }
                     disabled={cities.length === 0}
                     error={showErrors && !!errors.city_ids}
+                    disabledIds={alreadyAssignedIds.cityIds}
+                    fieldName="city"
                   />
                 </F>
               )}

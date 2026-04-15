@@ -24,7 +24,6 @@ interface StepProps {
   onChange: (d: Partial<Employee>) => void;
 }
 
-/* Reusable Field */
 const F = ({
   label,
   children,
@@ -56,35 +55,31 @@ export function StepAddress({ data, onChange }: StepProps) {
     (state) => state.states,
   );
 
-  /* Load Cities */
   useEffect(() => {
     dispatch(fetchAllCities());
   }, [dispatch]);
 
-  /* Permanent City Change */
+  // ✅ Store cityName directly (no ID needed, DB has permanentCity varchar)
   const handlePermanentCityChange = (cityName: string) => {
     onChange({
-      permanentCity: cityName,
+      permanentCity: cityName, // ✅ directly store name
       permanentState: "",
     });
 
     dispatch(fetchStateByCity({ cityName, type: "permanent" }));
 
-    // 🔥 agar sameAddress checked hai to current bhi update
     if (sameAddress) {
       onChange({
         currentCity: cityName,
         currentState: "",
       });
-
       dispatch(fetchStateByCity({ cityName, type: "current" }));
     }
   };
 
-  /* Current City Change */
   const handleCurrentCityChange = (cityName: string) => {
     onChange({
-      currentCity: cityName,
+      currentCity: cityName, // ✅ directly store name
       currentState: "",
     });
 
@@ -130,16 +125,17 @@ export function StepAddress({ data, onChange }: StepProps) {
       {/* Permanent City */}
       <F label="Permanent City *">
         <Select
-          value={data.permanentCity || ""}
+          value={data.permanentCity || ""} // ✅ cityName se select
           onValueChange={handlePermanentCityChange}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select City" />
           </SelectTrigger>
-
           <SelectContent>
             {cities.map((city) => (
               <SelectItem key={city.id} value={city.cityName}>
+                {" "}
+                {/* ✅ value = cityName */}
                 {city.cityName}
               </SelectItem>
             ))}
@@ -156,7 +152,6 @@ export function StepAddress({ data, onChange }: StepProps) {
           <SelectTrigger>
             <SelectValue placeholder="Select State" />
           </SelectTrigger>
-
           <SelectContent>
             {permanentStates.map((state) => (
               <SelectItem key={state.id} value={state.stateName}>
@@ -173,15 +168,13 @@ export function StepAddress({ data, onChange }: StepProps) {
           value={data.permanentPincode || ""}
           maxLength={6}
           onChange={(e) =>
-            onChange({
-              permanentPincode: e.target.value.replace(/\D/g, ""),
-            })
+            onChange({ permanentPincode: e.target.value.replace(/\D/g, "") })
           }
           placeholder="Pincode"
         />
       </F>
 
-      {/* Same Address */}
+      {/* Same Address Checkbox */}
       <div className="flex items-center gap-2 sm:col-span-2">
         <input
           type="checkbox"
@@ -232,17 +225,18 @@ export function StepAddress({ data, onChange }: StepProps) {
       {/* Current City */}
       <F label="Current City *">
         <Select
-          value={data.currentCity || ""}
+          value={data.currentCity || ""} // ✅ cityName se select
           disabled={sameAddress}
           onValueChange={handleCurrentCityChange}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select City" />
           </SelectTrigger>
-
           <SelectContent>
             {cities.map((city) => (
               <SelectItem key={city.id} value={city.cityName}>
+                {" "}
+                {/* ✅ value = cityName */}
                 {city.cityName}
               </SelectItem>
             ))}
@@ -260,7 +254,6 @@ export function StepAddress({ data, onChange }: StepProps) {
           <SelectTrigger>
             <SelectValue placeholder="Select State" />
           </SelectTrigger>
-
           <SelectContent>
             {currentStates.map((state) => (
               <SelectItem key={state.id} value={state.stateName}>
@@ -278,9 +271,7 @@ export function StepAddress({ data, onChange }: StepProps) {
           maxLength={6}
           disabled={sameAddress}
           onChange={(e) =>
-            onChange({
-              currentPincode: e.target.value.replace(/\D/g, ""),
-            })
+            onChange({ currentPincode: e.target.value.replace(/\D/g, "") })
           }
           placeholder="Pincode"
         />

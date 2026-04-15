@@ -87,12 +87,12 @@ const SHIFT_TIMINGS: Record<string, string[]> = {
     "1:30 pm - 10:00 pm",
   ],
   "Night Shift": [
-    "9:00 pm - 5:30 am",
-    "9:30 pm - 6:00 am",
-    "10:00 pm - 6:30 am",
-    "10:30 pm - 7:00 am",
-    "00:00 am - 8:30 am",
-    "00:30 am - 9:00 am",
+    "9:00 pm - 6:00 am",
+    "9:30 pm - 6:30 am",
+    "10:00 pm - 7:00 am",
+    "10:30 pm - 7:30 am",
+    "12:00 am - 9:00 am",
+    "12:30 am - 9:30 am",
   ],
 };
 
@@ -140,7 +140,7 @@ export function StepEmployment({
     "grade",
     "designation",
     "department_id",
-    "ho_id", // HO required
+    // HO required
     ...(isHoSelected ? [] : ["subDepartment_id", "role_id"]),
     "hrManager",
     "joiningDate",
@@ -150,8 +150,6 @@ export function StepEmployment({
     "noticePeriod",
     "workLocation",
     "branchOffice_id",
-    "officeEmail",
-    "officeNumber",
     "workShift",
     "shiftTiming",
     "weeklyoff",
@@ -321,11 +319,11 @@ export function StepEmployment({
               value={data.grade || ""}
               onValueChange={(v) => onChange({ grade: v, designation: "" })}
             >
-              <SelectTrigger>
+              <SelectTrigger className="[&>svg]:text-blue-500 [&>svg]:h-5 [&>svg]:w-5 [&>svg]:opacity-50">
                 <SelectValue placeholder="Select grade" />
               </SelectTrigger>
 
-              <SelectContent>
+              <SelectContent className="[&_[data-radix-select-scroll-down-button]>svg]:h-6 [&_[data-radix-select-scroll-down-button]>svg]:w-6 [&_[data-radix-select-scroll-down-button]>svg]:text-blue-500">
                 {grades.map((grade) => (
                   <SelectItem key={grade.id} value={grade.gradeName}>
                     {grade.gradeName}
@@ -505,11 +503,7 @@ export function StepEmployment({
           color="text-purple-600"
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <F
-            label="Official Email"
-            required
-            error={showErrors && errors.officeEmail}
-          >
+          <F label="Official Email" error={showErrors && errors.officeEmail}>
             <Input
               type="email"
               value={data.officeEmail || ""}
@@ -518,11 +512,7 @@ export function StepEmployment({
             />
           </F>
 
-          <F
-            label="Official Number"
-            required
-            error={showErrors && errors.officeNumber}
-          >
+          <F label="Official Number" error={showErrors && errors.officeNumber}>
             <Input
               type="tel"
               maxLength={10}
