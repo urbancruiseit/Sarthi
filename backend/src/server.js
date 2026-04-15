@@ -5,16 +5,19 @@ import { initSocket } from "./socket/socket.js";
 
 const PORT = process.env.PORT || 5000;
 
-// Database connect
-connectMySQL();
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandledRejection]", reason);
+});
 
-// Create HTTP server
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException]", err);
+});
+
+connectMySQL().catch?.((err) => console.error("[connectMySQL] failed:", err));
+
 const server = http.createServer(app);
-
-// Initialize socket
 initSocket(server);
 
-// Start server
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
