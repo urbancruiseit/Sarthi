@@ -1,13 +1,14 @@
 import { ApiError } from "../utils/ApiError.js";
 
 const errorMiddleware = (err, req, res, next) => {
+  console.error(`[${req.method} ${req.originalUrl}]`, err);
+
   let statusCode = err.statusCode || 500;
   let message = err.message || "Internal Server Error";
 
-
   if (!(err instanceof ApiError)) {
     statusCode = 500;
-    message = "Something went wrong";
+    message = err.message || "Something went wrong";
   }
 
   const response = {
