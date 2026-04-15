@@ -188,7 +188,7 @@ export function EmployeeDetailModal({ employee, onClose }: Props) {
   const [tab, setTab] = useState<
     "personal" | "education" | "experience" | "employment" | "bank" | "docs"
   >("personal");
-
+  console.log("employee", employee);
   const handleApprove = (id: number) => {
     dispatch(
       updateEmployeeStatusThunk({ userId: id, status: "approved" }),
