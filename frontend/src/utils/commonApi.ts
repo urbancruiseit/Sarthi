@@ -1,1 +1,2 @@
-export const baseApiURL = "http://localhost:5000/api/v1";
+const envApi = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "");
+export const baseApiURL = envApi ?? "/api/v1";

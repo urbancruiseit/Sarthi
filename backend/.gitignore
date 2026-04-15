@@ -61,6 +61,7 @@ web_modules/
 .out/
 .nuxt/
 dist/
+public/
 .vuepress/dist/
 .parcel-cache/
 .cache/

@@ -1,6 +1,7 @@
 import axios from "axios";
 
-export const baseApi = "http://localhost:5000/api/v1/";
+const envApi = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "");
+export const baseApi = envApi ? `${envApi}/` : "/api/v1/";
 
 const axiosInstance = axios.create({
   baseURL: baseApi,

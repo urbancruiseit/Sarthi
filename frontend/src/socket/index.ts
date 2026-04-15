@@ -1,6 +1,8 @@
 import { io, Socket } from "socket.io-client";
 
-const SOCKET_URL = "http://localhost:5000";
+const SOCKET_URL =
+  (import.meta.env.VITE_SOCKET_URL as string | undefined) ||
+  (typeof window !== "undefined" ? window.location.origin : "");
 
 // ✅ Singleton - ek hi instance
 let socket: Socket | null = null;

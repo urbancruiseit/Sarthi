@@ -12,10 +12,12 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node --env-file=.env.production src/server.js",
+    "start": "node src/server.js",
+    "start:prod": "node --env-file=.env.production src/server.js",
     "start:local": "node --env-file=.env.local src/server.js",
     "dev": "nodemon --exec \"node --env-file=.env.local\" src/server.js",
-    "dev:prod": "nodemon --exec \"node --env-file=.env.production\" src/server.js"
+    "dev:prod": "nodemon --exec \"node --env-file=.env.production\" src/server.js",
+    "build": "node scripts/build-frontend.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
