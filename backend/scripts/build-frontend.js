@@ -9,13 +9,20 @@ const frontendRoot = path.resolve(backendRoot, "../frontend");
 const frontendDist = path.join(frontendRoot, "dist");
 const targetPublic = path.join(backendRoot, "public");
 
-const run = (cmd, cwd) => {
+const run = (cmd, cwd, extraEnv = {}) => {
   console.log(`\n▶ ${cmd}  (in ${cwd})`);
-  execSync(cmd, { cwd, stdio: "inherit" });
+  execSync(cmd, {
+    cwd,
+    stdio: "inherit",
+    env: { ...process.env, ...extraEnv },
+  });
 };
 
-run("npm install --include=dev", frontendRoot);
-run("npm run build", frontendRoot);
+run("npm install --include=dev --production=false", frontendRoot, {
+  NODE_ENV: "development",
+  NPM_CONFIG_PRODUCTION: "false",
+});
+run("npx vite build", frontendRoot, { NODE_ENV: "production" });
 
 fs.rmSync(targetPublic, { recursive: true, force: true });
 fs.mkdirSync(targetPublic, { recursive: true });
