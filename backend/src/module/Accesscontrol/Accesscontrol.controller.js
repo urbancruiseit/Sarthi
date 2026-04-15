@@ -7,7 +7,6 @@ import {
 } from "./Accesscontrol.model.js";
 import { pool } from "../../config/mySqlDB.js";
 
-// ==============================
 // HELPER: Role name fetch karo
 // ==============================
 const getRoleName = async (roleId) => {
@@ -17,7 +16,6 @@ const getRoleName = async (roleId) => {
   return rows[0]?.role_name?.trim().toLowerCase() || "";
 };
 
-// ==============================
 // HELPER: SubDept name fetch karo
 // ==============================
 const getSubDeptName = async (subdeptId) => {
@@ -28,27 +26,12 @@ const getSubDeptName = async (subdeptId) => {
   return rows[0]?.subDepartment_name?.trim().toLowerCase() || "";
 };
 
-// ==============================
 // HELPER: Manager ka access control
 // ==============================
 const getManagerAccess = async (managerId) => {
   return await getAccessControlByEmployeeId(managerId);
 };
 
-// ==============================
-// HELPER: Validate location
-// hierarchy based on role
-//
-// Rules:
-// Regional Head  → region_ids required (free select)
-// City Manager   → zone_ids required
-//                  (must belong to manager's regions)
-// Team Leader    → city_ids required
-//                  (must belong to manager's zones)
-// Travel Advisor → city_ids required
-//                  (must belong to manager's zones)
-// Pre-Sales TL   → region_ids required
-// Pre-Sales Exec → city_ids required
 // ==============================
 const validateAndResolveLocation = async (payload, roleName, subDeptName) => {
   const role = roleName.trim().toLowerCase();
@@ -150,9 +133,7 @@ const validateAndResolveLocation = async (payload, roleName, subDeptName) => {
     // Pre-Sales Manager → region_ids free select
     if (role === "pre-sales manager") {
       if (region_ids.length === 0) {
-        throw new Error(
-          "Pre-Sales Manager ko kam se kam ek region chahiye",
-        );
+        throw new Error("Pre-Sales Manager ko kam se kam ek region chahiye");
       }
       return { region_ids, zone_ids: [], city_ids: [] };
     }
@@ -160,9 +141,7 @@ const validateAndResolveLocation = async (payload, roleName, subDeptName) => {
     // Pre-Sales Team Leader → zones freely selectable
     if (role === "pre-sales team leader") {
       if (zone_ids.length === 0) {
-        throw new Error(
-          "Pre-Sales Team Leader ko kam se kam ek zone chahiye",
-        );
+        throw new Error("Pre-Sales Team Leader ko kam se kam ek zone chahiye");
       }
       if (!reporting_manager_id) {
         throw new Error("Reporting manager required hai");
@@ -176,29 +155,33 @@ const validateAndResolveLocation = async (payload, roleName, subDeptName) => {
       // Get all zones from manager's regions for validation
       const [zonesFromRegions] = await pool.query(
         `SELECT id FROM zones WHERE region_id IN (?)`,
-        [managerAccess.region_ids]
+        [managerAccess.region_ids],
       );
-      const validZoneIds = zonesFromRegions.map(z => z.id);
+      const validZoneIds = zonesFromRegions.map((z) => z.id);
 
       // Validate selected zones are from manager's regions
-      const selectedZoneIds = zone_ids.map(id => Number(id));
-      const invalidZones = selectedZoneIds.filter(zid => !validZoneIds.includes(zid));
-      
+      const selectedZoneIds = zone_ids.map((id) => Number(id));
+      const invalidZones = selectedZoneIds.filter(
+        (zid) => !validZoneIds.includes(zid),
+      );
+
       if (invalidZones.length > 0) {
-        throw new Error("Selected zones manager ke assigned regions ke bahar hain");
+        throw new Error(
+          "Selected zones manager ke assigned regions ke bahar hain",
+        );
       }
 
       // Auto-resolve region_ids from selected zones
       const [zoneRegions] = await pool.query(
         `SELECT DISTINCT region_id FROM zones WHERE id IN (?)`,
-        [zone_ids]
+        [zone_ids],
       );
-      const resolvedRegionIds = zoneRegions.map(r => r.region_id);
+      const resolvedRegionIds = zoneRegions.map((r) => r.region_id);
 
-      return { 
-        region_ids: resolvedRegionIds, 
-        zone_ids, 
-        city_ids: [] 
+      return {
+        region_ids: resolvedRegionIds,
+        zone_ids,
+        city_ids: [],
       };
     }
 
@@ -227,9 +210,9 @@ const validateAndResolveLocation = async (payload, roleName, subDeptName) => {
       if (managerAccess.zone_ids && managerAccess.zone_ids.length > 0) {
         const [citiesFromZones] = await pool.query(
           `SELECT id FROM city WHERE zone_id IN (?)`,
-          [managerAccess.zone_ids]
+          [managerAccess.zone_ids],
         );
-        validCityIds = citiesFromZones.map(c => Number(c.id));
+        validCityIds = citiesFromZones.map((c) => Number(c.id));
         console.log("Valid city IDs from manager zones:", validCityIds);
       }
 
@@ -239,10 +222,10 @@ const validateAndResolveLocation = async (payload, roleName, subDeptName) => {
           `SELECT c.id FROM city c
            JOIN zones z ON c.zone_id = z.id
            WHERE z.region_id IN (?)`,
-          [managerAccess.region_ids]
+          [managerAccess.region_ids],
         );
-        const cityIdsFromRegions = citiesFromRegions.map(c => Number(c.id));
-        
+        const cityIdsFromRegions = citiesFromRegions.map((c) => Number(c.id));
+
         // Merge unique city IDs
         if (validCityIds.length > 0) {
           validCityIds = [...new Set([...validCityIds, ...cityIdsFromRegions])];
@@ -258,31 +241,35 @@ const validateAndResolveLocation = async (payload, roleName, subDeptName) => {
       }
 
       // Check if selected cities are valid
-      const numericSelected = city_ids.map(id => Number(id));
-      const numericValid = validCityIds.map(id => Number(id));
-      
+      const numericSelected = city_ids.map((id) => Number(id));
+      const numericValid = validCityIds.map((id) => Number(id));
+
       console.log("Selected city IDs:", numericSelected);
       console.log("Valid city IDs:", numericValid);
 
-      const invalidCities = numericSelected.filter(id => !numericValid.includes(id));
-      
+      const invalidCities = numericSelected.filter(
+        (id) => !numericValid.includes(id),
+      );
+
       if (invalidCities.length > 0) {
         console.log("Invalid cities:", invalidCities);
-        throw new Error("Selected cities manager ke zones/regions ke bahar hain");
+        throw new Error(
+          "Selected cities manager ke zones/regions ke bahar hain",
+        );
       }
 
       // Auto-resolve zone_ids and region_ids from selected cities
       const [cityZones] = await pool.query(
         `SELECT DISTINCT zone_id FROM city WHERE id IN (?)`,
-        [city_ids]
+        [city_ids],
       );
-      const resolvedZoneIds = cityZones.map(z => z.zone_id);
+      const resolvedZoneIds = cityZones.map((z) => z.zone_id);
 
       const [zoneRegions] = await pool.query(
         `SELECT DISTINCT region_id FROM zones WHERE id IN (?)`,
-        [resolvedZoneIds]
+        [resolvedZoneIds],
       );
-      const resolvedRegionIds = zoneRegions.map(r => r.region_id);
+      const resolvedRegionIds = zoneRegions.map((r) => r.region_id);
 
       console.log("resolvedZoneIds:", resolvedZoneIds);
       console.log("resolvedRegionIds:", resolvedRegionIds);
@@ -299,7 +286,6 @@ const validateAndResolveLocation = async (payload, roleName, subDeptName) => {
   return { region_ids, zone_ids, city_ids };
 };
 
-// ==============================
 // GET ALL
 // GET /api/access-control
 // ==============================
@@ -313,7 +299,6 @@ export const getAll = async (req, res) => {
   }
 };
 
-// ==============================
 // GET BY EMPLOYEE ID
 // GET /api/access-control/employee/:employeeId
 // ==============================
@@ -336,7 +321,6 @@ export const getByEmployeeId = async (req, res) => {
   }
 };
 
-// ==============================
 // CREATE
 // POST /api/access-control
 // ==============================
@@ -357,8 +341,7 @@ export const create = async (req, res) => {
     if (!employee_id || !department_id || !subdepartment_id) {
       return res.status(400).json({
         success: false,
-        message:
-          "employee_id, department_id, subdepartment_id required hain",
+        message: "employee_id, department_id, subdepartment_id required hain",
       });
     }
 
@@ -397,7 +380,6 @@ export const create = async (req, res) => {
   }
 };
 
-// ==============================
 // UPDATE
 // PUT /api/access-control/:id
 // ==============================
@@ -454,7 +436,6 @@ export const update = async (req, res) => {
   }
 };
 
-// ==============================
 // DELETE
 // DELETE /api/access-control/:id
 // ==============================

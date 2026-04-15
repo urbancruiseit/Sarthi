@@ -1,7 +1,5 @@
 import {
   getAllStates,
-  getCitiesByState,
-  getStateByCity,
   getAllCities,
   getStatesByCity,
   getGrades,
@@ -26,7 +24,7 @@ const fetchcityBystate = asyncHandler(async (req, res) => {
     throw new ApiError(400, "City name is required");
   }
 
-  const result = await getStateByCity(cityName);
+  const result = await getStatesByCity(cityName);
   console.log(result);
   return res
     .status(200)

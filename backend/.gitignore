@@ -80,3 +80,4 @@ dist/
 
 # MacOS & system files
 .DS_Store
+.env.local

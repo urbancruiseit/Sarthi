@@ -20,27 +20,16 @@ export const getCitiesByState = async (stateId) => {
   return rows;
 };
 
-// Get state by city
-export const getStateByCity = async (cityName) => {
-  const [rows] = await pool.query(
-    `SELECT s.id, s.stateName
-     FROM states s
-     JOIN statecities c ON s.id = c.state_id
-     WHERE c.cityName = ?
-     LIMIT 1`,
-    [cityName],
-  );
-  return rows[0];
-};
-
 // Get all cities with state
 export const getAllCities = async () => {
   const [rows] = await pool.query(
-    `SELECT id, cityName FROM statecities ORDER BY cityName`,
+    `SELECT MIN(id) as id, cityName 
+     FROM statecities 
+     GROUP BY cityName 
+     ORDER BY cityName`,
   );
   return rows;
 };
-
 // Get states by city
 export const getStatesByCity = async (cityName) => {
   const [rows] = await pool.query(

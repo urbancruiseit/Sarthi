@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { createCity, getAllCity, getCityByIdHandler } from "./city.controller.js";
+import {
+  createCity,
+  getAllCity,
+  getCityByIdHandler,
+} from "./city.controller.js";
 import { verifyJWT } from "../../../middlewares/auth.middleware.js";
 
 const router = Router();

@@ -1,7 +1,12 @@
 import { ApiError } from "../../../utils/ApiError.js";
 import { ApiResponse } from "../../../utils/ApiResponse.js";
 import { asyncHandler } from "../../../utils/asyncHandler.js";
-import { findCityByName, getCities, insertCity, getCityById } from "./city.model.js";
+import {
+  findCityByName,
+  getCities,
+  insertCity,
+  getCityById,
+} from "./city.model.js";
 
 const createCity = asyncHandler(async (req, res) => {
   const { city_name, zone_id } = req.body;
@@ -21,7 +26,7 @@ const createCity = asyncHandler(async (req, res) => {
   if (!newCity) {
     throw new ApiError(500, "City not created");
   }
-
+  a;
   res
     .status(201)
     .json(new ApiResponse(201, newCity, "City created successfully"));

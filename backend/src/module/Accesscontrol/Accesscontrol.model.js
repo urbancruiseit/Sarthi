@@ -42,8 +42,20 @@ export const getAccessControlByEmployeeId = async (employeeId) => {
 // with employee, dept, role names
 // ==============================
 export const getAllAccessControls = async () => {
-  const [rows] = await pool.query(
-    `SELECT 
+  // First check if role_id column exists in access_control table
+  let hasRoleIdColumn = false;
+  try {
+    await pool.query(`SELECT role_id FROM access_control LIMIT 1`);
+    hasRoleIdColumn = true;
+  } catch (e) {
+    console.log(
+      "role_id column not in access_control table, will get from users table",
+    );
+  }
+
+  let query;
+  if (hasRoleIdColumn) {
+    query = `SELECT 
        ac.id,
        ac.employee_id,
        CONCAT(e.firstName, ' ', e.lastName)        AS employee_name,
@@ -51,6 +63,8 @@ export const getAllAccessControls = async () => {
        d.department_name,
        ac.subdepartment_id,
        sd.subDepartment_name                          AS subdepartment_name,
+       ac.role_id,
+       r.role_name,
        ac.reporting_manager_id,
        CONCAT(m.firstName, ' ', m.lastName)         AS manager_name,
        ac.created_at,
@@ -64,17 +78,55 @@ export const getAllAccessControls = async () => {
      FROM access_control ac
      LEFT JOIN users                  e   ON e.id   = ac.employee_id
      LEFT JOIN departments            d   ON d.id   = ac.department_id
-     LEFT JOIN sub_department        sd  ON sd.id  = ac.subdepartment_id
+     LEFT JOIN sub_department        sd  ON sd.id   = ac.subdepartment_id
+     LEFT JOIN roles                  r   ON r.id   = ac.role_id
      LEFT JOIN users                  m   ON m.id   = ac.reporting_manager_id
      LEFT JOIN access_control_regions acr ON acr.access_control_id = ac.id
-     LEFT JOIN regions               rg  ON rg.id  = acr.region_id
+     LEFT JOIN regions               rg  ON rg.id   = acr.region_id
      LEFT JOIN access_control_zones  acz ON acz.access_control_id = ac.id
      LEFT JOIN zones                 z   ON z.id   = acz.zone_id
      LEFT JOIN access_control_cities acc ON acc.access_control_id = ac.id
-     LEFT JOIN city                  ct  ON ct.id  = acc.city_id
+     LEFT JOIN city                  ct  ON ct.id   = acc.city_id
      GROUP BY ac.id
-     ORDER BY ac.created_at DESC`,
-  );
+     ORDER BY ac.created_at DESC`;
+  } else {
+    query = `SELECT 
+       ac.id,
+       ac.employee_id,
+       CONCAT(e.firstName, ' ', e.lastName)        AS employee_name,
+       ac.department_id,
+       d.department_name,
+       ac.subdepartment_id,
+       sd.subDepartment_name                          AS subdepartment_name,
+       e.role_id,
+       r.role_name,
+       ac.reporting_manager_id,
+       CONCAT(m.firstName, ' ', m.lastName)         AS manager_name,
+       ac.created_at,
+       ac.updated_at,
+       GROUP_CONCAT(DISTINCT acr.region_id)           AS region_ids,
+       GROUP_CONCAT(DISTINCT rg.region_name)          AS region_names,
+       GROUP_CONCAT(DISTINCT acz.zone_id)             AS zone_ids,
+       GROUP_CONCAT(DISTINCT z.zone_name)             AS zone_names,
+       GROUP_CONCAT(DISTINCT acc.city_id)             AS city_ids,
+       GROUP_CONCAT(DISTINCT ct.city_name)            AS city_names
+     FROM access_control ac
+     LEFT JOIN users                  e   ON e.id   = ac.employee_id
+     LEFT JOIN departments            d   ON d.id   = ac.department_id
+     LEFT JOIN sub_department        sd  ON sd.id   = ac.subdepartment_id
+     LEFT JOIN roles                  r   ON r.id   = e.role_id
+     LEFT JOIN users                  m   ON m.id   = ac.reporting_manager_id
+     LEFT JOIN access_control_regions acr ON acr.access_control_id = ac.id
+     LEFT JOIN regions               rg  ON rg.id   = acr.region_id
+     LEFT JOIN access_control_zones  acz ON acz.access_control_id = ac.id
+     LEFT JOIN zones                 z   ON z.id   = acz.zone_id
+     LEFT JOIN access_control_cities acc ON acc.access_control_id = ac.id
+     LEFT JOIN city                  ct  ON ct.id   = acc.city_id
+     GROUP BY ac.id
+     ORDER BY ac.created_at DESC`;
+  }
+
+  const [rows] = await pool.query(query);
 
   return rows.map((row) => ({
     ...row,
