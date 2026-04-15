@@ -14,7 +14,7 @@ const run = (cmd, cwd) => {
   execSync(cmd, { cwd, stdio: "inherit" });
 };
 
-run("npm install", frontendRoot);
+run("npm install --include=dev", frontendRoot);
 run("npm run build", frontendRoot);
 
 fs.rmSync(targetPublic, { recursive: true, force: true });
