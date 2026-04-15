@@ -328,11 +328,23 @@ const getAllEmployee = asyncHandler(async (req, res) => {
 
   const employee = await allEmployee(page);
 
-  res
-    .status(200)
-    .json(new ApiResponse(200, employee, "All Employee fetched successfully"));
-});
+  const parsedEmployees = employee.employees.map((emp) => ({
+    ...emp,
+    education: emp.education ? JSON.parse(emp.education) : [],
+    experience: emp.experience ? JSON.parse(emp.experience) : [],
+  }));
 
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        ...employee,
+        employees: parsedEmployees, // 🔥 parsed data replace
+      },
+      "All Employee fetched successfully",
+    ),
+  );
+});
 const updateUserByIdController = asyncHandler(async (req, res) => {
   const userId = req.params.id;
   const updateData = req.body;
