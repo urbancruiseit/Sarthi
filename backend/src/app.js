@@ -16,7 +16,11 @@ const frontendDist = path.resolve(__dirname, "../public");
 
 app.use(
   cors({
-    origin: ["http://localhost:8080", "http://localhost:3000"],
+    origin: [
+      "http://localhost:8080",
+      "http://localhost:3000",
+      "https://trinetra.urbancruise.org",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
