@@ -292,6 +292,77 @@ export default function EmployeeManager() {
   // ============================
   // Already Assigned IDs - Only disable if same subdepartment AND same role
   // ============================
+  // const alreadyAssignedIds = useMemo(() => {
+  //   const regionIds = new Set<number>();
+  //   const zoneIds = new Set<number>();
+  //   const cityIds = new Set<number>();
+
+  //   const currentSubDeptId = form.subDepartment_id;
+  //   const currentRoleId = form.role_id;
+
+  //   console.log("=== alreadyAssignedIds computation ===");
+  //   console.log(
+  //     "currentSubDeptId:",
+  //     currentSubDeptId,
+  //     "currentRoleId:",
+  //     currentRoleId,
+  //   );
+
+  //   if (!currentSubDeptId || !currentRoleId) {
+  //     console.log("No current subDept or role, returning empty");
+  //     return { regionIds, zoneIds, cityIds };
+  //   }
+
+  //   console.log("accessControlList length:", accessControlList.length);
+
+  //   // Check first few items - log role_id specifically
+  //   if (accessControlList.length > 0) {
+  //     const sample = accessControlList[0];
+  //     console.log("Sample item role_id:", sample.role_id);
+  //     console.log(
+  //       "Sample item subdepartment_id:",
+  //       sample.subdepartment_id || sample.subDepartment_id,
+  //     );
+  //   }
+
+  //   accessControlList.forEach((item: any) => {
+  //     // Edit mode mein current item ko skip karo
+  //     if (editId !== null && item.id === editId) return;
+
+  //     // Only disable if same subdepartment AND same role
+  //     const itemSubDeptId = Number(
+  //       item.subdepartment_id || item.subDepartment_id,
+  //     );
+  //     const itemRoleId = Number(item.role_id);
+
+  //     const isSameSubDeptAndRole =
+  //       currentSubDeptId &&
+  //       currentRoleId &&
+  //       itemSubDeptId === Number(currentSubDeptId) &&
+  //       itemRoleId === Number(currentRoleId);
+
+  //     if (isSameSubDeptAndRole) {
+  //       console.log(
+  //         "MATCH FOUND! disabling item:",
+  //         item.employee_id,
+  //         "subDept:",
+  //         itemSubDeptId,
+  //         "role:",
+  //         itemRoleId,
+  //       );
+  //       (item.region_ids || []).forEach((id: number) => regionIds.add(id));
+  //       (item.zone_ids || []).forEach((id: number) => zoneIds.add(id));
+  //       (item.city_ids || []).forEach((id: number) => cityIds.add(id));
+  //     }
+  //   });
+
+  //   console.log("Final disabled - regionIds:", Array.from(regionIds));
+  //   console.log("Final disabled - zoneIds:", Array.from(zoneIds));
+  //   console.log("Final disabled - cityIds:", Array.from(cityIds));
+
+  //   return { regionIds, zoneIds, cityIds };
+  // }, [accessControlList, editId, form.subDepartment_id, form.role_id]);
+
   const alreadyAssignedIds = useMemo(() => {
     const regionIds = new Set<number>();
     const zoneIds = new Set<number>();
@@ -300,36 +371,24 @@ export default function EmployeeManager() {
     const currentSubDeptId = form.subDepartment_id;
     const currentRoleId = form.role_id;
 
-    console.log("=== alreadyAssignedIds computation ===");
-    console.log(
-      "currentSubDeptId:",
-      currentSubDeptId,
-      "currentRoleId:",
-      currentRoleId,
-    );
-
     if (!currentSubDeptId || !currentRoleId) {
-      console.log("No current subDept or role, returning empty");
       return { regionIds, zoneIds, cityIds };
     }
 
-    console.log("accessControlList length:", accessControlList.length);
+    // ✅ Allow duplicate city assignment for these roles
+    const allowDuplicateCityRoles = ["travel advisor", "pre-sales executive"];
+    const currentRoleLower = currentRoleName.trim().toLowerCase();
 
-    // Check first few items - log role_id specifically
-    if (accessControlList.length > 0) {
-      const sample = accessControlList[0];
-      console.log("Sample item role_id:", sample.role_id);
+    if (allowDuplicateCityRoles.includes(currentRoleLower)) {
       console.log(
-        "Sample item subdepartment_id:",
-        sample.subdepartment_id || sample.subDepartment_id,
+        `Role "${currentRoleName}" allows duplicate city assignment — skipping disabled IDs`,
       );
+      return { regionIds, zoneIds, cityIds }; // Return empty sets = nothing disabled
     }
 
     accessControlList.forEach((item: any) => {
-      // Edit mode mein current item ko skip karo
       if (editId !== null && item.id === editId) return;
 
-      // Only disable if same subdepartment AND same role
       const itemSubDeptId = Number(
         item.subdepartment_id || item.subDepartment_id,
       );
@@ -342,26 +401,20 @@ export default function EmployeeManager() {
         itemRoleId === Number(currentRoleId);
 
       if (isSameSubDeptAndRole) {
-        console.log(
-          "MATCH FOUND! disabling item:",
-          item.employee_id,
-          "subDept:",
-          itemSubDeptId,
-          "role:",
-          itemRoleId,
-        );
         (item.region_ids || []).forEach((id: number) => regionIds.add(id));
         (item.zone_ids || []).forEach((id: number) => zoneIds.add(id));
         (item.city_ids || []).forEach((id: number) => cityIds.add(id));
       }
     });
 
-    console.log("Final disabled - regionIds:", Array.from(regionIds));
-    console.log("Final disabled - zoneIds:", Array.from(zoneIds));
-    console.log("Final disabled - cityIds:", Array.from(cityIds));
-
     return { regionIds, zoneIds, cityIds };
-  }, [accessControlList, editId, form.subDepartment_id, form.role_id]);
+  }, [
+    accessControlList,
+    editId,
+    form.subDepartment_id,
+    form.role_id,
+    currentRoleName,
+  ]);
 
   // ============================
   // Validation
