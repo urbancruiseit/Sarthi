@@ -3,6 +3,7 @@ import {
   changePassword,
   changePasswordbyUserName,
   getAllEmployee,
+  getAllReportingManagerWithDepartment,
   getCurrentUser,
   getEmployeeBYStatus,
   getSingaleUser,
@@ -31,4 +32,7 @@ router.route("/updatestatus/:id").patch(updateEmployeeStatusController);
 router.route("/:id").get(getSingaleUser);
 router.route("/change-password").post(verifyJWT, changePassword);
 router.route("/changepasswordbyusername").post(changePasswordbyUserName);
+router
+  .route("/reporting-managers/:departmentName")
+  .get(getAllReportingManagerWithDepartment);
 export default router;

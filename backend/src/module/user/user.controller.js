@@ -19,6 +19,7 @@ import {
   findUserById,
   updatePasswordByUsername,
   updatePasswordById,
+  getReportingManagerWithDepartment,
 } from "./user.model.js";
 
 import { generateTokens, isPasswordCorrect } from "./user.service.js";
@@ -515,6 +516,15 @@ const changePasswordbyUserName = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, null, "Password changed successfully"));
 });
 
+const getAllReportingManagerWithDepartment = asyncHandler(async (req, res) => {
+  const { departmentName } = req.params;
+  const users = await getReportingManagerWithDepartment(departmentName);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, users, "Users fetched successfully"));
+});
+
 export {
   registerUser,
   loginUser,
@@ -529,4 +539,5 @@ export {
   getSingaleUser,
   changePassword,
   changePasswordbyUserName,
+  getAllReportingManagerWithDepartment,
 };
