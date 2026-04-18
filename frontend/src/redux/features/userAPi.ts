@@ -192,3 +192,28 @@ export const getEmployeesByStatus = async (page: number, status: string) => {
     throw error;
   }
 };
+
+export const getReportingManagersByDepartment = async (
+  departmentName: string,
+) => {
+  try {
+    const response = await axiosInstance.get(
+      `/user/reporting-managers/${departmentName}`,
+    );
+
+    if (response.data?.success) {
+      return response.data.data;
+    } else {
+      throw new Error(
+        response.data?.message || "Failed to fetch reporting managers",
+      );
+    }
+  } catch (error: any) {
+    const message =
+      error.response?.data?.message || error.message || "Something went wrong";
+
+    console.error("Fetch Reporting Managers Error:", message);
+
+    throw new Error(message); // ✅ clean error throw
+  }
+};
