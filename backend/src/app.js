@@ -20,7 +20,9 @@ app.use(
       "http://localhost:8080",
       "http://localhost:3000",
       "https://trinetra.urbancruise.org",
-      "https://saarthi.urbancruise.org",
+      "https://saarthi.urbancruise.org",  
+      "https://pinaak.urbancruise.org",   // ← add this
+
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
