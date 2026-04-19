@@ -19,10 +19,12 @@ app.use(
     origin: [
       "http://localhost:8080",
       "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:4000",
       "https://trinetra.urbancruise.org",
-      "https://saarthi.urbancruise.org",  
-      "https://pinaak.urbancruise.org",   // ← add this
-
+      "https://saarthi.urbancruise.org",
+      "https://pinaak.urbancruise.org",
+      "https://urbancruise.in",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
