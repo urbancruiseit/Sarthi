@@ -6,11 +6,13 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Provider } from "react-redux";
 import { store } from "@/redux/store";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
-
 import { useEffect } from "react";
+
 import { PrivateRoute } from "@/components/PrivateRoute";
+
 import { AppLayout } from "@/layouts/AppLayout";
 import { connectSocket, disconnectSocket } from "@/socket";
+
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Employees from "@/pages/Employees";
@@ -41,6 +43,7 @@ import ManagerDashboard from "./pages/Dashboard/ManagerDashboard";
 import ZonalDashboard from "./pages/Dashboard/ZonalDashboard";
 import HodDashboard from "./pages/Dashboard/HodDashboard";
 import Profile from "./pages/Profile";
+import { RouteGuard } from "./components/routeguard";
 
 const queryClient = new QueryClient();
 
@@ -49,17 +52,12 @@ const AppInitializer = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, initialized } = useAppSelector((s) => s.user);
 
   useEffect(() => {
-    if (!initialized) {
-      dispatch(currentEmployeeThunk());
-    }
+    if (!initialized) dispatch(currentEmployeeThunk());
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      connectSocket();
-    } else {
-      disconnectSocket();
-    }
+    if (isAuthenticated) connectSocket();
+    else disconnectSocket();
   }, [isAuthenticated]);
 
   return <>{children}</>;
@@ -74,12 +72,12 @@ const App = () => (
         <BrowserRouter>
           <AppInitializer>
             <Routes>
-              {/* ✅ Public Routes */}
+              {/* ── Public ── */}
               <Route element={<PublicRoute />}>
                 <Route path="/login" element={<Login />} />
               </Route>
 
-              {/* ✅ No auth needed */}
+              {/* ── No Auth Needed ── */}
               <Route
                 path="/add-employee/onboarding-form"
                 element={<AddEmployee />}
@@ -88,165 +86,94 @@ const App = () => (
                 path="/onboarding-submitted"
                 element={<OnboardingSubmitted />}
               />
-
-              {/* ✅ Unauthorized page */}
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-              {/* ✅ Protected Routes */}
+              {/* ── Protected ── */}
               <Route element={<PrivateRoute />}>
                 <Route element={<AppLayout />}>
-                  <Route
-                    path="/self-profile"
-                    element={
-                      <PrivateRoute>
-                        <Profile />
-                      </PrivateRoute>
-                    }
-                  />
-                  {/* ✅ SUPER_ADMIN dashboard — "/" pe sirf ye */}
-                  <Route path="/" element={<Dashboard />} />
-
-                  {/* ✅ Role-wise dashboards */}
-                  <Route
-                    path="/employee-dashboard"
-                    element={
-                      <PrivateRoute allowedRoles={["EMPLOYEE"]}>
-                        <EmployeeDashboard />
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/teamlead-dashboard"
-                    element={
-                      <PrivateRoute allowedRoles={["TEAM_LEAD"]}>
-                        <TeamLeadDashboard />
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/manager-dashboard"
-                    element={
-                      <PrivateRoute allowedRoles={["MANAGER"]}>
-                        <ManagerDashboard />
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/zonal-dashboard"
-                    element={
-                      <PrivateRoute allowedRoles={["ZONAL_HEAD"]}>
-                        <ZonalDashboard />
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/hod-dashboard"
-                    element={
-                      <PrivateRoute allowedRoles={["HOD"]}>
-                        <HodDashboard />
-                      </PrivateRoute>
-                    }
-                  />
-
-                  {/* ✅ All roles — common pages */}
-                  <Route
-                    path="/documents"
-                    element={<Navigate to="/documents/create" replace />}
-                  />
-                  <Route path="/documents/create" element={<CreateLetter />} />
-                  <Route path="/documents/manage" element={<ManageLetters />} />
-                  <Route
-                    path="/documents/templates"
-                    element={<LetterTemplates />}
-                  />
-                  <Route path="/hr-policies" element={<HRPolicies />} />
-                  <Route path="/access" element={<EmployeeManager />} />
-                  <Route path="/assets" element={<AssetManagement />} />
-                  <Route path="/trainig" element={<Training />} />
+                  {/* Always accessible (authenticated users) */}
+                  <Route path="/self-profile" element={<Profile />} />
                   <Route path="/notifications" element={<Notifications />} />
                   <Route path="/settings" element={<Settings />} />
 
-                  {/* ✅ TEAM_LEAD, HOD, SUPER_ADMIN only */}
+                  {/* Dashboards */}
+                  <Route path="/" element={<Dashboard />} />
                   <Route
-                    path="/approvals"
-                    element={
-                      <PrivateRoute
-                        allowedRoles={["TEAM_LEAD", "HOD", "SUPER_ADMIN"]}
-                      >
-                        <PendingApprovals />
-                      </PrivateRoute>
-                    }
+                    path="/employee-dashboard"
+                    element={<EmployeeDashboard />}
                   />
                   <Route
-                    path="/employees"
-                    element={
-                      <PrivateRoute
-                        allowedRoles={["TEAM_LEAD", "HOD", "SUPER_ADMIN"]}
-                      >
-                        <Employees />
-                      </PrivateRoute>
-                    }
+                    path="/teamlead-dashboard"
+                    element={<TeamLeadDashboard />}
                   />
                   <Route
-                    path="/add-employee"
-                    element={
-                      <PrivateRoute
-                        allowedRoles={["TEAM_LEAD", "HOD", "SUPER_ADMIN"]}
-                      >
-                        <AddEmployee />
-                      </PrivateRoute>
-                    }
+                    path="/manager-dashboard"
+                    element={<ManagerDashboard />}
                   />
-                  <Route
-                    path="/onboardingVerify"
-                    element={
-                      <PrivateRoute
-                        allowedRoles={["TEAM_LEAD", "HOD", "SUPER_ADMIN"]}
-                      >
-                        <OnboardingVerifyTable />
-                      </PrivateRoute>
-                    }
-                  />
+                  <Route path="/zonal-dashboard" element={<ZonalDashboard />} />
+                  <Route path="/hod-dashboard" element={<HodDashboard />} />
 
-                  {/* ✅ ZONAL_HEAD, HOD, SUPER_ADMIN only */}
-                  <Route
-                    path="/ops"
-                    element={
-                      <PrivateRoute
-                        allowedRoles={["ZONAL_HEAD", "HOD", "SUPER_ADMIN"]}
-                      >
-                        <OPS />
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/expense"
-                    element={
-                      <PrivateRoute
-                        allowedRoles={["ZONAL_HEAD", "HOD", "SUPER_ADMIN"]}
-                      >
-                        <ImprestExpense />
-                      </PrivateRoute>
-                    }
-                  />
+                  {/* ── Documents — guarded ── */}
+                  <Route element={<RouteGuard allowedPath="/documents" />}>
+                    <Route
+                      path="/documents"
+                      element={<Navigate to="/documents/create" replace />}
+                    />
+                    <Route
+                      path="/documents/create"
+                      element={<CreateLetter />}
+                    />
+                    <Route
+                      path="/documents/manage"
+                      element={<ManageLetters />}
+                    />
+                    <Route
+                      path="/documents/templates"
+                      element={<LetterTemplates />}
+                    />
+                  </Route>
 
-                  {/* ✅ HOD, SUPER_ADMIN only */}
-                  <Route
-                    path="/payroll"
-                    element={
-                      <PrivateRoute allowedRoles={["HOD", "SUPER_ADMIN"]}>
-                        <Payroll />
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/add-announcement"
-                    element={
-                      <PrivateRoute allowedRoles={["HOD", "SUPER_ADMIN"]}>
-                        <NoticeManager />
-                      </PrivateRoute>
-                    }
-                  />
+                  {/* ── Approvals — guarded ── */}
+                  <Route element={<RouteGuard allowedPath="/approvals" />}>
+                    <Route path="/approvals" element={<PendingApprovals />} />
+                    <Route path="/employees" element={<Employees />} />
+                    <Route path="/add-employee" element={<AddEmployee />} />
+                    <Route
+                      path="/onboardingVerify"
+                      element={<OnboardingVerifyTable />}
+                    />
+                  </Route>
+
+                  {/* ── Payroll — guarded ── */}
+                  <Route element={<RouteGuard allowedPath="/payroll" />}>
+                    <Route path="/payroll" element={<Payroll />} />
+                    <Route path="/expense" element={<ImprestExpense />} />
+                  </Route>
+
+                  {/* ── OPS — guarded ── */}
+                  <Route element={<RouteGuard allowedPath="/ops" />}>
+                    <Route path="/ops" element={<OPS />} />
+                    <Route
+                      path="/add-announcement"
+                      element={<NoticeManager />}
+                    />
+                  </Route>
+
+                  {/* ── HR Policies — guarded ── */}
+                  <Route element={<RouteGuard allowedPath="/hr-policies" />}>
+                    <Route path="/hr-policies" element={<HRPolicies />} />
+                  </Route>
+
+                  {/* ── Access / Training — guarded ── */}
+                  <Route element={<RouteGuard allowedPath="/access" />}>
+                    <Route path="/access" element={<EmployeeManager />} />
+                    <Route path="/trainig" element={<Training />} />
+                  </Route>
+
+                  {/* ── Assets — guarded ── */}
+                  <Route element={<RouteGuard allowedPath="/assets" />}>
+                    <Route path="/assets" element={<AssetManagement />} />
+                  </Route>
                 </Route>
               </Route>
 

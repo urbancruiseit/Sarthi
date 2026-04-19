@@ -1,5 +1,9 @@
+// =====================================================
+// UPDATED Sidebar.tsx — Department + Sub-Dept Access
+// =====================================================
+
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -16,8 +20,8 @@ import {
 } from "lucide-react";
 import { useAppSelector } from "@/hooks/useRedux";
 import { cn } from "@/lib/utils";
-import { Navigate } from "react-router-dom";
 
+// ─── Role Types ───────────────────────────────────────────────────────────────
 type AccessRole =
   | "EMPLOYEE"
   | "TEAM_LEAD"
@@ -35,11 +39,360 @@ const ALL_ACCESS_ROLES: AccessRole[] = [
   "SUPER_ADMIN",
 ];
 
-const isAccessRole = (role: string): role is AccessRole => {
-  return ALL_ACCESS_ROLES.includes(role as AccessRole);
+const isAccessRole = (role: string): role is AccessRole =>
+  ALL_ACCESS_ROLES.includes(role as AccessRole);
+
+// ─── Department / Sub-Department Types ───────────────────────────────────────
+type Department = "HR" | "Finance" | "Operations" | "Sales" | "IT" | "General";
+
+type SubDepartment =
+  // HR
+  | "Ops & Admin"
+  | "Recruitment"
+  | "Statutory"
+  // Finance
+  | "Accounts"
+  | "Audit"
+  | "Payroll"
+  // Operations
+  | "Logistics"
+  | "Procurement"
+  | "Facilities"
+  // Sales
+  | "Inside Sales"
+  | "Field Sales"
+  | "CRM"
+  // IT
+  | "Development"
+  | "Infrastructure"
+  | "Support"
+  // General (no sub-dept)
+  | "General";
+
+// ─── Department → Sub-Department Map ─────────────────────────────────────────
+export const DEPARTMENT_SUB_MAP: Record<Department, SubDepartment[]> = {
+  HR: ["Ops & Admin", "Recruitment", "Statutory"],
+  Finance: ["Accounts", "Audit", "Payroll"],
+  Operations: ["Logistics", "Procurement", "Facilities"],
+  Sales: ["Inside Sales", "Field Sales", "CRM"],
+  IT: ["Development", "Infrastructure", "Support"],
+  General: ["General"],
 };
 
-// Role-wise dashboard routes
+// ─── Access Matrix: SubDepartment → Role → allowed nav routes ────────────────
+//
+//  Structure:
+//    SUB_DEPT_ACCESS[subDept][role] = string[]  (route paths)
+//
+//  Rules applied:
+//   • SUPER_ADMIN always gets everything (handled at runtime)
+//   • HOD gets all routes for their sub-dept
+//   • Lower roles get progressively fewer routes
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ALL_ROUTES = [
+  "/approvals",
+  "/documents",
+  "/payroll",
+  "/ops",
+  "/hr-policies",
+  "/access",
+  "/assets",
+];
+
+type RouteAccessMap = Partial<Record<AccessRole, string[]>>;
+
+export const SUB_DEPT_ACCESS: Record<SubDepartment, RouteAccessMap> = {
+  // ── HR ──────────────────────────────────────────────────────────────────────
+  "Ops & Admin": {
+    EMPLOYEE: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/access",
+      "/assets",
+      "/payroll",
+    ],
+
+    MANAGER: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/access",
+      "/assets",
+      "/payroll",
+    ],
+
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  Recruitment: {
+    EMPLOYEE: ["/documents", "/approvals", "/assets", "/access"],
+
+    MANAGER: ["/approvals", "/documents", "/access", "/assets"],
+
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  Statutory: {
+    EMPLOYEE: ["/hr-policies", "/ops", "/payroll"],
+    MANAGER: ["/hr-policies", "/ops", "/payroll"],
+
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  // ── Finance ─────────────────────────────────────────────────────────────────
+  Accounts: {
+    EMPLOYEE: ["/documents", "/hr-policies"],
+    TEAM_LEAD: ["/documents", "/hr-policies", "/access"],
+    MANAGER: ["/approvals", "/documents", "/hr-policies", "/access"],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/payroll",
+      "/hr-policies",
+      "/access",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  Audit: {
+    EMPLOYEE: ["/documents", "/hr-policies"],
+    TEAM_LEAD: ["/documents", "/hr-policies", "/access"],
+    MANAGER: [
+      "/approvals",
+      "/documents",
+      "/payroll",
+      "/hr-policies",
+      "/access",
+    ],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/payroll",
+      "/ops",
+      "/hr-policies",
+      "/access",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  Payroll: {
+    EMPLOYEE: ["/documents", "/hr-policies"],
+    TEAM_LEAD: ["/documents", "/payroll", "/hr-policies"],
+    MANAGER: [
+      "/approvals",
+      "/documents",
+      "/payroll",
+      "/hr-policies",
+      "/access",
+    ],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/payroll",
+      "/ops",
+      "/hr-policies",
+      "/access",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  // ── Operations ──────────────────────────────────────────────────────────────
+  Logistics: {
+    EMPLOYEE: ["/documents", "/hr-policies", "/assets"],
+    TEAM_LEAD: ["/documents", "/hr-policies", "/assets", "/access"],
+    MANAGER: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/assets",
+      "/access",
+    ],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/assets",
+      "/access",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  Procurement: {
+    EMPLOYEE: ["/documents", "/hr-policies", "/assets"],
+    TEAM_LEAD: ["/documents", "/hr-policies", "/assets"],
+    MANAGER: ["/approvals", "/documents", "/ops", "/hr-policies", "/assets"],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/assets",
+      "/access",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  Facilities: {
+    EMPLOYEE: ["/documents", "/hr-policies"],
+    TEAM_LEAD: ["/documents", "/ops", "/hr-policies"],
+    MANAGER: ["/approvals", "/documents", "/ops", "/hr-policies", "/assets"],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/assets",
+      "/access",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  // ── Sales ───────────────────────────────────────────────────────────────────
+  "Inside Sales": {
+    EMPLOYEE: ["/documents", "/hr-policies", "/access"],
+    TEAM_LEAD: ["/approvals", "/documents", "/hr-policies", "/access"],
+    MANAGER: ["/approvals", "/documents", "/ops", "/hr-policies", "/access"],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/access",
+      "/assets",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  "Field Sales": {
+    EMPLOYEE: ["/documents", "/hr-policies"],
+    TEAM_LEAD: ["/approvals", "/documents", "/hr-policies", "/access"],
+    MANAGER: ["/approvals", "/documents", "/ops", "/hr-policies", "/access"],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/access",
+      "/assets",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  CRM: {
+    EMPLOYEE: ["/documents", "/hr-policies", "/access"],
+    TEAM_LEAD: ["/approvals", "/documents", "/hr-policies", "/access"],
+    MANAGER: ["/approvals", "/documents", "/ops", "/hr-policies", "/access"],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/access",
+      "/assets",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  // ── IT ──────────────────────────────────────────────────────────────────────
+  Development: {
+    EMPLOYEE: ["/documents", "/hr-policies", "/access", "/assets"],
+    TEAM_LEAD: [
+      "/approvals",
+      "/documents",
+      "/hr-policies",
+      "/access",
+      "/assets",
+    ],
+    MANAGER: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/access",
+      "/assets",
+    ],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/access",
+      "/assets",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  Infrastructure: {
+    EMPLOYEE: ["/documents", "/hr-policies", "/assets"],
+    TEAM_LEAD: ["/documents", "/hr-policies", "/access", "/assets"],
+    MANAGER: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/access",
+      "/assets",
+    ],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/access",
+      "/assets",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  Support: {
+    EMPLOYEE: ["/documents", "/hr-policies"],
+    TEAM_LEAD: ["/documents", "/hr-policies", "/access"],
+    MANAGER: ["/approvals", "/documents", "/hr-policies", "/access", "/assets"],
+    ZONAL_HEAD: [
+      "/approvals",
+      "/documents",
+      "/ops",
+      "/hr-policies",
+      "/access",
+      "/assets",
+    ],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  // ── General / Fallback ───────────────────────────────────────────────────────
+  General: {
+    EMPLOYEE: ["/documents", "/hr-policies"],
+    TEAM_LEAD: ["/documents", "/hr-policies", "/access"],
+    MANAGER: ["/approvals", "/documents", "/hr-policies", "/access"],
+    ZONAL_HEAD: ["/approvals", "/documents", "/ops", "/hr-policies", "/access"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+};
+
+// ─── Dashboard route per role ─────────────────────────────────────────────────
 const ROLE_DASHBOARD_MAP: Record<AccessRole, string> = {
   EMPLOYEE: "/employee-dashboard",
   TEAM_LEAD: "/teamlead-dashboard",
@@ -49,73 +402,81 @@ const ROLE_DASHBOARD_MAP: Record<AccessRole, string> = {
   SUPER_ADMIN: "/",
 };
 
+// ─── Nav Item definitions ─────────────────────────────────────────────────────
 interface NavItem {
   label: string;
   icon: any;
   to: string;
   color: string;
-  roles: AccessRole[];
 }
 
-const navItems: NavItem[] = [
+const NAV_ITEMS: NavItem[] = [
   {
     label: "Dashboard",
     icon: LayoutDashboard,
-    to: "DYNAMIC", // handled dynamically below
+    to: "DYNAMIC",
     color: "text-blue-600",
-    roles: ALL_ACCESS_ROLES,
   },
   {
     label: "Employees",
     icon: Users,
     to: "/approvals",
     color: "text-purple-600",
-    roles: ["TEAM_LEAD", "HOD", "SUPER_ADMIN"],
   },
   {
     label: "Documentation",
     icon: FileText,
     to: "/documents",
     color: "text-yellow-600",
-    roles: ALL_ACCESS_ROLES,
   },
   {
     label: "Payroll",
     icon: DollarSign,
     to: "/payroll",
     color: "text-green-700",
-    roles: ["HOD", "SUPER_ADMIN"],
   },
-  {
-    label: "HR OPS",
-    icon: Activity,
-    to: "/ops",
-    color: "text-pink-600",
-    roles: ["ZONAL_HEAD", "HOD", "SUPER_ADMIN"],
-  },
+  { label: "HR OPS", icon: Activity, to: "/ops", color: "text-pink-600" },
   {
     label: "HR Policies",
     icon: BookOpen,
     to: "/hr-policies",
     color: "text-indigo-600",
-    roles: ALL_ACCESS_ROLES,
   },
   {
     label: "Training",
     icon: GraduationCap,
     to: "/access",
     color: "text-teal-600",
-    roles: ALL_ACCESS_ROLES,
   },
   {
     label: "Asset Management",
     icon: Package,
     to: "/assets",
     color: "text-red-600",
-    roles: ALL_ACCESS_ROLES,
   },
 ];
 
+// ─── Helper: resolve allowed nav items ───────────────────────────────────────
+function resolveNavItems(
+  role: AccessRole,
+  subDept: SubDepartment,
+  dashboardRoute: string,
+): NavItem[] {
+  // SUPER_ADMIN bypasses all restrictions
+  const allowedRoutes: Set<string> =
+    role === "SUPER_ADMIN"
+      ? new Set(ALL_ROUTES)
+      : new Set(SUB_DEPT_ACCESS[subDept]?.[role] ?? []);
+
+  return NAV_ITEMS.filter((item) => {
+    if (item.to === "DYNAMIC") return true; // Dashboard always visible
+    return allowedRoutes.has(item.to);
+  }).map((item) =>
+    item.to === "DYNAMIC" ? { ...item, to: dashboardRoute } : item,
+  );
+}
+
+// ─── Sidebar Component ────────────────────────────────────────────────────────
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -132,23 +493,25 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   );
 
   const { currentEmployee } = useAppSelector((state) => state.user);
-  const accessRoleFromUser = currentEmployee?.access_role;
 
-  // Always default to lowest privilege in production
-  const currentAccessRole: AccessRole =
-    accessRoleFromUser && isAccessRole(accessRoleFromUser)
-      ? (accessRoleFromUser as AccessRole)
-      : "EMPLOYEE";
+  // ── Resolve role ──────────────────────────────────────────────────────────
+  const rawRole = currentEmployee?.access_role ?? "";
+  const currentRole: AccessRole = isAccessRole(rawRole) ? rawRole : "EMPLOYEE";
 
-  // Get role-specific dashboard route
-  const dashboardRoute = ROLE_DASHBOARD_MAP[currentAccessRole];
+  // ── Resolve sub-department ────────────────────────────────────────────────
+  const rawSubDept = currentEmployee?.subDepartment_name ?? "";
+  const currentSubDept: SubDepartment =
+    rawSubDept in SUB_DEPT_ACCESS ? (rawSubDept as SubDepartment) : "General";
 
-  // Inject dynamic dashboard route + filter by role
-  const filteredNavItems = navItems
-    .filter((item) => item.roles.includes(currentAccessRole))
-    .map((item) =>
-      item.label === "Dashboard" ? { ...item, to: dashboardRoute } : item,
-    );
+  // ── Build filtered nav ────────────────────────────────────────────────────
+  const dashboardRoute = ROLE_DASHBOARD_MAP[currentRole];
+  // Sidebar.tsx mein — filteredNavItems ke upar
+
+  const filteredNavItems = resolveNavItems(
+    currentRole,
+    currentSubDept,
+    dashboardRoute,
+  );
 
   const isCollapsed = collapsed && !hovered;
 

@@ -10,6 +10,7 @@ import {
   updateEmployeeStatus,
   getEmployeesByStatus,
   getUserById,
+  getReportingManagersByDepartment,
 } from "./userAPi";
 
 interface EmployeeState {
@@ -25,6 +26,7 @@ interface EmployeeState {
   isAuthenticated: boolean;
   initialized: boolean;
   isAuthChecking: boolean;
+  reportingManagers: Employee[];
 }
 
 const initialState: EmployeeState = {
@@ -40,6 +42,7 @@ const initialState: EmployeeState = {
   isAuthenticated: false,
   initialized: false,
   isAuthChecking: true,
+  reportingManagers: [],
 };
 
 //  Async Thunks
@@ -173,6 +176,23 @@ export const fetchEmployeesByStatusThunk = createAsyncThunk<
     );
   }
 });
+
+export const fetchReportingManagersByDepartmentThunk = createAsyncThunk<
+  Employee[], // ✅ array return hoga
+  string,
+  { rejectValue: string }
+>(
+  "Employee/fetchReportingManagers",
+  async (departmentName, { rejectWithValue }) => {
+    try {
+      return await getReportingManagersByDepartment(departmentName);
+    } catch (error: any) {
+      return rejectWithValue(
+        error.message || "Failed to fetch reporting managers",
+      );
+    }
+  },
+);
 
 //  Slice
 const EmployeeSlice = createSlice({
@@ -428,7 +448,29 @@ const EmployeeSlice = createSlice({
       .addCase(getEmployeeByIdThunk.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
-      });
+      })
+
+      // ✅ FETCH REPORTING MANAGERS
+      .addCase(fetchReportingManagersByDepartmentThunk.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      .addCase(
+        fetchReportingManagersByDepartmentThunk.fulfilled,
+        (state, action: PayloadAction<Employee[]>) => {
+          state.loading = false;
+          state.reportingManagers = action.payload;
+        },
+      )
+
+      .addCase(
+        fetchReportingManagersByDepartmentThunk.rejected,
+        (state, action) => {
+          state.loading = false;
+          state.error = action.payload as string;
+        },
+      );
   },
 });
 

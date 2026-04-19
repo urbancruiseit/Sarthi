@@ -19,7 +19,10 @@ import {
   fetchSubDepartmentRoles,
 } from "@/redux/features/department/departmentSlice";
 import { Phone, MapPin, Clock, Info, Briefcase, Calendar } from "lucide-react";
-import { fetchEmployeesThunk } from "@/redux/features/userSlice";
+import {
+  fetchEmployeesThunk,
+  fetchReportingManagersByDepartmentThunk,
+} from "@/redux/features/userSlice";
 import { fetchBranchesThunk } from "@/redux/features/branch/branchSlice";
 import {
   fetchAllCities,
@@ -188,6 +191,7 @@ export function StepEmployment({
   const [subDepartments, setSubDepartments] = useState<any[]>([]);
   const [ho, setHo] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
+  const { reportingManagers } = useSelector((state: RootState) => state.user);
 
   useEffect(() => {
     dispatch(fetchDepartments());
@@ -272,16 +276,37 @@ export function StepEmployment({
   };
 
   // ✅ Department change handler
+  // const handleDepartmentChange = (value: string) => {
+  //   onChange({
+  //     department_id: Number(value),
+  //     ho_id: undefined,
+  //     subDepartment_id: undefined,
+  //     role_id: undefined,
+  //   });
+  //   setSubDepartments([]);
+  //   setHo([]);
+  //   setRoles([]);
+  // };
+
   const handleDepartmentChange = (value: string) => {
+    const dept = departments.find((d) => d.id === Number(value));
+
     onChange({
       department_id: Number(value),
       ho_id: undefined,
       subDepartment_id: undefined,
       role_id: undefined,
+      manager_id: null, // ✅ reset manager
     });
+
     setSubDepartments([]);
     setHo([]);
     setRoles([]);
+
+    // ✅ API call yahin se hoga
+    if (dept?.department_name) {
+      dispatch(fetchReportingManagersByDepartmentThunk(dept.department_name));
+    }
   };
 
   // ✅ HO change handler
@@ -473,11 +498,13 @@ export function StepEmployment({
               <SelectTrigger>
                 <SelectValue placeholder="Select Reporting Manager" />
               </SelectTrigger>
+
               <SelectContent>
                 <SelectItem value="none">Reporting Manager</SelectItem>
-                {employees?.map((emp: any) => (
+
+                {reportingManagers?.map((emp: any) => (
                   <SelectItem key={emp.id} value={emp.id.toString()}>
-                    {emp.firstName} {emp.lastName} ({emp.role_name})
+                    {emp.full_name} {emp.lastName} ({emp.role_name})
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -268,22 +268,22 @@ export default function Employees() {
                           <Eye size={15} />
                         </button>
                         <button
-                          title="Edit Employment Details (HR)"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedEmploymentId(emp.id);
-                          }}
-                          className="p-1.5 rounded border bg-orange-500 text-white hover:bg-orange-600 transition-colors"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
                           title="Edit Onboarding Form"
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditOnboardingId(emp.id);
                           }}
                           className="p-1.5 rounded border bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          title="Edit Employment Details (HR)"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEmploymentId(emp.id);
+                          }}
+                          className="p-1.5 rounded border bg-orange-500 text-white hover:bg-orange-600 transition-colors"
                         >
                           <FileEdit size={15} />
                         </button>
