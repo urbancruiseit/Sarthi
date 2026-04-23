@@ -110,7 +110,7 @@ function MultiSelect({
       console.log(
         `MultiSelect [${fieldName}]: ID ${id} is disabled, ignoring toggle`,
       );
-      return; // Already assigned — skip
+      return;
     }
     console.log(`MultiSelect [${fieldName}] toggling ID:`, id);
     onChange(
@@ -290,79 +290,8 @@ export default function EmployeeManager() {
   );
 
   // ============================
-  // Already Assigned IDs - Only disable if same subdepartment AND same role
+  // Already Assigned IDs
   // ============================
-  // const alreadyAssignedIds = useMemo(() => {
-  //   const regionIds = new Set<number>();
-  //   const zoneIds = new Set<number>();
-  //   const cityIds = new Set<number>();
-
-  //   const currentSubDeptId = form.subDepartment_id;
-  //   const currentRoleId = form.role_id;
-
-  //   console.log("=== alreadyAssignedIds computation ===");
-  //   console.log(
-  //     "currentSubDeptId:",
-  //     currentSubDeptId,
-  //     "currentRoleId:",
-  //     currentRoleId,
-  //   );
-
-  //   if (!currentSubDeptId || !currentRoleId) {
-  //     console.log("No current subDept or role, returning empty");
-  //     return { regionIds, zoneIds, cityIds };
-  //   }
-
-  //   console.log("accessControlList length:", accessControlList.length);
-
-  //   // Check first few items - log role_id specifically
-  //   if (accessControlList.length > 0) {
-  //     const sample = accessControlList[0];
-  //     console.log("Sample item role_id:", sample.role_id);
-  //     console.log(
-  //       "Sample item subdepartment_id:",
-  //       sample.subdepartment_id || sample.subDepartment_id,
-  //     );
-  //   }
-
-  //   accessControlList.forEach((item: any) => {
-  //     // Edit mode mein current item ko skip karo
-  //     if (editId !== null && item.id === editId) return;
-
-  //     // Only disable if same subdepartment AND same role
-  //     const itemSubDeptId = Number(
-  //       item.subdepartment_id || item.subDepartment_id,
-  //     );
-  //     const itemRoleId = Number(item.role_id);
-
-  //     const isSameSubDeptAndRole =
-  //       currentSubDeptId &&
-  //       currentRoleId &&
-  //       itemSubDeptId === Number(currentSubDeptId) &&
-  //       itemRoleId === Number(currentRoleId);
-
-  //     if (isSameSubDeptAndRole) {
-  //       console.log(
-  //         "MATCH FOUND! disabling item:",
-  //         item.employee_id,
-  //         "subDept:",
-  //         itemSubDeptId,
-  //         "role:",
-  //         itemRoleId,
-  //       );
-  //       (item.region_ids || []).forEach((id: number) => regionIds.add(id));
-  //       (item.zone_ids || []).forEach((id: number) => zoneIds.add(id));
-  //       (item.city_ids || []).forEach((id: number) => cityIds.add(id));
-  //     }
-  //   });
-
-  //   console.log("Final disabled - regionIds:", Array.from(regionIds));
-  //   console.log("Final disabled - zoneIds:", Array.from(zoneIds));
-  //   console.log("Final disabled - cityIds:", Array.from(cityIds));
-
-  //   return { regionIds, zoneIds, cityIds };
-  // }, [accessControlList, editId, form.subDepartment_id, form.role_id]);
-
   const alreadyAssignedIds = useMemo(() => {
     const regionIds = new Set<number>();
     const zoneIds = new Set<number>();
@@ -383,7 +312,7 @@ export default function EmployeeManager() {
       console.log(
         `Role "${currentRoleName}" allows duplicate city assignment — skipping disabled IDs`,
       );
-      return { regionIds, zoneIds, cityIds }; // Return empty sets = nothing disabled
+      return { regionIds, zoneIds, cityIds };
     }
 
     accessControlList.forEach((item: any) => {
@@ -519,10 +448,6 @@ export default function EmployeeManager() {
       return;
     }
 
-    console.log("=== Checking manager access ===");
-    console.log("Total accessControlList items:", accessControlList.length);
-    console.log("Looking for managerId:", managerId);
-
     const managerAccess = accessControlList.find(
       (item: any) => Number(item.employee_id) === Number(managerId),
     );
@@ -543,259 +468,157 @@ export default function EmployeeManager() {
 
     const managerRegionIds: number[] = managerAccess.region_ids || [];
     const managerZoneIds: number[] = managerAccess.zone_ids || [];
+    const managerCityIds: number[] = managerAccess.city_ids || [];
 
     console.log("=== Manager Location Data ===");
     console.log("Manager regions:", managerRegionIds);
     console.log("Manager zones:", managerZoneIds);
-    console.log("Manager cities:", managerAccess.city_ids || []);
+    console.log("Manager cities:", managerCityIds);
 
     try {
-      console.log(
-        "=== Tele-Sales Team Leader / Travel Advisor location loading ===",
-      );
-      console.log("roleLower:", roleLower);
-      console.log("subDeptLower:", subDeptLower);
-      console.log("Manager region_ids:", managerRegionIds);
-      console.log("Manager zone_ids:", managerZoneIds);
-      console.log("Manager city_ids:", managerAccess.city_ids || []);
-
       const isTravelAdvisor = roleLower === "travel advisor";
       console.log("isTravelAdvisor:", isTravelAdvisor);
 
-      // For Travel Advisor - load cities from manager's city_ids directly
+      // ============================
+      // ✅ FIXED: Travel Advisor - Manager ke SAARE zone_ids se cities fetch karo
+      // ============================
       if (isTravelAdvisor) {
-        const managerCityIds: number[] = managerAccess.city_ids || [];
-        console.log("Manager city_ids:", managerCityIds);
 
-        // If manager has direct city_ids, get their details
+        // CASE 1: Manager ke paas city_ids hain (Team Leader-Sales ka case)
         if (managerCityIds.length > 0) {
-          console.log("=== Loading from manager's direct city_ids ===");
+          console.log("=== Travel Advisor: Manager has direct city_ids ===");
 
-          // First try zone 2 which has all the cities
-          try {
-            const res: any = await dispatch(fetchZoneCities(2)).unwrap();
-            let allCities: any[] = [];
-            if (res && Array.isArray(res)) {
-              allCities = res;
-            } else if (res?.data && Array.isArray(res.data)) {
-              allCities = res.data;
+          // ✅ FIX: Hardcoded zone 2 hataya — manager ke saare zones loop karo
+          if (managerZoneIds.length > 0) {
+            console.log(
+              "=== Loading cities from manager's ALL zone_ids ===",
+              managerZoneIds,
+            );
+            const allCities: any[] = [];
+
+            for (const zoneId of managerZoneIds) {
+              try {
+                const res: any = await dispatch(
+                  fetchZoneCities(zoneId),
+                ).unwrap();
+                const fetched = Array.isArray(res)
+                  ? res
+                  : Array.isArray(res?.data)
+                    ? res.data
+                    : [];
+                console.log(
+                  `Cities from zone ${zoneId}:`,
+                  fetched.length,
+                );
+                allCities.push(...fetched);
+              } catch (err) {
+                console.error(
+                  "Error fetching cities for zone",
+                  zoneId,
+                  ":",
+                  err,
+                );
+              }
             }
-            console.log("All cities from zone 2:", allCities);
 
-            // Filter to only include manager's city_ids
-            const managerCities = allCities.filter((c: any) =>
+            // Sirf manager ke city_ids wali cities dikhao
+            const filtered = allCities.filter((c: any) =>
               managerCityIds.includes(c.id),
             );
-            console.log("Filtered cities for travel advisor:", managerCities);
+            console.log(
+              "Filtered cities matching manager city_ids:",
+              filtered.length,
+            );
 
-            if (managerCities.length > 0) {
-              setCities(managerCities);
-              setZones([{ id: 2, zone_name: "Zone 2" }]);
-              setForm((prev) => ({
-                ...prev,
-                city_ids: [],
-              }));
-              console.log("Cities set:", managerCities.length);
-              return;
-            }
-          } catch (err) {
-            console.error("Error fetching cities from zone 2:", err);
+            setCities(filtered.length > 0 ? filtered : allCities);
+            setZones(
+              managerZoneIds.map((id) => ({ id, zone_name: `Zone ${id}` })),
+            );
+            setForm((prev) => ({ ...prev, city_ids: [] }));
+            return;
           }
 
-          // Fallback: try zones from manager regions
-          let allZones: any[] = [];
+          // Fallback: manager ke zone nahi hain, regions se zones nikalo
           if (managerRegionIds.length > 0) {
+            console.log(
+              "=== Travel Advisor fallback: loading zones from manager regions ===",
+            );
+            const allZones: any[] = [];
+
             for (const regionId of managerRegionIds) {
               const res: any = await dispatch(
                 fetchZonesByRegionId(regionId),
               ).unwrap();
-              let fetched: any[] = [];
-              if (res && Array.isArray(res)) {
-                fetched = res;
-              } else if (res?.data && Array.isArray(res.data)) {
-                fetched = res.data;
-              }
+              const fetched = Array.isArray(res)
+                ? res
+                : Array.isArray(res?.data)
+                  ? res.data
+                  : [];
               allZones.push(...fetched);
             }
-          }
 
-          const zoneIds = allZones.map((z: any) => z.id).filter(Boolean);
-          const allCities: any[] = [];
+            setZones(allZones);
 
-          for (const zoneId of zoneIds) {
-            try {
-              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
-              let fetched: any[] = [];
-              if (res && Array.isArray(res)) {
-                fetched = res;
-              } else if (res?.data && Array.isArray(res.data)) {
-                fetched = res.data;
+            const zoneIds = allZones.map((z: any) => z.id).filter(Boolean);
+            const allCities: any[] = [];
+
+            for (const zoneId of zoneIds) {
+              try {
+                const res: any = await dispatch(
+                  fetchZoneCities(zoneId),
+                ).unwrap();
+                const fetched = Array.isArray(res)
+                  ? res
+                  : Array.isArray(res?.data)
+                    ? res.data
+                    : [];
+                allCities.push(...fetched);
+              } catch (err) {
+                console.error(
+                  "Error fetching cities for zone",
+                  zoneId,
+                  ":",
+                  err,
+                );
               }
-              allCities.push(...fetched);
-            } catch (err) {
-              console.error("Error fetching cities for zone", zoneId, ":", err);
             }
-          }
 
-          const managerCities = allCities.filter((c: any) =>
-            managerCityIds.includes(c.id),
+            const filtered = allCities.filter((c: any) =>
+              managerCityIds.includes(c.id),
+            );
+            setCities(filtered.length > 0 ? filtered : allCities);
+            setForm((prev) => ({ ...prev, city_ids: [] }));
+            return;
+          }
+        }
+
+        // CASE 2: Manager ke paas zone_ids hain (City Manager ka case)
+        if (managerZoneIds.length > 0) {
+          console.log(
+            "=== Travel Advisor: Loading cities from manager's zone_ids ===",
+            managerZoneIds,
           );
-          setCities(managerCities.length > 0 ? managerCities : allCities);
-          setZones(allZones);
-          setForm((prev) => ({
-            ...prev,
-            city_ids: [],
-          }));
-          return;
-        }
-
-        // If manager has zone_ids, use those zones to get cities
-        if (managerZoneIds.length > 0) {
-          console.log("=== Loading cities from manager's zones ===");
           const allCities: any[] = [];
 
           for (const zoneId of managerZoneIds) {
             try {
-              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
-              let fetched: any[] = [];
-              if (res && Array.isArray(res)) {
-                fetched = res;
-              } else if (res?.data && Array.isArray(res.data)) {
-                fetched = res.data;
-              }
-              console.log("Cities for zone", zoneId, ":", fetched.length);
+              const res: any = await dispatch(
+                fetchZoneCities(zoneId),
+              ).unwrap();
+              const fetched = Array.isArray(res)
+                ? res
+                : Array.isArray(res?.data)
+                  ? res.data
+                  : [];
+              console.log(`Cities for zone ${zoneId}:`, fetched.length);
               allCities.push(...fetched);
             } catch (err) {
-              console.error("Error fetching cities for zone", zoneId, ":", err);
-            }
-          }
-
-          console.log("Total cities loaded:", allCities.length);
-          setCities(allCities);
-          setForm((prev) => ({
-            ...prev,
-            city_ids: [],
-          }));
-          return;
-        }
-
-        // If manager has only region_ids, get zones from regions, then cities
-        if (managerRegionIds.length > 0) {
-          console.log("=== Loading from manager regions ===");
-          const allZones: any[] = [];
-
-          for (const regionId of managerRegionIds) {
-            const res: any = await dispatch(
-              fetchZonesByRegionId(regionId),
-            ).unwrap();
-            let fetched: any[] = [];
-            if (res && Array.isArray(res)) {
-              fetched = res;
-            } else if (res?.data && Array.isArray(res.data)) {
-              fetched = res.data;
-            }
-            allZones.push(...fetched);
-          }
-
-          setZones(allZones);
-
-          const zoneIds = allZones.map((z: any) => z.id).filter(Boolean);
-          console.log("Zone IDs:", zoneIds);
-
-          const allCities: any[] = [];
-          for (const zoneId of zoneIds) {
-            try {
-              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
-              let fetched: any[] = [];
-              if (res && Array.isArray(res)) {
-                fetched = res;
-              } else if (res?.data && Array.isArray(res.data)) {
-                fetched = res.data;
-              }
-              allCities.push(...fetched);
-            } catch (err) {
-              console.error("Error fetching cities for zone", zoneId, ":", err);
-            }
-          }
-
-          console.log("Total cities from regions:", allCities.length);
-          setCities(allCities);
-          setForm((prev) => ({
-            ...prev,
-            city_ids: [],
-          }));
-          return;
-        }
-      }
-
-      // For City Manager - load zones from manager's regions
-      const isCityManager = roleLower === "city manager";
-      console.log("isCityManager:", isCityManager);
-
-      if (isCityManager) {
-        console.log(
-          "=== City Manager: Loading zones from manager's regions ===",
-        );
-        console.log("managerRegionIds:", managerRegionIds);
-
-        if (managerRegionIds.length > 0) {
-          const allZones: any[] = [];
-
-          for (const regionId of managerRegionIds) {
-            const res: any = await dispatch(
-              fetchZonesByRegionId(regionId),
-            ).unwrap();
-            let fetched: any[] = [];
-            if (res && Array.isArray(res)) {
-              fetched = res;
-            } else if (res?.data && Array.isArray(res.data)) {
-              fetched = res.data;
-            }
-            console.log("Zones for region", regionId, ":", fetched.length);
-            allZones.push(...fetched);
-          }
-
-          console.log("Total zones loaded:", allZones.length);
-          setZones(allZones);
-          setCities([]);
-          setForm((prev) => ({
-            ...prev,
-            zone_ids: [],
-            city_ids: [],
-          }));
-          return;
-        }
-
-        console.log("Manager has no regions!");
-        setZones([]);
-        setCities([]);
-      }
-
-      // For Team Leader - load cities from manager's zones or regions
-      const isTeamLead = roleLower === "team leader-sales";
-      const isPreSalesTeamLead = roleLower === "pre-sales team leader";
-      console.log("isTeamLead:", isTeamLead);
-      console.log("isPreSalesTeamLead:", isPreSalesTeamLead);
-
-      if (isTeamLead || isPreSalesTeamLead) {
-        // If manager has zone_ids, use those zones to get cities
-        if (managerZoneIds.length > 0) {
-          console.log("=== Loading cities from manager's zones ===");
-          const allCities: any[] = [];
-
-          for (const zoneId of managerZoneIds) {
-            try {
-              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
-              let fetched: any[] = [];
-              if (res && Array.isArray(res)) {
-                fetched = res;
-              } else if (res?.data && Array.isArray(res.data)) {
-                fetched = res.data;
-              }
-              console.log("Cities for zone", zoneId, ":", fetched.length);
-              allCities.push(...fetched);
-            } catch (err) {
-              console.error("Error fetching cities for zone", zoneId, ":", err);
+              console.error(
+                "Error fetching cities for zone",
+                zoneId,
+                ":",
+                err,
+              );
             }
           }
 
@@ -804,15 +627,146 @@ export default function EmployeeManager() {
           setZones(
             managerZoneIds.map((id) => ({ id, zone_name: `Zone ${id}` })),
           );
-          setForm((prev) => ({
-            ...prev,
-            zone_ids: [],
-            city_ids: [],
-          }));
+          setForm((prev) => ({ ...prev, city_ids: [] }));
           return;
         }
 
-        // If manager has only region_ids (no zones), get zones from regions, then cities
+        // CASE 3: Manager ke paas sirf region_ids hain (Regional Head ka case)
+        if (managerRegionIds.length > 0) {
+          console.log(
+            "=== Travel Advisor: Loading from manager regions ===",
+          );
+          const allZones: any[] = [];
+
+          for (const regionId of managerRegionIds) {
+            const res: any = await dispatch(
+              fetchZonesByRegionId(regionId),
+            ).unwrap();
+            const fetched = Array.isArray(res)
+              ? res
+              : Array.isArray(res?.data)
+                ? res.data
+                : [];
+            allZones.push(...fetched);
+          }
+
+          setZones(allZones);
+
+          const zoneIds = allZones.map((z: any) => z.id).filter(Boolean);
+          console.log("Zone IDs from manager regions:", zoneIds);
+
+          const allCities: any[] = [];
+          for (const zoneId of zoneIds) {
+            try {
+              const res: any = await dispatch(
+                fetchZoneCities(zoneId),
+              ).unwrap();
+              const fetched = Array.isArray(res)
+                ? res
+                : Array.isArray(res?.data)
+                  ? res.data
+                  : [];
+              allCities.push(...fetched);
+            } catch (err) {
+              console.error(
+                "Error fetching cities for zone",
+                zoneId,
+                ":",
+                err,
+              );
+            }
+          }
+
+          console.log("Total cities from regions:", allCities.length);
+          setCities(allCities);
+          setForm((prev) => ({ ...prev, city_ids: [] }));
+          return;
+        }
+      }
+
+      // ============================
+      // City Manager - load zones from manager's regions
+      // ============================
+      const isCityManager = roleLower === "city manager";
+      console.log("isCityManager:", isCityManager);
+
+      if (isCityManager) {
+        console.log(
+          "=== City Manager: Loading zones from manager's regions ===",
+        );
+
+        if (managerRegionIds.length > 0) {
+          const allZones: any[] = [];
+
+          for (const regionId of managerRegionIds) {
+            const res: any = await dispatch(
+              fetchZonesByRegionId(regionId),
+            ).unwrap();
+            const fetched = Array.isArray(res)
+              ? res
+              : Array.isArray(res?.data)
+                ? res.data
+                : [];
+            console.log("Zones for region", regionId, ":", fetched.length);
+            allZones.push(...fetched);
+          }
+
+          console.log("Total zones loaded:", allZones.length);
+          setZones(allZones);
+          setCities([]);
+          setForm((prev) => ({ ...prev, zone_ids: [], city_ids: [] }));
+          return;
+        }
+
+        console.log("Manager has no regions!");
+        setZones([]);
+        setCities([]);
+      }
+
+      // ============================
+      // Team Leader / Pre-Sales Team Leader - load cities from manager's zones
+      // ============================
+      const isTeamLead = roleLower === "team leader-sales";
+      const isPreSalesTeamLead = roleLower === "pre-sales team leader";
+      console.log("isTeamLead:", isTeamLead);
+      console.log("isPreSalesTeamLead:", isPreSalesTeamLead);
+
+      if (isTeamLead || isPreSalesTeamLead) {
+        if (managerZoneIds.length > 0) {
+          console.log("=== Loading cities from manager's zones ===");
+          const allCities: any[] = [];
+
+          for (const zoneId of managerZoneIds) {
+            try {
+              const res: any = await dispatch(
+                fetchZoneCities(zoneId),
+              ).unwrap();
+              const fetched = Array.isArray(res)
+                ? res
+                : Array.isArray(res?.data)
+                  ? res.data
+                  : [];
+              console.log("Cities for zone", zoneId, ":", fetched.length);
+              allCities.push(...fetched);
+            } catch (err) {
+              console.error(
+                "Error fetching cities for zone",
+                zoneId,
+                ":",
+                err,
+              );
+            }
+          }
+
+          console.log("Total cities loaded:", allCities.length);
+          setCities(allCities);
+          setZones(
+            managerZoneIds.map((id) => ({ id, zone_name: `Zone ${id}` })),
+          );
+          setForm((prev) => ({ ...prev, zone_ids: [], city_ids: [] }));
+          return;
+        }
+
         if (managerRegionIds.length > 0 && managerZoneIds.length === 0) {
           console.log("=== Loading from manager regions (no zones) ===");
           const allZones: any[] = [];
@@ -821,12 +775,11 @@ export default function EmployeeManager() {
             const res: any = await dispatch(
               fetchZonesByRegionId(regionId),
             ).unwrap();
-            let fetched: any[] = [];
-            if (res && Array.isArray(res)) {
-              fetched = res;
-            } else if (res?.data && Array.isArray(res.data)) {
-              fetched = res.data;
-            }
+            const fetched = Array.isArray(res)
+              ? res
+              : Array.isArray(res?.data)
+                ? res.data
+                : [];
             console.log("Zones for region", regionId, ":", fetched.length);
             allZones.push(...fetched);
           }
@@ -840,117 +793,116 @@ export default function EmployeeManager() {
           }
 
           const zoneIds = allZones.map((z: any) => z.id).filter(Boolean);
-          console.log("Zone IDs:", zoneIds);
-
           const allCities: any[] = [];
+
           for (const zoneId of zoneIds) {
             try {
-              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
-              let fetched: any[] = [];
-              if (res && Array.isArray(res)) {
-                fetched = res;
-              } else if (res?.data && Array.isArray(res.data)) {
-                fetched = res.data;
-              }
+              const res: any = await dispatch(
+                fetchZoneCities(zoneId),
+              ).unwrap();
+              const fetched = Array.isArray(res)
+                ? res
+                : Array.isArray(res?.data)
+                  ? res.data
+                  : [];
               allCities.push(...fetched);
             } catch (err) {
-              console.error("Error fetching cities for zone", zoneId, ":", err);
+              console.error(
+                "Error fetching cities for zone",
+                zoneId,
+                ":",
+                err,
+              );
             }
           }
 
           console.log("Total cities from regions:", allCities.length);
           setCities(allCities);
-          setForm((prev) => ({
-            ...prev,
-            zone_ids: [],
-            city_ids: [],
-          }));
+          setForm((prev) => ({ ...prev, zone_ids: [], city_ids: [] }));
           return;
         }
       }
 
-      // Pre-Sales Executive - load cities from Pre-Sales Team Leader's zones
+      // ============================
+      // Pre-Sales Executive
+      // ============================
       const isPreSalesExecutive = roleLower === "pre-sales executive";
-      console.log("=== Pre-Sales Executive Check ===");
-      console.log("roleLower:", roleLower);
       console.log("isPreSalesExecutive:", isPreSalesExecutive);
-      console.log("managerId:", managerId);
 
       if (isPreSalesExecutive && managerId) {
-        const managerAccess = accessControlList.find(
+        const preSalesManagerAccess = accessControlList.find(
           (item: any) => Number(item.employee_id) === Number(managerId),
         );
 
-        console.log("managerAccess (Pre-Sales Team Leader):", managerAccess);
+        console.log(
+          "managerAccess (Pre-Sales Team Leader):",
+          preSalesManagerAccess,
+        );
 
-        if (!managerAccess) {
+        if (!preSalesManagerAccess) {
           console.log("No access control found for Pre-Sales Team Leader");
           setCities([]);
           return;
         }
 
-        const managerZoneIds = managerAccess.zone_ids || [];
-        const managerRegionIds = managerAccess.region_ids || [];
+        const psZoneIds: number[] = preSalesManagerAccess.zone_ids || [];
+        const psRegionIds: number[] = preSalesManagerAccess.region_ids || [];
 
-        console.log("managerZoneIds (Team Leader's zones):", managerZoneIds);
-        console.log(
-          "managerRegionIds (Team Leader's regions):",
-          managerRegionIds,
-        );
+        console.log("Pre-Sales TL zone_ids:", psZoneIds);
+        console.log("Pre-Sales TL region_ids:", psRegionIds);
 
-        if (managerZoneIds.length > 0) {
+        if (psZoneIds.length > 0) {
           console.log(
             "=== Loading cities from Pre-Sales Team Leader's zones ===",
           );
           const allCities: any[] = [];
 
-          for (const zoneId of managerZoneIds) {
+          for (const zoneId of psZoneIds) {
             try {
-              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
-              let fetched: any[] = [];
-              if (res && Array.isArray(res)) {
-                fetched = res;
-              } else if (res?.data && Array.isArray(res.data)) {
-                fetched = res.data;
-              }
+              const res: any = await dispatch(
+                fetchZoneCities(zoneId),
+              ).unwrap();
+              const fetched = Array.isArray(res)
+                ? res
+                : Array.isArray(res?.data)
+                  ? res.data
+                  : [];
               console.log(`Cities for zone ${zoneId}:`, fetched.length);
               allCities.push(...fetched);
             } catch (err) {
-              console.error("Error fetching cities for zone", zoneId, ":", err);
+              console.error(
+                "Error fetching cities for zone",
+                zoneId,
+                ":",
+                err,
+              );
             }
           }
 
           console.log("Total cities loaded:", allCities.length);
           setCities(allCities);
           setZones(
-            managerZoneIds.map((id: number) => ({
-              id,
-              zone_name: `Zone ${id}`,
-            })),
+            psZoneIds.map((id: number) => ({ id, zone_name: `Zone ${id}` })),
           );
-          setForm((prev) => ({
-            ...prev,
-            city_ids: [],
-          }));
+          setForm((prev) => ({ ...prev, city_ids: [] }));
           return;
         }
 
-        if (managerRegionIds.length > 0) {
+        if (psRegionIds.length > 0) {
           console.log(
             "=== Getting zones from Pre-Sales Team Leader's regions ===",
           );
           const allZones: any[] = [];
 
-          for (const regionId of managerRegionIds) {
+          for (const regionId of psRegionIds) {
             const res: any = await dispatch(
               fetchZonesByRegionId(regionId),
             ).unwrap();
-            let fetched: any[] = [];
-            if (res && Array.isArray(res)) {
-              fetched = res;
-            } else if (res?.data && Array.isArray(res.data)) {
-              fetched = res.data;
-            }
+            const fetched = Array.isArray(res)
+              ? res
+              : Array.isArray(res?.data)
+                ? res.data
+                : [];
             allZones.push(...fetched);
           }
 
@@ -964,29 +916,32 @@ export default function EmployeeManager() {
           }
 
           const zoneIds = allZones.map((z: any) => z.id).filter(Boolean);
-
           const allCities: any[] = [];
+
           for (const zoneId of zoneIds) {
             try {
-              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
-              let fetched: any[] = [];
-              if (res && Array.isArray(res)) {
-                fetched = res;
-              } else if (res?.data && Array.isArray(res.data)) {
-                fetched = res.data;
-              }
+              const res: any = await dispatch(
+                fetchZoneCities(zoneId),
+              ).unwrap();
+              const fetched = Array.isArray(res)
+                ? res
+                : Array.isArray(res?.data)
+                  ? res.data
+                  : [];
               allCities.push(...fetched);
             } catch (err) {
-              console.error("Error fetching cities for zone", zoneId, ":", err);
+              console.error(
+                "Error fetching cities for zone",
+                zoneId,
+                ":",
+                err,
+              );
             }
           }
 
           console.log("Total cities:", allCities.length);
           setCities(allCities);
-          setForm((prev) => ({
-            ...prev,
-            city_ids: [],
-          }));
+          setForm((prev) => ({ ...prev, city_ids: [] }));
           return;
         }
 
@@ -1046,15 +1001,9 @@ export default function EmployeeManager() {
 
     const role = fetchedRoles.find((r: any) => Number(r.id) === roleId);
     const roleName = role?.role_name || role?.name || "";
-    const roleNameLower = roleName.toLowerCase().trim();
 
-    console.log("=== loadEmployeeDeptRoleLocation - Role loaded ===");
-    console.log("fetchedRoles sample:", fetchedRoles.slice(0, 3));
-    console.log("roleId:", roleId);
-    console.log("found role:", role);
     console.log("subDeptName:", subDeptName);
     console.log("roleName:", roleName);
-    console.log("roleNameLower:", roleNameLower);
     console.log("managerId:", managerId);
     console.log("prefilledRegionIds:", prefilledRegionIds);
     console.log("prefilledZoneIds:", prefilledZoneIds);
@@ -1083,17 +1032,6 @@ export default function EmployeeManager() {
       }
       setCities(allCities);
     }
-
-    console.log("=== loadEmployeeDeptRoleLocation check ===");
-    console.log("managerId:", managerId);
-    console.log("roleName:", roleName);
-    console.log("subDeptName:", subDeptName);
-    console.log("prefilledRegionIds:", prefilledRegionIds);
-    console.log("prefilledZoneIds:", prefilledZoneIds);
-    console.log(
-      "should call loadManagerLocationAccess:",
-      !prefilledRegionIds?.length && !prefilledZoneIds?.length,
-    );
 
     if (
       managerId &&
@@ -1208,17 +1146,14 @@ export default function EmployeeManager() {
       try {
         const allZones: any[] = [];
         for (const regionId of ids) {
-          console.log("Fetching zones for region:", regionId);
           const res: any = await dispatch(
             fetchZonesByRegionId(regionId),
           ).unwrap();
-          console.log("Zones response for region", regionId, ":", res);
           const fetched = Array.isArray(res?.data || res)
             ? res?.data || res
             : [];
           allZones.push(...fetched);
         }
-        console.log("All zones fetched:", allZones);
         setZones(allZones);
       } catch (err) {
         console.error("Error fetching zones:", err);
@@ -1236,15 +1171,12 @@ export default function EmployeeManager() {
       try {
         const allCities: any[] = [];
         for (const zoneId of ids) {
-          console.log("Fetching cities for zone:", zoneId);
           const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
-          console.log("Cities response for zone", zoneId, ":", res);
           const fetched = Array.isArray(res?.data || res)
             ? res?.data || res
             : [];
           allCities.push(...fetched);
         }
-        console.log("All cities fetched:", allCities);
         setCities(allCities);
       } catch (err) {
         console.error("Error fetching cities:", err);
@@ -1424,7 +1356,6 @@ export default function EmployeeManager() {
     console.log("currentSubDeptName:", currentSubDeptName);
     console.log("currentRoleName:", currentRoleName);
     console.log("locationVisibility:", locationVisibility);
-    console.log("form.zone_ids:", form.zone_ids);
     console.log("Final payload:", payload);
 
     try {
