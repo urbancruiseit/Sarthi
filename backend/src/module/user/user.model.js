@@ -1103,7 +1103,11 @@ export const getReportingManagerWithDepartment = async (departmentName) => {
     const sql = `
       SELECT 
         u.id,
-        CONCAT(u.firstName, ' ', u.middleName, ' ', u.lastName) AS full_name,
+        CONCAT(
+          u.firstName, ' ',
+          COALESCE(CONCAT(u.middleName, ' '), ''),
+          u.lastName
+        ) AS full_name,
         u.access_role,
         d.department_name,
         r.role_name

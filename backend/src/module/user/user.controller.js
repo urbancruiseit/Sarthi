@@ -519,7 +519,7 @@ const changePasswordbyUserName = asyncHandler(async (req, res) => {
 const getAllReportingManagerWithDepartment = asyncHandler(async (req, res) => {
   const { departmentName } = req.params;
   const users = await getReportingManagerWithDepartment(departmentName);
-
+console.log("reporting manager",users)
   return res
     .status(200)
     .json(new ApiResponse(200, users, "Users fetched successfully"));

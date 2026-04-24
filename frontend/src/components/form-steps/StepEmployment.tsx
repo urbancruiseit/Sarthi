@@ -192,7 +192,7 @@ export function StepEmployment({
   const [ho, setHo] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const { reportingManagers } = useSelector((state: RootState) => state.user);
-
+console.log(reportingManagers)
   useEffect(() => {
     dispatch(fetchDepartments());
     dispatch(fetchAllCities());
