@@ -1026,7 +1026,7 @@ export const findUserById = async (id) => {
     }
 
     return {
-      ...user, // ✅ saare columns aa jayenge
+      ...user, 
 
       // extra mapped fields (clean naming ke liye)
       role: user.role_name || null,
@@ -1071,33 +1071,7 @@ export const updatePasswordByUsername = async (username, confirmPassword) => {
   }
 };
 
-// export const getReportingManagerWithDepartment = async (departmentName) => {
-//   try {
-//     const sql = `
-//       SELECT
-//         u.id,
-//   CONCAT(u.firstName, ' ', u.middleName, ' ', u.lastName) AS full_name,
-//   u.access_role,
-//   d.department_name,
-//   r.role_name,
 
-//       FROM ${USER_TABLE} u
-//       LEFT JOIN departments d ON u.${USER_COLUMNS.DEPARTMENT_ID} = d.id
-//       LEFT JOIN roles r ON u.${USER_COLUMNS.ROLE_ID} = r.id
-//       LEFT JOIN ${USER_TABLE} m ON u.${USER_COLUMNS.MANAGER_ID} = m.id
-//       WHERE d.department_name = ?
-//         AND u.access_role != 'EMPLOYEE'
-//         AND u.access_role IS NOT NULL
-//       ORDER BY u.${USER_COLUMNS.ID} DESC
-//     `;
-
-//     const [rows] = await pool.execute(sql, [departmentName]);
-//     return rows;
-//   } catch (error) {
-//     console.error("getReportingManagerWithDepartment error:", error);
-//     throw error;
-//   }
-// };
 export const getReportingManagerWithDepartment = async (departmentName) => {
   try {
     const sql = `

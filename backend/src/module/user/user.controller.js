@@ -356,22 +356,52 @@ const updateUserByIdController = asyncHandler(async (req, res) => {
       .json(new ApiResponse(400, null, "User ID is required"));
   }
 
+ const updateUserByIdController = asyncHandler(async (req, res) => {
+  const userId = req.params.id;
+  const updateData = req.body;
+
+  if (!userId) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "User ID is required"));
+  }
+
   if (updateData.branchOffice_id && updateData.employmentType) {
-    const ids = await generateEmployeeId(
-      updateData.branchOffice_id,
-      updateData.employmentType,
-    );
+    const existingUser = await getUserById(userId);
 
-    console.log("Generated IDs:", ids);
+    const hasTempId = !!existingUser?.tempId;
+    const hasEmployeeId = !!existingUser?.employeeId;
+    const employmentTypeChanged =
+      existingUser?.employmentType !== updateData.employmentType;
 
-    if (ids?.tempId) {
-      updateData.tempId = ids.tempId;
-    }
+    if ((!hasTempId && !hasEmployeeId) || employmentTypeChanged) {
+      const ids = await generateEmployeeId(
+        updateData.branchOffice_id,
+        updateData.employmentType,
+      );
 
-    if (ids?.employeeId) {
-      updateData.employeeId = ids.employeeId;
+      console.log("Generated IDs:", ids);
+
+      // Sirf set karo jo mila, kuch bhi clear nahi hoga
+      if (ids?.tempId) {
+        updateData.tempId = ids.tempId;
+      }
+
+      if (ids?.employeeId) {
+        updateData.employeeId = ids.employeeId;
+      }
     }
   }
+
+  const updatedUser = await updateUserById(userId, updateData);
+
+  const io = getIO();
+  io.emit("employeeUpdated", updatedUser);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedUser, "User updated successfully"));
+});
 
   const updatedUser = await updateUserById(userId, updateData);
 

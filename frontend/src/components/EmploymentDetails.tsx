@@ -48,8 +48,7 @@ export function EmploymentDetails({ open, onClose, employeeId }: Props) {
       "noticePeriod",
       "workLocation",
       "branchOffice_id",
-      "officeEmail",
-      "officeNumber",
+      
       "workShift",
       "shiftTiming",
       "weeklyoff",

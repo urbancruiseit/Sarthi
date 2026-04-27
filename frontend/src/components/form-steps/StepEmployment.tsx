@@ -275,18 +275,7 @@ console.log(reportingManagers)
     onChange({ workShift: shift, shiftTiming: "" });
   };
 
-  // ✅ Department change handler
-  // const handleDepartmentChange = (value: string) => {
-  //   onChange({
-  //     department_id: Number(value),
-  //     ho_id: undefined,
-  //     subDepartment_id: undefined,
-  //     role_id: undefined,
-  //   });
-  //   setSubDepartments([]);
-  //   setHo([]);
-  //   setRoles([]);
-  // };
+
 
   const handleDepartmentChange = (value: string) => {
     const dept = departments.find((d) => d.id === Number(value));
@@ -529,8 +518,8 @@ console.log(reportingManagers)
           title="Contact Details"
           color="text-purple-600"
         />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <F label="Official Email" error={showErrors && errors.officeEmail}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <F label="Official Email" >
             <Input
               type="email"
               value={data.officeEmail || ""}
@@ -539,7 +528,7 @@ console.log(reportingManagers)
             />
           </F>
 
-          <F label="Official Number" error={showErrors && errors.officeNumber}>
+          <F label="Official Number" >
             <Input
               type="tel"
               maxLength={10}
@@ -553,6 +542,22 @@ console.log(reportingManagers)
               placeholder="Enter 10 digit number"
             />
           </F>
+
+
+          <F label="Alias Name" >
+            <Input
+              type="tel"
+              maxLength={10}
+              value={data.aliasName || ""}
+              onChange={(e) => onChange({ aliasName: e.target.value })}
+              placeholder="Enter Alias Name"
+            />
+          </F>
+
+
+
+
+
         </div>
       </div>
 

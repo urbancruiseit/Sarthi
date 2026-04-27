@@ -95,6 +95,7 @@ export interface Employee {
   // Official
   companyEmail: string;
   officeContact: string;
+  aliasName:string;
   workShift: string;
   weeklyoff: string;
   ctc: Number;
