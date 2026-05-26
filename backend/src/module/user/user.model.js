@@ -101,6 +101,8 @@ export const USER_COLUMNS = {
   SALARY_SLIP_UPLOADED: "salarySlipUploaded",
   PASSPORT_PHOTO_UPLOADED: "passportPhotoUploaded",
   BANK_STATEMENT_UPLOADED: "bankStatementUploaded",
+  CURRENT_ADDRESS_PROOF_UPLOADED: "currentAddressProofUploaded",
+  PERMANENT_ADDRESS_PROOF_UPLOADED: "permanentAddressProofUploaded",
 
   // HR POLICY
   HR_POLICY_ACCEPTED: "hrPolicyAccepted",
@@ -198,6 +200,8 @@ export const insertUser = async (userData) => {
       qrCodeUploaded = null,
       signatureUploaded = null,
       bankStatementUploaded = null,
+      currentAddressProofUploaded = null,
+      permanentAddressProofUploaded = null,
     } = userData;
 
     const columns = [];
@@ -294,6 +298,8 @@ export const insertUser = async (userData) => {
     addField("qrCodeUploaded", qrCodeUploaded);
     addField("signatureUploaded", signatureUploaded);
     addField("bankStatementUploaded", bankStatementUploaded);
+    addField("currentAddressProofUploaded", currentAddressProofUploaded);
+    addField("permanentAddressProofUploaded", permanentAddressProofUploaded);
 
     // Timestamps
     columns.push("created_at", "updated_at");
@@ -550,14 +556,16 @@ export const getUsersByRole = async (roleId) => {
   }
 };
 
-export const allEmployee = async (page) => {
+export const allEmployee = async (page, limit) => {
   try {
-    const limit = 7;
-    const pageNumber = Number(page);
+    // ─── Sanitize inputs ────────────────────────────────────────────────────
+    const pageNumber = Number(page) > 0 ? Number(page) : 1;
+    const limitNumber = Number(limit) > 0 ? Number(limit) : 10; // default 10
 
-    // Agar page parameter nahi aaya, null/undefined/empty hai => sab data
     const isPagination = page !== undefined && page !== null && page !== "";
+    const offset = (pageNumber - 1) * limitNumber;
 
+    // ─── Main Query ─────────────────────────────────────────────────────────
     let query = `
       SELECT 
         u.id,
@@ -646,7 +654,6 @@ export const allEmployee = async (page) => {
         u.confirmationDate,
         u.employeeStatus,
         u.grade,
-        
         u.noticePeriod,
         u.hrManager,
         u.probationTenure,
@@ -674,25 +681,30 @@ export const allEmployee = async (page) => {
       ORDER BY u.created_at DESC
     `;
 
-    // Sirf tab pagination lagao jab page parameter bheja gaya ho
+    // ─── Apply pagination only when page param is provided ──────────────────
     if (isPagination) {
-      const validPage = pageNumber > 0 ? pageNumber : 1;
-      const offset = (validPage - 1) * limit;
-      query += ` LIMIT ${limit} OFFSET ${offset}`;
+      query += ` LIMIT ${limitNumber} OFFSET ${offset}`;
     }
 
     const [rows] = await pool.query(query);
 
+    // ─── Total count ────────────────────────────────────────────────────────
     const [countResult] = await pool.query(
       `SELECT COUNT(*) as total FROM users`,
     );
     const total = countResult[0].total;
+    const totalPages = isPagination ? Math.ceil(total / limitNumber) : 1;
 
     return {
       employees: rows,
-      currentPage: isPagination ? (pageNumber > 0 ? pageNumber : 1) : 1,
-      totalEmployees: total,
-      totalPages: isPagination ? Math.ceil(total / limit) : 1,
+      pagination: {
+        currentPage: isPagination ? pageNumber : 1,
+        totalPages,
+        total,
+        limit: limitNumber,
+        hasPrevPage: isPagination ? pageNumber > 1 : false,
+        hasNextPage: isPagination ? pageNumber < totalPages : false,
+      },
     };
   } catch (error) {
     console.error("allEmployee Model Error:", error);
@@ -1026,7 +1038,7 @@ export const findUserById = async (id) => {
     }
 
     return {
-      ...user, 
+      ...user,
 
       // extra mapped fields (clean naming ke liye)
       role: user.role_name || null,
@@ -1071,7 +1083,6 @@ export const updatePasswordByUsername = async (username, confirmPassword) => {
   }
 };
 
-
 export const getReportingManagerWithDepartment = async (departmentName) => {
   try {
     const sql = `
@@ -1099,6 +1110,30 @@ export const getReportingManagerWithDepartment = async (departmentName) => {
     return rows;
   } catch (error) {
     console.error("getReportingManagerWithDepartment error:", error);
+    throw error;
+  }
+};
+
+export const getHREmployees = async () => {
+  try {
+    const sql = `
+      SELECT 
+        u.id,
+        CONCAT(
+          u.firstName, ' ',
+          COALESCE(CONCAT(u.middleName, ' '), ''),
+          u.lastName
+        ) AS full_name
+      FROM ${USER_TABLE} u
+      LEFT JOIN departments d ON u.${USER_COLUMNS.DEPARTMENT_ID} = d.id
+      WHERE d.department_name = 'HR'
+      ORDER BY u.${USER_COLUMNS.ID} DESC
+    `;
+
+    const [rows] = await pool.execute(sql);
+    return rows;
+  } catch (error) {
+    console.error("getHREmployees error:", error);
     throw error;
   }
 };

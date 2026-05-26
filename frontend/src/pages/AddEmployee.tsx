@@ -156,6 +156,7 @@ const STEP_REQUIRED_FIELDS: Record<number, string[]> = {
     "twelthCertificateUploaded",
     "graduationCertificateUploaded",
     "resumeUploaded",
+    "currentAddressProofUploaded",
   ],
   8: [
     "hrPolicyAccepted",

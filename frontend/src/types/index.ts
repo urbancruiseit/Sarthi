@@ -95,7 +95,7 @@ export interface Employee {
   // Official
   companyEmail: string;
   officeContact: string;
-  aliasName:string;
+  aliasName: string;
   workShift: string;
   weeklyoff: string;
   ctc: Number;
@@ -146,6 +146,7 @@ export interface Employee {
   panUploaded?: string | null;
   passportPhotoUploaded?: string | null;
   resumeUploaded?: string | null;
+  currentAddressProofUploaded?: string | null;
 
   twelthCertificateUploaded?: string | null;
   graduationCertificateUploaded?: string | null;
@@ -355,4 +356,65 @@ export interface IZone {
   id: number;
   zone_name: string;
   region_id: number;
+}
+
+export type VerifyStatus = "" | "verified" | "failed" | "pending";
+export interface BGVData {
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  mobile: string;
+  fatherName: string;
+  fatherContact: string;
+  motherName: string;
+  motherContact: string;
+  localName: string;
+  alternateNumber: string;
+  currentAddress: string;
+  currentCity?: string | null;
+  currentState?: string | null;
+  currentPincode?: string | null;
+  permanentAddress: string;
+  permanentCity?: string | null;
+  permanentState?: string | null;
+  permanentPincode?: string | null;
+  previousCompany: string;
+  referenceName: string;
+  referenceContact: string;
+  verification: {
+    contactNumber: VerifyStatus;
+    fatherContact: VerifyStatus;
+    motherContact: VerifyStatus;
+    alternateNumber: VerifyStatus;
+    currentAddress: VerifyStatus;
+    permanentAddress: VerifyStatus;
+    identityProof: VerifyStatus;
+    educationProof: VerifyStatus;
+    previousEmployment: VerifyStatus;
+    criminalRecord: VerifyStatus;
+    referenceCheck: VerifyStatus;
+  };
+  remarks: string;
+  overallStatus: VerifyStatus;
+}
+
+export interface BGVRecord {
+  id: number;
+  employee_id: number;        
+  fullName: string;           
+  overall_status: string | null;
+  remarks: string | null;
+  alternate_number: string | null;
+  contact_number: string | null;
+  criminal_record: string | null;
+  current_address: string | null;
+  education_proof: string | null;
+  father_contact: string | null;
+  identity_proof: string | null;
+  mother_contact: string | null;
+  permanent_address: string | null;
+  previous_employment: string | null;
+  reference_check: string | null;
+  created_at: string;
+  updated_at: string;
 }

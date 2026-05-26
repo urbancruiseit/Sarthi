@@ -11,15 +11,24 @@ import {
   getEmployeesByStatus,
   getUserById,
   getReportingManagersByDepartment,
+  getHREmployees,
 } from "./userAPi";
+
+// ─── Pagination Meta Type ────────────────────────────────────────────────────
+interface PaginationMeta {
+  currentPage: number;
+  totalPages: number;
+  total: number;
+  limit: number;
+  hasPrevPage: boolean;
+  hasNextPage: boolean;
+}
 
 interface EmployeeState {
   currentEmployee: Employee | null;
   selectedEmployee: Employee | null;
   employees: Employee[];
-  totalEmployees: number;
-  page: number;
-  totalPages: number;
+  pagination: PaginationMeta | null; // ✅ flat fields hata ke nested object
   loading: boolean;
   error: string | null;
   createdEmployee?: Employee | null;
@@ -27,15 +36,14 @@ interface EmployeeState {
   initialized: boolean;
   isAuthChecking: boolean;
   reportingManagers: Employee[];
+  hrEmployees: Employee[];
 }
 
 const initialState: EmployeeState = {
   currentEmployee: null,
   selectedEmployee: null,
   employees: [],
-  totalEmployees: 0,
-  page: 1,
-  totalPages: 0,
+  pagination: null, // ✅
   loading: false,
   error: null,
   createdEmployee: null,
@@ -43,18 +51,17 @@ const initialState: EmployeeState = {
   initialized: false,
   isAuthChecking: true,
   reportingManagers: [],
+  hrEmployees: [],
 };
 
-//  Async Thunks
+// ─── Async Thunks ─────────────────────────────────────────────────────────────
 
-// Login
 export const loginEmployeeThunk = createAsyncThunk<
   Employee,
   { userName: string; password: string }
 >("Employee/login", async (loginData, { rejectWithValue }) => {
   try {
     const Employee = await loginUser(loginData);
-    console.log("login slice", Employee);
     return Employee;
   } catch (error: any) {
     return rejectWithValue(error.message || "Login failed");
@@ -73,7 +80,7 @@ export const getEmployeeByIdThunk = createAsyncThunk<
     return rejectWithValue(error.message || "Failed to fetch employee");
   }
 });
-// Current Employee
+
 export const currentEmployeeThunk = createAsyncThunk<
   Employee | null,
   void,
@@ -90,7 +97,6 @@ export const currentEmployeeThunk = createAsyncThunk<
   }
 });
 
-// Create Employee
 export const createEmployeeThunk = createAsyncThunk<
   Employee,
   Partial<Employee>,
@@ -104,21 +110,20 @@ export const createEmployeeThunk = createAsyncThunk<
   }
 });
 
-// Fetch Employees (with pagination)
+// ✅ page + limit dono accept karta hai
 export const fetchEmployeesThunk = createAsyncThunk<
   PaginatedEmployeeResponse,
-  number | undefined,
+  { page?: number; limit?: number } | undefined,
   { rejectValue: string }
->("Employee/fetchAll", async (page, { rejectWithValue }) => {
+>("Employee/fetchAll", async (params, { rejectWithValue }) => {
   try {
-    const response = await getAllEmployees(page);
+    const response = await getAllEmployees(params?.page, params?.limit);
     return response;
   } catch (error: any) {
     return rejectWithValue(error.message || "Failed to fetch employees");
   }
 });
 
-// Logout
 export const logoutEmployeeThunk = createAsyncThunk(
   "Employee/logout",
   async (_, { rejectWithValue }) => {
@@ -131,7 +136,6 @@ export const logoutEmployeeThunk = createAsyncThunk(
   },
 );
 
-// New: Update Employee
 export const updateEmployeeThunk = createAsyncThunk<
   Employee,
   { userId: number | string; updateData: Partial<Employee> },
@@ -178,7 +182,7 @@ export const fetchEmployeesByStatusThunk = createAsyncThunk<
 });
 
 export const fetchReportingManagersByDepartmentThunk = createAsyncThunk<
-  Employee[], // ✅ array return hoga
+  Employee[],
   string,
   { rejectValue: string }
 >(
@@ -194,7 +198,19 @@ export const fetchReportingManagersByDepartmentThunk = createAsyncThunk<
   },
 );
 
-//  Slice
+export const fetchHREmployeesThunk = createAsyncThunk<
+  Employee[],
+  void,
+  { rejectValue: string }
+>("Employee/fetchHREmployees", async (_, { rejectWithValue }) => {
+  try {
+    return await getHREmployees();
+  } catch (error: any) {
+    return rejectWithValue(error.message || "Failed to fetch HR employees");
+  }
+});
+
+// ─── Slice ────────────────────────────────────────────────────────────────────
 const EmployeeSlice = createSlice({
   name: "Employee",
   initialState,
@@ -207,44 +223,32 @@ const EmployeeSlice = createSlice({
       state.createdEmployee = null;
       state.initialized = true;
     },
-
     clearError: (state) => {
       state.error = null;
     },
-
     resetState: () => initialState,
-
-    // REALTIME CREATE
     employeeCreatedRealtime: (state, action: PayloadAction<Employee>) => {
       state.employees.unshift(action.payload);
-      state.totalEmployees += 1;
+      if (state.pagination) state.pagination.total += 1;
     },
-
     employeeUpdatedRealtime: (state, action: PayloadAction<Employee>) => {
       const index = state.employees.findIndex(
         (emp) => emp.id === action.payload.id,
       );
-
       if (index !== -1) {
         state.employees[index] = {
           ...state.employees[index],
           ...action.payload,
         };
       }
-
       if (state.currentEmployee?.id === action.payload.id) {
-        state.currentEmployee = {
-          ...state.currentEmployee,
-          ...action.payload,
-        };
+        state.currentEmployee = { ...state.currentEmployee, ...action.payload };
       }
     },
-
     employeeStatusUpdatedRealtime: (state, action: PayloadAction<Employee>) => {
       const index = state.employees.findIndex(
         (emp) => emp.id === action.payload.id,
       );
-
       if (index !== -1) {
         state.employees[index] = {
           ...state.employees[index],
@@ -255,7 +259,7 @@ const EmployeeSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      //  LOGIN
+      // LOGIN
       .addCase(loginEmployeeThunk.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -278,7 +282,7 @@ const EmployeeSlice = createSlice({
         state.initialized = true;
       })
 
-      //  CURRENT EMPLOYEE
+      // CURRENT EMPLOYEE
       .addCase(currentEmployeeThunk.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -305,7 +309,7 @@ const EmployeeSlice = createSlice({
         state.initialized = true;
       })
 
-      //  CREATE EMPLOYEE
+      // CREATE EMPLOYEE
       .addCase(createEmployeeThunk.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -322,7 +326,7 @@ const EmployeeSlice = createSlice({
         state.error = action.payload as string;
       })
 
-      //  FETCH EMPLOYEES
+      // ✅ FETCH EMPLOYEES — pagination object store karo
       .addCase(fetchEmployeesThunk.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -330,16 +334,14 @@ const EmployeeSlice = createSlice({
       .addCase(fetchEmployeesThunk.fulfilled, (state, action) => {
         state.loading = false;
         state.employees = action.payload.employees;
-        state.totalEmployees = action.payload.totalEmployees;
-        state.page = action.payload.currentPage;
-        state.totalPages = action.payload.totalPages;
+        state.pagination = action.payload.pagination ?? null;
       })
       .addCase(fetchEmployeesThunk.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       })
 
-      //  LOGOUT
+      // LOGOUT
       .addCase(logoutEmployeeThunk.pending, (state) => {
         state.loading = true;
       })
@@ -358,7 +360,7 @@ const EmployeeSlice = createSlice({
         state.initialized = true;
       })
 
-      //  UPDATE EMPLOYEE
+      // UPDATE EMPLOYEE
       .addCase(updateEmployeeThunk.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -367,14 +369,10 @@ const EmployeeSlice = createSlice({
         updateEmployeeThunk.fulfilled,
         (state, action: PayloadAction<Employee>) => {
           state.loading = false;
-
           const index = state.employees.findIndex(
             (emp) => emp.id === action.payload.id,
           );
-          if (index !== -1) {
-            state.employees[index] = action.payload;
-          }
-
+          if (index !== -1) state.employees[index] = action.payload;
           if (state.currentEmployee?.id === action.payload.id) {
             state.currentEmployee = action.payload;
           }
@@ -385,16 +383,14 @@ const EmployeeSlice = createSlice({
         state.error = action.payload as string;
       })
 
-      //  UPDATE EMPLOYEE STATUS
+      // UPDATE EMPLOYEE STATUS
       .addCase(
         updateEmployeeStatusThunk.fulfilled,
         (state, action: PayloadAction<Employee>) => {
           state.loading = false;
-
           const index = state.employees.findIndex(
             (emp) => emp.id === action.payload.id,
           );
-
           if (index !== -1) {
             state.employees[index] = {
               ...state.employees[index],
@@ -416,9 +412,14 @@ const EmployeeSlice = createSlice({
       .addCase(fetchEmployeesByStatusThunk.fulfilled, (state, action) => {
         state.loading = false;
         state.employees = action.payload.employees;
-        state.totalEmployees = action.payload.totalEmployees;
-        state.page = action.payload.currentPage;
-        state.totalPages = action.payload.totalPages;
+        state.pagination = {
+          currentPage: action.payload.currentPage,
+          totalPages: action.payload.totalPages,
+          total: action.payload.totalEmployees,
+          limit: state.pagination?.limit ?? 10,
+          hasPrevPage: action.payload.currentPage > 1,
+          hasNextPage: action.payload.currentPage < action.payload.totalPages,
+        };
       })
       .addCase(fetchEmployeesByStatusThunk.rejected, (state, action) => {
         state.loading = false;
@@ -435,14 +436,10 @@ const EmployeeSlice = createSlice({
         (state, action: PayloadAction<Employee>) => {
           state.loading = false;
           state.selectedEmployee = action.payload;
-
           const index = state.employees.findIndex(
             (emp) => emp.id === action.payload.id,
           );
-
-          if (index !== -1) {
-            state.employees[index] = action.payload;
-          }
+          if (index !== -1) state.employees[index] = action.payload;
         },
       )
       .addCase(getEmployeeByIdThunk.rejected, (state, action) => {
@@ -450,12 +447,11 @@ const EmployeeSlice = createSlice({
         state.error = action.payload as string;
       })
 
-      // ✅ FETCH REPORTING MANAGERS
+      // FETCH REPORTING MANAGERS
       .addCase(fetchReportingManagersByDepartmentThunk.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-
       .addCase(
         fetchReportingManagersByDepartmentThunk.fulfilled,
         (state, action: PayloadAction<Employee[]>) => {
@@ -463,14 +459,30 @@ const EmployeeSlice = createSlice({
           state.reportingManagers = action.payload;
         },
       )
-
       .addCase(
         fetchReportingManagersByDepartmentThunk.rejected,
         (state, action) => {
           state.loading = false;
           state.error = action.payload as string;
         },
-      );
+      )
+
+      // FETCH HR EMPLOYEES
+      .addCase(fetchHREmployeesThunk.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(
+        fetchHREmployeesThunk.fulfilled,
+        (state, action: PayloadAction<Employee[]>) => {
+          state.loading = false;
+          state.hrEmployees = action.payload;
+        },
+      )
+      .addCase(fetchHREmployeesThunk.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
   },
 });
 

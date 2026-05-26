@@ -44,6 +44,7 @@ import ZonalDashboard from "./pages/Dashboard/ZonalDashboard";
 import HodDashboard from "./pages/Dashboard/HodDashboard";
 import Profile from "./pages/Profile";
 import { RouteGuard } from "./components/routeguard";
+import  BackgroundVerification  from "./pages/BackgroundVerification";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +87,7 @@ const App = () => (
                 path="/onboarding-submitted"
                 element={<OnboardingSubmitted />}
               />
+
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
               {/* ── Protected ── */}
@@ -173,6 +175,10 @@ const App = () => (
                   {/* ── Assets — guarded ── */}
                   <Route element={<RouteGuard allowedPath="/assets" />}>
                     <Route path="/assets" element={<AssetManagement />} />
+                    <Route
+                      path="/background-verification"
+                      element={<BackgroundVerification />}
+                    />
                   </Route>
                 </Route>
               </Route>

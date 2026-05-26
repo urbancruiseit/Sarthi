@@ -21,6 +21,7 @@ import {
 import { Phone, MapPin, Clock, Info, Briefcase, Calendar } from "lucide-react";
 import {
   fetchEmployeesThunk,
+  fetchHREmployeesThunk,
   fetchReportingManagersByDepartmentThunk,
 } from "@/redux/features/userSlice";
 import { fetchBranchesThunk } from "@/redux/features/branch/branchSlice";
@@ -192,13 +193,15 @@ export function StepEmployment({
   const [ho, setHo] = useState<any[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
   const { reportingManagers } = useSelector((state: RootState) => state.user);
-console.log(reportingManagers)
+  const hrEmployees = useSelector((state: RootState) => state.user.hrEmployees);
+
   useEffect(() => {
     dispatch(fetchDepartments());
     dispatch(fetchAllCities());
     dispatch(fetchEmployeesThunk(1));
     dispatch(fetchBranchesThunk());
     dispatch(fetchAllGrades());
+    dispatch(fetchHREmployeesThunk());
   }, [dispatch]);
 
   // ✅ Department select hone par Sub-Departments fetch karo
@@ -274,8 +277,6 @@ console.log(reportingManagers)
   const handleShiftChange = (shift: string) => {
     onChange({ workShift: shift, shiftTiming: "" });
   };
-
-
 
   const handleDepartmentChange = (value: string) => {
     const dept = departments.find((d) => d.id === Number(value));
@@ -502,11 +503,21 @@ console.log(reportingManagers)
 
           {/* HR Manager */}
           <F label="HR Manager" required error={showErrors && errors.hrManager}>
-            <Input
+            <Select
               value={data.hrManager || ""}
-              onChange={(e) => onChange({ hrManager: e.target.value })}
-              placeholder="Enter HR manager name"
-            />
+              onValueChange={(v) => onChange({ hrManager: v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select HR Manager" />
+              </SelectTrigger>
+              <SelectContent>
+                {hrEmployees?.map((emp: any) => (
+                  <SelectItem key={emp.id} value={emp.id}>
+                    {emp.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </F>
         </div>
       </div>
@@ -519,7 +530,7 @@ console.log(reportingManagers)
           color="text-purple-600"
         />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <F label="Official Email" >
+          <F label="Official Email">
             <Input
               type="email"
               value={data.officeEmail || ""}
@@ -528,7 +539,7 @@ console.log(reportingManagers)
             />
           </F>
 
-          <F label="Official Number" >
+          <F label="Official Number">
             <Input
               type="tel"
               maxLength={10}
@@ -543,8 +554,7 @@ console.log(reportingManagers)
             />
           </F>
 
-
-          <F label="Alias Name" >
+          <F label="Alias Name">
             <Input
               type="tel"
               maxLength={10}
@@ -553,11 +563,6 @@ console.log(reportingManagers)
               placeholder="Enter Alias Name"
             />
           </F>
-
-
-
-
-
         </div>
       </div>
 

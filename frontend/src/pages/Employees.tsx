@@ -2,15 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useAppDispatch } from "@/hooks/useRedux";
 import { StatusBadge } from "@/components/StatusBadge";
 
-import {
-  Search,
-  Filter,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Pencil,
-  FileEdit,
-} from "lucide-react";
+import { Search, Filter, Eye, Pencil, FileEdit } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -21,7 +13,6 @@ import {
 import { format } from "date-fns";
 import { EmployeeStatus } from "@/types";
 import { EmployeeDetailModal } from "@/components/EmployeeDetailModal";
-import { useNavigate } from "react-router-dom";
 import { EmploymentDetails } from "@/components/EmploymentDetails";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
@@ -34,6 +25,7 @@ import { fetchDepartments } from "@/redux/features/department/departmentSlice";
 import { ApprovalPopup } from "@/components/ApprovalPopup";
 import AddEmployee from "@/pages/AddEmployee";
 import { SkeletonLoader } from "@/components/Loading";
+import { Pagination } from "@/components/Pagination/Pagination";
 
 const formatDate = (date?: string | null) => {
   if (!date) return "-";
@@ -45,7 +37,8 @@ const formatDate = (date?: string | null) => {
 export default function Employees() {
   const dispatch = useAppDispatch();
 
-  const { employees, totalPages, currentPage, loading } = useSelector(
+  // ✅ pagination object from Redux (updated slice ke saath)
+  const { employees, pagination, loading } = useSelector(
     (state: RootState) => state.user,
   );
   const { departments } = useSelector((state: RootState) => state.department);
@@ -55,7 +48,10 @@ export default function Employees() {
   const [statusFilter, setStatusFilter] = useState<EmployeeStatus | "all">(
     "all",
   );
-  const [page, setPage] = useState(1);
+
+  // ✅ Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   const [selectedViewId, setSelectedViewId] = useState<number | null>(null);
   const [selectedEmploymentId, setSelectedEmploymentId] = useState<
@@ -72,15 +68,33 @@ export default function Employees() {
     ? employees.find((e) => e.id === selectedViewId)
     : null;
 
+  // ✅ page ya limit change hone par fetch
   useEffect(() => {
-    if (statusFilter === "all") dispatch(fetchEmployeesThunk(page));
-    else dispatch(fetchEmployeesByStatusThunk({ page, status: statusFilter }));
+    if (statusFilter === "all") {
+      dispatch(fetchEmployeesThunk({ page: currentPage, limit }));
+    } else {
+      dispatch(
+        fetchEmployeesByStatusThunk({
+          page: currentPage,
+          status: statusFilter,
+        }),
+      );
+    }
     dispatch(fetchDepartments());
-  }, [dispatch, page, statusFilter]);
+  }, [dispatch, currentPage, limit, statusFilter]);
 
   const handleStatusChange = (value: EmployeeStatus | "all") => {
     setStatusFilter(value);
-    setPage(1);
+    setCurrentPage(1); // filter change hone par page reset
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit);
+    setCurrentPage(1); // limit change hone par page reset
   };
 
   useEffect(() => {
@@ -106,7 +120,7 @@ export default function Employees() {
         <div>
           <h1 className="text-2xl font-bold">Employees</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {employees.length} employees found
+            {pagination?.total ?? employees.length} employees found
           </p>
         </div>
       </div>
@@ -296,28 +310,18 @@ export default function Employees() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t">
-            <p className="text-sm text-muted-foreground">
-              Page {currentPage} of {totalPages}
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
-                className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-40"
-              >
-                <ChevronLeft size={15} />
-              </button>
-              <button
-                disabled={page === totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="p-1.5 rounded-lg hover:bg-muted disabled:opacity-40"
-              >
-                <ChevronRight size={15} />
-              </button>
-            </div>
-          </div>
+        {/* ✅ Tumhara Pagination component — purana wala hata diya */}
+        {pagination && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            limit={limit}
+            hasPrevPage={pagination.hasPrevPage}
+            hasNextPage={pagination.hasNextPage}
+            onPageChange={handlePageChange}
+            onLimitChange={handleLimitChange}
+          />
         )}
       </div>
 

@@ -14,6 +14,7 @@ import zoneReducer from "../redux/features/Zone/zoneSlice";
 import zoneCityReducer from "../redux/features/ZoneCity/zoneCitySlice";
 import accessControlReducer from "../redux/features/Accesscontrol/accesscontrolSlice";
 import countryReducer from "../redux/features/Country/countrySlice";
+import bgvReducer from "../redux/features/BackgroundVerification/BackgroundVerificationSlice";
 
 export const store = configureStore({
   reducer: {
@@ -32,6 +33,7 @@ export const store = configureStore({
     zoneCities: zoneCityReducer,
     accessControl: accessControlReducer,
     country: countryReducer,
+    bgv: bgvReducer,
   },
 });
 

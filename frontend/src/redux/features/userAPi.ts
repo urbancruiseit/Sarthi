@@ -113,10 +113,20 @@ export interface PaginatedEmployeeResponse {
 
 export const getAllEmployees = async (
   page?: number,
+  limit?: number,
 ): Promise<PaginatedEmployeeResponse> => {
   try {
-    const hasPage = page !== undefined && page !== null;
-    const url = hasPage ? `/user?page=${page}` : `/user`;
+    const params = new URLSearchParams();
+
+    if (page !== undefined && page !== null) {
+      params.append("page", String(page));
+    }
+    if (limit !== undefined && limit !== null) {
+      params.append("limit", String(limit));
+    }
+
+    const queryString = params.toString();
+    const url = queryString ? `/user?${queryString}` : `/user`;
 
     const response =
       await axiosInstance.get<ApiResponse<PaginatedEmployeeResponse>>(url);
@@ -215,5 +225,26 @@ export const getReportingManagersByDepartment = async (
     console.error("Fetch Reporting Managers Error:", message);
 
     throw new Error(message); // ✅ clean error throw
+  }
+};
+
+export const getHREmployees = async () => {
+  try {
+    const response = await axiosInstance.get(`/user/hr-employees`);
+
+    if (response.data?.success) {
+      return response.data.data;
+
+      console.log(" getHREmployees ", response.data.data);
+    } else {
+      throw new Error(response.data?.message || "Failed to fetch HR employees");
+    }
+  } catch (error: any) {
+    const message =
+      error.response?.data?.message || error.message || "Something went wrong";
+
+    console.error("Fetch HR Employees Error:", message);
+
+    throw new Error(message);
   }
 };

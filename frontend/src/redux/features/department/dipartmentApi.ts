@@ -18,8 +18,6 @@ export const getAllDepartments = async (): Promise<Department[]> => {
     const response =
       await axiosInstance.get<ApiResponse<Department[]>>(`/department`);
 
-    console.log(response);
-
     if (response.data.success && response.data.data) {
       return response.data.data;
     } else {
@@ -34,15 +32,13 @@ export const getAllDepartments = async (): Promise<Department[]> => {
   }
 };
 
-export const getDepartmentRoles = async (
+export const getDepartmentRoles = async ( 
   departmentId: number,
 ): Promise<DepartmentRole[]> => {
   try {
     const response = await axiosInstance.get<ApiResponse<DepartmentRole[]>>(
       `/department/${departmentId}`,
     );
-
-    console.log("Department Roles Response:", response);
 
     if (response.data.success && response.data.data) {
       return response.data.data;
@@ -64,12 +60,9 @@ export const getRolesBySubDepartment = async (
   subDepartmentId: number,
 ): Promise<DepartmentRole[]> => {
   try {
-    console.log("subDepartmentId", subDepartmentId);
     const response = await axiosInstance.get<ApiResponse<DepartmentRole[]>>(
       `/department/role/${subDepartmentId}`,
     );
-
-    console.log("subDepartment Roles Response:", response);
 
     if (response.data.success && response.data.data) {
       return response.data.data;
@@ -93,9 +86,7 @@ export const getHoByDepartment = async (
   try {
     const response = await axiosInstance.get<ApiResponse<DepartmentRole[]>>(
       `/department/ho/${departmentId}`,
-    );
-
-    console.log("Department Roles Response:", response);
+    ); 
 
     if (response.data.success && response.data.data) {
       return response.data.data;

@@ -10,11 +10,11 @@ import {
   Activity,
   DollarSign,
 } from "lucide-react";
-import { useAppSelector } from "@/hooks/useRedux";
+import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { useAuth } from "@/context/AuthContext";
+
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ChartCard } from "@/components/dashboard/ChartCard";
 import { CircularProgress } from "@/components/dashboard/CircularProgress";
@@ -42,6 +42,8 @@ import {
   recentActivity,
   payrollSummary,
 } from "@/utils/mockChartData";
+import { useEffect } from "react";
+import { fetchEmployeesThunk } from "@/redux/features/userSlice";
 
 const CHART_COLORS = {
   primary: "hsl(145, 63%, 42%)",
@@ -54,7 +56,7 @@ const CHART_COLORS = {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-
+  const dispatch = useAppDispatch();
   const { employees, currentEmployee } = useAppSelector((state) => state.user);
 
   const stats = {
@@ -403,7 +405,7 @@ export default function AdminDashboard() {
                     </th>
                   </tr>
                 </thead>
-                <tbody>
+                {/* <tbody>
                   {employees.map((emp) => (
                     <tr
                       key={emp.id}
@@ -442,7 +444,7 @@ export default function AdminDashboard() {
                       </td>
                     </tr>
                   ))}
-                </tbody>
+                </tbody> */}
               </table>
             </div>
           </ChartCard>

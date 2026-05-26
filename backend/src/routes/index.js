@@ -16,6 +16,7 @@ import stateRouter from "../module/state/state.route.js";
 import noticeRouter from "../module/Notice/notice.route.js";
 import countryRouter from "../module/Access/country/country.route.js";
 import accessControlRouter from "../module/Accesscontrol/Accesscontrol.route.js";
+import backgroundRouter from "../module/BackgroundVerification/BackgroundVerification.route.js";
 
 const registerRoutes = (app) => {
   app.use("/api/v1/link", linkRouter);
@@ -35,6 +36,7 @@ const registerRoutes = (app) => {
   app.use("/api/v1/notices", noticeRouter);
   app.use("/api/v1/country", countryRouter);
   app.use("/api/v1/access-control", accessControlRouter);
+  app.use("/api/v1/background", backgroundRouter);
 };
 
 export default registerRoutes;

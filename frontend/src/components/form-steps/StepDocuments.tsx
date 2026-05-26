@@ -53,13 +53,13 @@ const docFields: Array<{
     desc: "Upload candidate signature (Image max 100KB)",
     accept: ".jpg,.jpeg,.png",
   },
-
   {
     key: "resumeUploaded",
     label: "Resume / CV *",
     desc: "Latest resume (PDF max 300KB)",
     accept: ".pdf",
   },
+  // ✅ currentAddressProofUploaded hata diya — ab StepAddress mein hai
 ];
 
 export function StepDocuments({ data, onChange }: StepProps) {
@@ -86,11 +86,8 @@ export function StepDocuments({ data, onChange }: StepProps) {
 
     try {
       loadingId = toast.loading("Uploading document...");
-
       const url = await uploadToCloudinary(file);
-
       onChange({ [key]: url } as Partial<Employee>);
-
       toast.success("File uploaded successfully");
     } catch (error) {
       toast.error("Upload failed");
@@ -175,7 +172,6 @@ export function StepDocuments({ data, onChange }: StepProps) {
                     </>
                   )}
                 </span>
-
                 <input
                   type="file"
                   className="hidden"

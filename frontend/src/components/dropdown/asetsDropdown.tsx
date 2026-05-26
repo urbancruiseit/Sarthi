@@ -102,6 +102,25 @@ function AsetDropdown() {
               </div>
             </div>
           </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onClick={() => navigate("/background-verification")}
+            className="cursor-pointer rounded-lg py-2.5 hover:bg-red-50 hover:text-red-600 focus:bg-red-50 focus:text-red-600 group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 rounded-md bg-red-100 text-red-600 group-hover:bg-red-200 transition-colors">
+                <CalendarRange size={14} />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">
+                  Background Verification
+                </span>
+                <span className="text-xs text-gray-500">
+                  Manage employee verification
+                </span>
+              </div>
+            </div>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 

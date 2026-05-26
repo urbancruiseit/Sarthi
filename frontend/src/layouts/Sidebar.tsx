@@ -99,6 +99,7 @@ const ALL_ROUTES = [
   "/hr-policies",
   "/access",
   "/assets",
+  "/background-verification",
 ];
 
 type RouteAccessMap = Partial<Record<AccessRole, string[]>>;

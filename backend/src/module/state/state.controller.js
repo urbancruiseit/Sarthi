@@ -39,10 +39,8 @@ const fetchAllCities = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, cities, "All cities fetched successfully"));
 });
 const getAllGareds = asyncHandler(async (req, res) => {
-  console.log("mai grades ko feth karwa rha hu or uska controllers hu ");
   const gradeList = await getGrades();
 
-  console.log("Grades:", gradeList);
   res
     .status(200)
     .json(new ApiResponse(200, gradeList || [], "Grades fetched successfully"));
