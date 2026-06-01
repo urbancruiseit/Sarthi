@@ -18,13 +18,15 @@ import { toast } from "sonner";
 import EmployeeDropdown from "@/components/dropdown/EmployeeDropdown";
 import OpsDropdown from "@/components/dropdown/opsDropdown";
 import PolicieDropdown from "@/components/dropdown/PolicieDropdown";
-import axiosInstance from "@/utils/axiosInstance";
+import axiosInstance, { baseApi } from "@/utils/axiosInstance";
 import {
   currentEmployeeThunk,
   logoutEmployeeThunk,
 } from "@/redux/features/userSlice";
 import { ChangePasswordModal } from "@/components/Changepasswordmodal";
 import AsetDropdown from "@/components/dropdown/asetsDropdown";
+import DocumentDropdown from "@/components/dropdown/documentDropdown";
+import axios from "axios";
 
 interface TopbarProps {
   onMenuClick?: () => void;
@@ -56,14 +58,15 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
   const generateLink = async () => {
     try {
-      const res = await axiosInstance.get("/link/generate-onboarding-link");
+      const res = await axios.get(`${baseApi}link/generate-onboarding-link`);
+
       const link = res.data.link;
       await navigator.clipboard.writeText(link);
       toast.success("Link copied successfully!");
     } catch (error) {
       console.error(error);
       toast.error("Failed to generate link");
-    }
+    } 
   };
 
   const handleLogout = async () => {
@@ -117,6 +120,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           <OpsDropdown />
           <PolicieDropdown />
           <AsetDropdown />
+          <DocumentDropdown />
         </div>
 
         {/* RIGHT — Notifications + Profile */}

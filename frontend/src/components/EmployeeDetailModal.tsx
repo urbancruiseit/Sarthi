@@ -643,9 +643,9 @@ export function EmployeeDetailModal({ employee, onClose }: Props) {
 
                 <Field
                   label="Reporting Manager"
-                  value={employee.manager_firstName}
+                  value={employee.manager_name}
                 />
-                <Field label="HR Manager" value={employee.hrManager} />
+                <Field label="HR Manager" value={employee.hrManager_name} />
                 <Field label="Short Name" value={employee.shortName} />
               </Section>
 

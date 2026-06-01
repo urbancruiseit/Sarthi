@@ -656,6 +656,9 @@ export const allEmployee = async (page, limit) => {
         u.grade,
         u.noticePeriod,
         u.hrManager,
+        hr.firstName as manager_firstName,
+        hr.lastName as manager_lastName,
+        CONCAT(hr.firstName, ' ', hr.lastName) as hrManager_name,
         u.probationTenure,
         u.employmentType,
         u.workLocation,
@@ -678,6 +681,7 @@ export const allEmployee = async (page, limit) => {
       LEFT JOIN sub_department des ON u.subDepartment_id = des.id
       LEFT JOIN roles r ON u.role_id = r.id
       LEFT JOIN users m ON u.manager_id = m.id
+      LEFT JOIN users hr ON u.hrManager = hr.id
       ORDER BY u.created_at DESC
     `;
 

@@ -123,6 +123,7 @@ const STEP_REQUIRED_FIELDS: Record<number, string[]> = {
     "currentCity",
     "currentState",
     "currentPincode",
+    "permanentAddressProofUploaded",
   ],
   3: [
     "fatherName",
@@ -156,7 +157,6 @@ const STEP_REQUIRED_FIELDS: Record<number, string[]> = {
     "twelthCertificateUploaded",
     "graduationCertificateUploaded",
     "resumeUploaded",
-    "currentAddressProofUploaded",
   ],
   8: [
     "hrPolicyAccepted",

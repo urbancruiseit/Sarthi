@@ -179,10 +179,10 @@ export default function Employees() {
 
       {/* Table */}
       <div className="stat-card overflow-hidden p-0">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto max-h-[580px]">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-border bg-white shadow-sm">
                 <th className="text-left px-4 py-3 text-sm uppercase">
                   Employee
                 </th>

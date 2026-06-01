@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const envApi = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "");
+const envApi = (import.meta.env.VITE_API_URL as string | undefined)?.replace(
+  /\/+$/,
+  "",
+);
 export const baseApi = envApi ? `${envApi}/` : "/api/v1/";
 
 const axiosInstance = axios.create({
@@ -34,7 +37,11 @@ axiosInstance.interceptors.response.use(
     }
 
     // ✅ Yeh endpoints refresh trigger nahi karenge - seedha reject
-    const skipRefreshUrls = ["/auth/check-auth", "/user/login"];
+    const skipRefreshUrls = [
+      "/auth/check-auth",
+      "/user/login",
+      " link/generate-onboarding-link",
+    ];
     if (skipRefreshUrls.some((url) => originalRequest.url?.includes(url))) {
       return Promise.reject(error); // ✅ redirect nahi, sirf reject
     }

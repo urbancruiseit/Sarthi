@@ -17,7 +17,6 @@ import {
   ClipboardList,
   Eye,
   Download,
-  Mail,
   CheckCircle,
   ArrowLeft,
   ArrowRight,
@@ -28,8 +27,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import DocumentPreviewModal from "@/components/DocumentPreviewModal";
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const LETTER_TYPES: { value: DocType; label: string; color: string }[] = [
   {
@@ -66,6 +66,19 @@ const STEPS = [
   { label: "Preview", icon: Eye },
 ];
 
+const NEW_CANDIDATE_FIELDS: { key: string; label: string; type?: string }[] = [
+  { key: "fullName", label: "Full Name" },
+  { key: "email", label: "Email Address" },
+  { key: "phone", label: "Phone Number" },
+  { key: "designation", label: "Designation" },
+  { key: "department", label: "Department" },
+  { key: "salaryPackage", label: "Proposed Salary" },
+  { key: "joiningDate", label: "Joining Date", type: "date" },
+  { key: "workLocation", label: "Work Location" },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function CreateLetter() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -81,7 +94,6 @@ export default function CreateLetter() {
   const [empSearch, setEmpSearch] = useState("");
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [showPreview, setShowPreview] = useState(false);
-  // For offer letter: "existing" or "new" candidate mode
   const [candidateMode, setCandidateMode] = useState<"existing" | "new" | null>(
     null,
   );
@@ -99,124 +111,16 @@ export default function CreateLetter() {
     [employees, empSearch],
   );
 
-  const updateField = (key: string, value: string) =>
-    setFormData((p) => ({ ...p, [key]: value }));
-
-  // Initialize form when employee selected
-  const selectEmployee = (emp: Employee) => {
-    setSelectedEmployee(emp);
-    const name = `${emp.firstName} ${emp.lastName}`;
-    const base: Record<string, string> = { employeeName: name };
-
-    if (letterType === "offer-letter") {
-      Object.assign(base, {
-        designation: emp.designation,
-        department: emp.department,
-        salaryPackage: "",
-        joiningDate: emp.joiningDate,
-        workLocation: emp.workLocation || emp.officeLocation,
-        reportingManager: emp.reportingManager,
-      });
-    } else if (letterType === "confirmation-letter") {
-      Object.assign(base, {
-        employeeIdField: emp.employeeId,
-        designation: emp.designation,
-        confirmationDate: format(new Date(), "yyyy-MM-dd"),
-        remarks: "",
-      });
-    } else if (letterType === "increment-letter") {
-      Object.assign(base, {
-        currentSalary: "",
-        newSalary: "",
-        incrementPercentage: "",
-        effectiveDate: format(new Date(), "yyyy-MM-dd"),
-        reason: "",
-      });
-    } else if (letterType === "promotion-letter") {
-      Object.assign(base, {
-        oldDesignation: emp.designation,
-        newDesignation: "",
-        newSalary: "",
-        effectiveDate: format(new Date(), "yyyy-MM-dd"),
-      });
-    } else if (letterType === "relieving-letter") {
-      Object.assign(base, {
-        designation: emp.designation,
-        lastWorkingDate: format(new Date(), "yyyy-MM-dd"),
-        reasonForLeaving: "",
-        clearanceStatus: "Pending",
-      });
-    }
-    setFormData(base);
-  };
-
-  const getFormFields = (): { key: string; label: string; type?: string }[] => {
-    switch (letterType) {
-      case "offer-letter":
-        return [
-          { key: "employeeName", label: "Employee Name" },
-          { key: "designation", label: "Designation" },
-          { key: "department", label: "Department" },
-          { key: "salaryPackage", label: "Salary Package" },
-          { key: "joiningDate", label: "Joining Date", type: "date" },
-          { key: "workLocation", label: "Work Location" },
-          { key: "reportingManager", label: "Reporting Manager" },
-        ];
-      case "confirmation-letter":
-        return [
-          { key: "employeeName", label: "Employee Name" },
-          { key: "employeeIdField", label: "Employee ID" },
-          { key: "designation", label: "Designation" },
-          { key: "confirmationDate", label: "Confirmation Date", type: "date" },
-          { key: "remarks", label: "Remarks" },
-        ];
-      case "increment-letter":
-        return [
-          { key: "employeeName", label: "Employee Name" },
-          { key: "currentSalary", label: "Current Salary" },
-          { key: "newSalary", label: "New Salary" },
-          { key: "incrementPercentage", label: "Increment Percentage (%)" },
-          { key: "effectiveDate", label: "Effective Date", type: "date" },
-          { key: "reason", label: "Reason" },
-        ];
-      case "promotion-letter":
-        return [
-          { key: "employeeName", label: "Employee Name" },
-          { key: "oldDesignation", label: "Old Designation" },
-          { key: "newDesignation", label: "New Designation" },
-          { key: "newSalary", label: "New Salary" },
-          { key: "effectiveDate", label: "Effective Date", type: "date" },
-        ];
-      case "relieving-letter":
-        return [
-          { key: "employeeName", label: "Employee Name" },
-          { key: "lastWorkingDate", label: "Last Working Date", type: "date" },
-          { key: "designation", label: "Designation" },
-          { key: "reasonForLeaving", label: "Reason for Leaving" },
-          { key: "clearanceStatus", label: "Clearance Status" },
-        ];
-      default:
-        return [];
-    }
-  };
-
   const isOfferNewCandidate =
     letterType === "offer-letter" && candidateMode === "new";
 
-  const getNewCandidateFields = (): {
-    key: string;
-    label: string;
-    type?: string;
-  }[] => [
-    { key: "fullName", label: "Full Name" },
-    { key: "email", label: "Email Address" },
-    { key: "phone", label: "Phone Number" },
-    { key: "designation", label: "Designation" },
-    { key: "department", label: "Department" },
-    { key: "salaryPackage", label: "Proposed Salary" },
-    { key: "joiningDate", label: "Joining Date", type: "date" },
-    { key: "workLocation", label: "Work Location" },
-  ];
+  const updateField = (key: string, value: string) =>
+    setFormData((p) => ({ ...p, [key]: value }));
+
+  const selectEmployee = (emp: Employee) => {
+    setSelectedEmployee(emp);
+    if (letterType) setFormData(initOfferLetterFormData(emp, letterType));
+  };
 
   const selectNewCandidate = () => {
     setCandidateMode("new");
@@ -230,7 +134,6 @@ export default function CreateLetter() {
     setNewCandidateData({});
   };
 
-  // Build a pseudo-employee from new candidate data for preview/download
   const buildCandidateEmployee = (): Employee => ({
     id: `candidate-${Date.now()}`,
     employeeId: "NEW-CANDIDATE",
@@ -268,29 +171,29 @@ export default function CreateLetter() {
     status: "pending",
   });
 
+  const getEffectiveEmployee = (): Employee | null =>
+    isOfferNewCandidate ? buildCandidateEmployee() : selectedEmployee;
+
   const canNext = () => {
     if (step === 0) {
       if (letterType === "offer-letter") return !!letterType && !!candidateMode;
       return !!letterType;
     }
     if (step === 1) {
-      if (isOfferNewCandidate) {
-        return getNewCandidateFields().every((f) =>
+      if (isOfferNewCandidate)
+        return NEW_CANDIDATE_FIELDS.every((f) =>
           newCandidateData[f.key]?.trim(),
         );
-      }
       return !!selectedEmployee;
     }
     if (step === 2) {
-      if (isOfferNewCandidate) return true; // review step, always valid
-      return getFormFields().every((f) => formData[f.key]?.trim());
+      if (isOfferNewCandidate) return true;
+      if (!letterType) return false;
+      return getOfferLetterFields(letterType).every((f) =>
+        formData[f.key]?.trim(),
+      );
     }
     return true;
-  };
-
-  const getEffectiveEmployee = (): Employee | null => {
-    if (isOfferNewCandidate) return buildCandidateEmployee();
-    return selectedEmployee;
   };
 
   const handleSave = (status: "draft" | "issued") => {
@@ -326,7 +229,9 @@ export default function CreateLetter() {
   const handleEmail = () => {
     const emp = getEffectiveEmployee();
     toast.success("Email sent successfully! (Simulated)", {
-      description: `${DOC_TYPE_LABELS[letterType!]} sent to ${isOfferNewCandidate ? newCandidateData.email : emp?.email}`,
+      description: `${DOC_TYPE_LABELS[letterType!]} sent to ${
+        isOfferNewCandidate ? newCandidateData.email : emp?.email
+      }`,
     });
   };
 
@@ -340,16 +245,14 @@ export default function CreateLetter() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-start justify-between">
-        {/* Left Side */}
         <div>
           <h1 className="text-2xl font-bold text-foreground">Create Letter</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Generate professional HR letters step by step
           </p>
         </div>
-
-        {/* Right Side Buttons */}
         <div className="flex gap-3">
           <Button
             onClick={() => navigate("/documents/manage")}
@@ -358,7 +261,6 @@ export default function CreateLetter() {
           >
             Manage Documents
           </Button>
-
           <Button
             onClick={() => navigate("/documents/templates")}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white"
@@ -412,6 +314,7 @@ export default function CreateLetter() {
         className="rounded-2xl border border-border bg-card p-6"
         style={{ boxShadow: "var(--shadow-card)" }}
       >
+        {/* ── Step 0: Letter Type ── */}
         {step === 0 && (
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-foreground">
@@ -449,7 +352,6 @@ export default function CreateLetter() {
               ))}
             </div>
 
-            {/* Candidate mode selector for Offer Letter */}
             {letterType === "offer-letter" && (
               <div className="space-y-3 pt-2 border-t border-border">
                 <h3 className="text-sm font-semibold text-foreground">
@@ -527,6 +429,7 @@ export default function CreateLetter() {
           </div>
         )}
 
+        {/* ── Step 1a: Select existing employee ── */}
         {step === 1 && !isOfferNewCandidate && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-foreground">
@@ -592,6 +495,7 @@ export default function CreateLetter() {
           </div>
         )}
 
+        {/* ── Step 1b: New candidate details ── */}
         {step === 1 && isOfferNewCandidate && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-foreground">
@@ -601,7 +505,7 @@ export default function CreateLetter() {
               Enter the candidate's details manually for the Offer Letter
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
-              {getNewCandidateFields().map(({ key, label, type }) => (
+              {NEW_CANDIDATE_FIELDS.map(({ key, label, type }) => (
                 <div key={key} className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">
                     {label}
@@ -623,29 +527,16 @@ export default function CreateLetter() {
           </div>
         )}
 
-        {step === 2 && !isOfferNewCandidate && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">
-              {DOC_TYPE_LABELS[letterType!]} — Details
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
-              {getFormFields().map(({ key, label, type }) => (
-                <div key={key} className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">
-                    {label}
-                  </label>
-                  <Input
-                    type={type || "text"}
-                    value={formData[key] || ""}
-                    onChange={(e) => updateField(key, e.target.value)}
-                    placeholder={`Enter ${label.toLowerCase()}`}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* ── Step 2a: Common letter details form ── */}
+        {step === 2 && !isOfferNewCandidate && letterType && (
+          <LetterDetailsForm
+            docType={letterType}
+            formData={formData}
+            onChange={updateField}
+          />
         )}
 
+        {/* ── Step 2b: Review new-candidate data ── */}
         {step === 2 && isOfferNewCandidate && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-foreground">
@@ -655,7 +546,7 @@ export default function CreateLetter() {
               Review the candidate details before proceeding to preview
             </p>
             <div className="rounded-lg border border-border overflow-hidden max-w-2xl">
-              {getNewCandidateFields().map(({ key, label }, i) => (
+              {NEW_CANDIDATE_FIELDS.map(({ key, label }, i) => (
                 <div
                   key={key}
                   className="flex text-sm"
@@ -676,6 +567,7 @@ export default function CreateLetter() {
           </div>
         )}
 
+        {/* ── Step 3: Preview & Actions ── */}
         {step === 3 &&
           letterType &&
           getEffectiveEmployee() &&
@@ -687,17 +579,16 @@ export default function CreateLetter() {
             const displayId = isOfferNewCandidate
               ? "New Candidate"
               : emp.employeeId;
-            const displayDesignation = emp.designation;
             const summaryFields = isOfferNewCandidate
-              ? getNewCandidateFields()
-              : getFormFields();
+              ? NEW_CANDIDATE_FIELDS
+              : getLetterFields(letterType);
             const summaryData = isOfferNewCandidate
               ? newCandidateData
               : formData;
             const initials = displayName
               ? displayName
                   .split(" ")
-                  .map((w) => w[0])
+                  .map((w: string) => w[0])
                   .join("")
                   .slice(0, 2)
                   .toUpperCase()
@@ -721,7 +612,7 @@ export default function CreateLetter() {
                         {displayName}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {displayId} · {displayDesignation}
+                        {displayId} · {emp.designation}
                       </p>
                       <span
                         className="inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-semibold"

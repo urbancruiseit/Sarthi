@@ -1,11 +1,152 @@
-import { useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useRef, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Printer, X } from "lucide-react";
+import { Download, X } from "lucide-react";
 import { Employee } from "@/types";
-import { DocType, DOC_TYPE_LABELS, generatePDF, getFilename } from "@/utils/documentGenerators";
+import { DocType, DOC_TYPE_LABELS } from "@/utils/documentGenerators";
 import { format } from "date-fns";
+import OfferLetterPreview from "./DocumentPreview/Offerletterpreview";
+import ConfirmationLetterPreview from "./DocumentPreview/Confirmationletterpreview";
+import IncrementLetterPreview from "./DocumentPreview/Incrementletterpreview";
+import PromotionLetterPreview from "./DocumentPreview/Promotionletterpreview";
+import RelievingLetterPreview from "./DocumentPreview/Relievingletterpreview";
 
+// ── CDN loader (same as OfferLetterPreview) ───────────────────────────────────
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve();
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+async function ensureLibs() {
+  await loadScript(
+    "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+  );
+  await loadScript(
+    "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+  );
+}
+
+// ── Build PDF from a DOM ref (same logic as OfferLetterPreview) ───────────────
+async function buildPDF(domRef: React.RefObject<HTMLDivElement>) {
+  await ensureLibs();
+  const { jsPDF } = (window as any).jspdf;
+
+  const canvas = await (window as any).html2canvas(domRef.current, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: "#ffffff",
+    logging: false,
+    scrollX: 0,
+    scrollY: 0,
+    windowWidth: domRef.current!.scrollWidth,
+    windowHeight: domRef.current!.scrollHeight,
+  });
+
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW_mm = pdf.internal.pageSize.getWidth();
+  const pageH_mm = pdf.internal.pageSize.getHeight();
+  const canvasW = canvas.width;
+  const canvasH = canvas.height;
+  const pageH_px = Math.floor((pageH_mm / pageW_mm) * canvasW);
+
+  let yOffset = 0;
+  while (yOffset < canvasH) {
+    const sliceH = Math.min(pageH_px, canvasH - yOffset);
+    const sliceCanvas = document.createElement("canvas");
+    sliceCanvas.width = canvasW;
+    sliceCanvas.height = sliceH;
+    const ctx = sliceCanvas.getContext("2d")!;
+    ctx.drawImage(canvas, 0, yOffset, canvasW, sliceH, 0, 0, canvasW, sliceH);
+    const imgData = sliceCanvas.toDataURL("image/jpeg", 0.95);
+    const renderedH_mm = sliceH * (pageW_mm / canvasW);
+    if (yOffset > 0) pdf.addPage();
+    pdf.addImage(imgData, "JPEG", 0, 0, pageW_mm, renderedH_mm);
+    yOffset += sliceH;
+  }
+  return pdf;
+}
+
+// ── REF prefix map ────────────────────────────────────────────────────────────
+const REF_PREFIX: Record<DocType, string> = {
+  "offer-letter": "OL",
+  "confirmation-letter": "CL",
+  "increment-letter": "IL",
+  "promotion-letter": "PL",
+  "relieving-letter": "RL",
+};
+
+// ── LetterBody ────────────────────────────────────────────────────────────────
+function LetterBody({
+  employee,
+  docType,
+  today,
+}: {
+  employee: Employee;
+  docType: DocType;
+  today: string;
+}) {
+  switch (docType) {
+    case "offer-letter":
+      return <OfferLetterPreview employee={employee} />;
+    case "confirmation-letter":
+      return <ConfirmationLetterPreview employee={employee} />;
+    case "increment-letter":
+      return <IncrementLetterPreview employee={employee} today={today} />;
+    case "promotion-letter":
+      return <PromotionLetterPreview employee={employee} today={today} />;
+    case "relieving-letter":
+      return <RelievingLetterPreview employee={employee} today={today} />;
+  }
+}
+
+// ── LetterContent ─────────────────────────────────────────────────────────────
+function LetterContent({
+  employee,
+  docType,
+  captureRef,
+}: {
+  employee: Employee;
+  docType: DocType;
+  captureRef: React.RefObject<HTMLDivElement>;
+}) {
+  const today = format(new Date(), "dd MMMM yyyy");
+  return (
+    <div
+      ref={captureRef}
+      className="space-y-4 text-sm leading-relaxed text-foreground print:text-black bg-white"
+    >
+      <div className="text-center">
+        <h3 className="text-xl font-bold text-foreground">
+          {DOC_TYPE_LABELS[docType].toUpperCase()}
+        </h3>
+      </div>
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>
+          Ref: {REF_PREFIX[docType]}-{employee.employeeId}
+        </span>
+        <span>Date: {today}</span>
+      </div>
+      <div className="space-y-3">
+        <LetterBody employee={employee} docType={docType} today={today} />
+      </div>
+    </div>
+  );
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -13,214 +154,59 @@ interface Props {
   docType: DocType;
 }
 
-function LetterContent({ employee, docType }: { employee: Employee; docType: DocType }) {
-  const today = format(new Date(), "dd MMMM yyyy");
-
-  const renderBody = () => {
-    switch (docType) {
-      case "offer-letter":
-        return (
-          <>
-            <p>Dear {employee.firstName} {employee.lastName},</p>
-            <p>We are pleased to offer you the position of <strong>{employee.designation}</strong> in our <strong>{employee.department}</strong> department. This offer is contingent upon successful completion of our standard background verification process.</p>
-            <table className="w-full text-sm border border-border rounded-lg overflow-hidden">
-              <tbody>
-                {[
-                  ["Position", employee.designation],
-                  ["Department", employee.department],
-                  ["Employment Type", employee.employmentType],
-                  ["Date of Joining", employee.joiningDate],
-                  ["Work Location", employee.workLocation || employee.officeLocation],
-                  ["Reporting Manager", employee.reportingManager],
-                  ["Shift Timing", employee.shiftTiming],
-                  ["Company Email", employee.companyEmail],
-                ].map(([l, v], i) => (
-                  <tr key={l} className={i % 2 === 0 ? "bg-muted/30" : ""}>
-                    <td className="px-3 py-2 font-medium text-muted-foreground w-40">{l}</td>
-                    <td className="px-3 py-2 text-foreground">{v || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p>Please sign and return a copy of this letter to confirm your acceptance. We look forward to welcoming you to our team.</p>
-          </>
-        );
-      case "confirmation-letter":
-        return (
-          <>
-            <p>Dear {employee.firstName} {employee.lastName},</p>
-            <p>We are pleased to confirm your employment with HRMS Enterprise Suite as <strong>{employee.designation}</strong> in the <strong>{employee.department}</strong> department, effective from <strong>{employee.joiningDate}</strong>.</p>
-            <p>After a satisfactory review of your performance during the probation period, your services are hereby confirmed. All terms and conditions as communicated in your original offer letter shall continue to apply.</p>
-            <table className="w-full text-sm border border-border rounded-lg overflow-hidden">
-              <tbody>
-                {[
-                  ["Employee ID", employee.employeeId],
-                  ["Designation", employee.designation],
-                  ["Department", employee.department],
-                  ["Date of Joining", employee.joiningDate],
-                  ["Employment Type", employee.employmentType],
-                  ["Work Location", employee.workLocation || employee.officeLocation],
-                ].map(([l, v], i) => (
-                  <tr key={l} className={i % 2 === 0 ? "bg-muted/30" : ""}>
-                    <td className="px-3 py-2 font-medium text-muted-foreground w-40">{l}</td>
-                    <td className="px-3 py-2 text-foreground">{v || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p>We appreciate your dedication and look forward to your continued contributions. Congratulations!</p>
-          </>
-        );
-      case "increment-letter":
-        return (
-          <>
-            <p>Dear {employee.firstName} {employee.lastName},</p>
-            <p>In recognition of your consistent performance and valuable contributions to the <strong>{employee.department}</strong> department, we are pleased to inform you about a revision in your compensation package, effective from <strong>{today}</strong>.</p>
-            <table className="w-full text-sm border border-border rounded-lg overflow-hidden">
-              <tbody>
-                {[
-                  ["Employee ID", employee.employeeId],
-                  ["Current Designation", employee.designation],
-                  ["Department", employee.department],
-                  ["Effective Date", today],
-                ].map(([l, v], i) => (
-                  <tr key={l} className={i % 2 === 0 ? "bg-muted/30" : ""}>
-                    <td className="px-3 py-2 font-medium text-muted-foreground w-40">{l}</td>
-                    <td className="px-3 py-2 text-foreground">{v || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p>The revised compensation reflects our appreciation of your hard work and commitment. All other terms remain unchanged. This letter is confidential.</p>
-          </>
-        );
-      case "promotion-letter":
-        return (
-          <>
-            <p>Dear {employee.firstName} {employee.lastName},</p>
-            <p>We are delighted to inform you that based on your exemplary performance, you have been promoted within the <strong>{employee.department}</strong> department, effective <strong>{today}</strong>.</p>
-            <table className="w-full text-sm border border-border rounded-lg overflow-hidden">
-              <tbody>
-                {[
-                  ["Employee ID", employee.employeeId],
-                  ["Current Designation", employee.designation],
-                  ["Department", employee.department],
-                  ["Effective Date", today],
-                  ["Reporting Manager", employee.reportingManager],
-                ].map(([l, v], i) => (
-                  <tr key={l} className={i % 2 === 0 ? "bg-muted/30" : ""}>
-                    <td className="px-3 py-2 font-medium text-muted-foreground w-40">{l}</td>
-                    <td className="px-3 py-2 text-foreground">{v || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p>This promotion is a testament to your dedication and leadership. Revised terms will be communicated separately. Congratulations!</p>
-          </>
-        );
-      case "relieving-letter":
-        return (
-          <>
-            <p>To Whomsoever It May Concern,</p>
-            <p>This is to certify that <strong>{employee.firstName} {employee.lastName}</strong> (Employee ID: {employee.employeeId}) has been employed with HRMS Enterprise Suite as <strong>{employee.designation}</strong> in the <strong>{employee.department}</strong> Department from <strong>{employee.joiningDate}</strong> to <strong>{today}</strong>.</p>
-            <p>{employee.firstName} has been relieved from {employee.employmentType === "Full-time" ? "full-time" : employee.employmentType.toLowerCase()} employment effective {today} as per mutual agreement.</p>
-            <p>During the tenure, we found {employee.firstName} to be sincere, hardworking and a team player. We wish {employee.firstName} all the best in future endeavors.</p>
-          </>
-        );
-    }
-  };
-
-  return (
-    <div className="space-y-4 text-sm leading-relaxed text-foreground print:text-black">
-      {/* Header */}
-      <div className="rounded-lg p-4 text-white" style={{ background: "var(--gradient-primary)" }}>
-        <h2 className="text-lg font-bold">HRMS Enterprise Suite</h2>
-        <p className="text-xs opacity-80">admin@company.com | www.hrmsportal.com</p>
-      </div>
-
-      <div className="text-center">
-        <h3 className="text-xl font-bold text-foreground">{DOC_TYPE_LABELS[docType].toUpperCase()}</h3>
-      </div>
-
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>Ref: {docType === "offer-letter" ? "OL" : docType === "confirmation-letter" ? "CL" : docType === "increment-letter" ? "IL" : docType === "promotion-letter" ? "PL" : "RL"}-{employee.employeeId}</span>
-        <span>Date: {today}</span>
-      </div>
-
-      <div className="space-y-3">{renderBody()}</div>
-
-      <div className="flex justify-between pt-6 mt-6 border-t border-border text-xs text-muted-foreground">
-        <div>
-          <p className="font-semibold text-foreground">Authorised Signatory</p>
-          <p>HRMS Enterprise Suite</p>
-        </div>
-        <div className="text-right">
-          <p className="font-semibold text-foreground">HR Department</p>
-          <p>Human Resources</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function DocumentPreviewModal({ open, onClose, employee, docType }: Props) {
-  const contentRef = useRef<HTMLDivElement>(null);
+export default function DocumentPreviewModal({
+  open,
+  onClose,
+  employee,
+  docType,
+}: Props) {
+  const captureRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
 
   if (!employee) return null;
 
-  const handleDownload = () => {
-    const doc = generatePDF(employee, docType);
-    doc.save(getFilename(employee, docType));
-  };
-
-  const handlePrint = () => {
-    const printContent = contentRef.current;
-    if (!printContent) return;
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(`
-      <html><head><title>${DOC_TYPE_LABELS[docType]} - ${employee.firstName} ${employee.lastName}</title>
-      <style>
-        body { font-family: 'Inter', Arial, sans-serif; padding: 40px; color: #1a1a2e; line-height: 1.6; }
-        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-        td { padding: 8px 12px; border: 1px solid #e2e8f0; }
-        tr:nth-child(even) { background: #f8fafc; }
-        .header { background: linear-gradient(135deg, #6366f1, #3b82f6); color: white; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
-        .header h2 { margin: 0; } .header p { margin: 4px 0 0; opacity: 0.8; font-size: 12px; }
-        h3 { text-align: center; font-size: 20px; margin: 16px 0; }
-        .meta { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }
-        .sig { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; }
-        .sig strong { display: block; color: #1a1a2e; }
-        @media print { body { padding: 20px; } }
-      </style></head><body>
-      ${printContent.innerHTML}
-      </body></html>
-    `);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 300);
+  const handleDownload = async () => {
+    if (!captureRef.current) return;
+    setLoading(true);
+    try {
+      const pdf = await buildPDF(captureRef);
+      pdf.save(
+        `${DOC_TYPE_LABELS[docType].replace(/\s+/g, "_")}_${employee.firstName}_${employee.lastName}.pdf`,
+      );
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("PDF download failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>{DOC_TYPE_LABELS[docType]} — {employee.firstName} {employee.lastName}</span>
+          <DialogTitle>
+            {DOC_TYPE_LABELS[docType]} — {employee.firstName}{" "}
+            {employee.lastName}
           </DialogTitle>
         </DialogHeader>
 
-        <div ref={contentRef}>
-          <LetterContent employee={employee} docType={docType} />
-        </div>
+        <LetterContent
+          employee={employee}
+          docType={docType}
+          captureRef={captureRef}
+        />
 
-        <div className="flex gap-2 pt-4 border-t border-border">
-          <Button onClick={handleDownload} className="flex-1 gap-2">
-            <Download size={14} /> Download PDF
+        <div className="flex justify-between items-center pt-4 border-t border-border">
+          <Button
+            onClick={handleDownload}
+            disabled={loading}
+            className="gap-2 bg-green-700 hover:bg-green-800 text-white"
+          >
+            <Download size={14} />
+            {loading ? "Generating PDF…" : "Download PDF"}
           </Button>
-          <Button onClick={handlePrint} variant="outline" className="flex-1 gap-2">
-            <Printer size={14} /> Print
-          </Button>
+
           <Button onClick={onClose} variant="ghost" size="icon">
             <X size={16} />
           </Button>

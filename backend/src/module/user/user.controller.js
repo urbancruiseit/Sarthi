@@ -2,7 +2,6 @@ import { getIO } from "../../socket/socket.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { generateEmployeeId } from "../../utils/generateEmployeeId.js";
 
 import {
   insertUser,
@@ -23,7 +22,12 @@ import {
   getHREmployees,
 } from "./user.model.js";
 
-import { generateTokens, isPasswordCorrect } from "./user.service.js";
+import {
+  generateEmployeeId,
+  generateTempId,
+  generateTokens,
+  isPasswordCorrect,
+} from "./user.service.js";
 
 const registerUser = asyncHandler(async (req, res) => {
   const {
@@ -191,7 +195,7 @@ const registerUser = asyncHandler(async (req, res) => {
     panUploaded: panUploaded || null,
     resumeUploaded: resumeUploaded || null,
     currentAddressProofUploaded: currentAddressProofUploaded || null,
-    permanentAddressProofUploaded:permanentAddressProofUploaded || null,
+    permanentAddressProofUploaded: permanentAddressProofUploaded || null,
 
     twelthCertificateUploaded: twelthCertificateUploaded || null,
     graduationCertificateUploaded: graduationCertificateUploaded || null,
@@ -332,7 +336,7 @@ const getUserDetailsByRole = asyncHandler(async (req, res) => {
 const getAllEmployee = asyncHandler(async (req, res) => {
   const { page, limit } = req.query;
 
-  const employee = await allEmployee(page, limit);;
+  const employee = await allEmployee(page, limit);
 
   const parsedEmployees = employee.employees.map((emp) => ({
     ...emp,
@@ -351,6 +355,8 @@ const getAllEmployee = asyncHandler(async (req, res) => {
     ),
   );
 });
+
+// controller
 const updateUserByIdController = asyncHandler(async (req, res) => {
   const userId = req.params.id;
   const updateData = req.body;
@@ -360,53 +366,46 @@ const updateUserByIdController = asyncHandler(async (req, res) => {
       .status(400)
       .json(new ApiResponse(400, null, "User ID is required"));
   }
+  const TEMP_ID_TYPES = ["Probation", "Intern", "Contractual"];
 
-  const updateUserByIdController = asyncHandler(async (req, res) => {
-    const userId = req.params.id;
-    const updateData = req.body;
+  // ✅ Full-time → employeeId generate karo
+  if (updateData.employmentType === "Full-time") {
+    const generatedEmployeeId = await generateEmployeeId(
+      updateData.branchOffice_id,
+      userId,
+    );
 
-    if (!userId) {
-      return res
-        .status(400)
-        .json(new ApiResponse(400, null, "User ID is required"));
-    }
+    // ✅ force string
+    updateData.employeeId =
+      typeof generatedEmployeeId === "object"
+        ? generatedEmployeeId.employeeId
+        : generatedEmployeeId;
 
-    if (updateData.branchOffice_id && updateData.employmentType) {
-      const existingUser = await getUserById(userId);
+    console.log(
+      "[update] Employee ID:",
+      updateData.employeeId,
+      typeof updateData.employeeId,
+    );
+  }
 
-      const hasTempId = !!existingUser?.tempId;
-      const hasEmployeeId = !!existingUser?.employeeId;
-      const employmentTypeChanged =
-        existingUser?.employmentType !== updateData.employmentType;
+  if (updateData.employmentType === "Full-time") {
+    const generatedEmployeeId = await generateEmployeeId(
+      updateData.branchOffice_id,
+      userId,
+    );
 
-      if ((!hasTempId && !hasEmployeeId) || employmentTypeChanged) {
-        const ids = await generateEmployeeId(
-          updateData.branchOffice_id,
-          updateData.employmentType,
-        );
+    // ✅ force string
+    updateData.employeeId =
+      typeof generatedEmployeeId === "object"
+        ? generatedEmployeeId.employeeId
+        : generatedEmployeeId;
+  }
 
-        console.log("Generated IDs:", ids);
+  if (TEMP_ID_TYPES.includes(updateData.employmentType)) {
+    const generatedTempId = await generateTempId(userId);
 
-        // Sirf set karo jo mila, kuch bhi clear nahi hoga
-        if (ids?.tempId) {
-          updateData.tempId = ids.tempId;
-        }
-
-        if (ids?.employeeId) {
-          updateData.employeeId = ids.employeeId;
-        }
-      }
-    }
-
-    const updatedUser = await updateUserById(userId, updateData);
-
-    const io = getIO();
-    io.emit("employeeUpdated", updatedUser);
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, updatedUser, "User updated successfully"));
-  });
+    updateData.tempId = generatedTempId;
+  }
 
   const updatedUser = await updateUserById(userId, updateData);
 
@@ -417,6 +416,7 @@ const updateUserByIdController = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, updatedUser, "User updated successfully"));
 });
+
 const getEmployeeBYStatus = asyncHandler(async (req, res) => {
   let { page, status } = req.query;
 
@@ -524,7 +524,6 @@ const changePassword = asyncHandler(async (req, res) => {
 
 const changePasswordbyUserName = asyncHandler(async (req, res) => {
   const { username, newPassword } = req.body;
-  console.log(username, newPassword);
 
   if (!username || !newPassword) {
     throw new ApiError(400, "username and new password are required");
@@ -562,7 +561,7 @@ const getAllReportingManagerWithDepartment = asyncHandler(async (req, res) => {
 
 const getHREmployeesController = asyncHandler(async (req, res) => {
   const employees = await getHREmployees();
-  
+
   return res
     .status(200)
     .json(new ApiResponse(200, employees, "HR Employees fetched successfully"));

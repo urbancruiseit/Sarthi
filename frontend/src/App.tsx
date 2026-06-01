@@ -44,7 +44,8 @@ import ZonalDashboard from "./pages/Dashboard/ZonalDashboard";
 import HodDashboard from "./pages/Dashboard/HodDashboard";
 import Profile from "./pages/Profile";
 import { RouteGuard } from "./components/routeguard";
-import  BackgroundVerification  from "./pages/BackgroundVerification";
+import BackgroundVerification from "./pages/BackgroundVerification";
+import OfferLetter from "./pages/Document/OfferLetter";
 
 const queryClient = new QueryClient();
 
@@ -74,11 +75,6 @@ const App = () => (
           <AppInitializer>
             <Routes>
               {/* ── Public ── */}
-              <Route element={<PublicRoute />}>
-                <Route path="/login" element={<Login />} />
-              </Route>
-
-              {/* ── No Auth Needed ── */}
               <Route
                 path="/add-employee/onboarding-form"
                 element={<AddEmployee />}
@@ -87,6 +83,9 @@ const App = () => (
                 path="/onboarding-submitted"
                 element={<OnboardingSubmitted />}
               />
+              <Route element={<PublicRoute />}>
+                <Route path="/login" element={<Login />} />
+              </Route>
 
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
@@ -129,6 +128,7 @@ const App = () => (
                       path="/documents/manage"
                       element={<ManageLetters />}
                     />
+                    <Route path="/offer-letter" element={<OfferLetter />} />
                     <Route
                       path="/documents/templates"
                       element={<LetterTemplates />}

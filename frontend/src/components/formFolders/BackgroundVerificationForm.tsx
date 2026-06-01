@@ -234,7 +234,7 @@ const VerifyRow = ({
   </div>
 );
 
-// ─── Main Component ─────────────────────────────────────────────────────────────
+
 
 export function BackgroundVerificationForm({
   open = false,
