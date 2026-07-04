@@ -95,14 +95,25 @@ export default function HRPolicies() {
   const { policies } = useAppSelector((state) => state.policy);
   const { currentEmployee } = useAppSelector((state) => state.user);
 
-  console.log("currentEmployee", currentEmployee.access_role);
+  const accessRole = currentEmployee?.access_role;
+  const department = currentEmployee?.department;
+  console.log(" department ", department);
+  const isHRDepartment = department?.toLowerCase() === "hr";
 
-  const currentRole = currentEmployee?.role;
-  const currentRoleaccess = currentEmployee?.access_role;
-  const isHRHead = currentRole === "Admin";
-  const isSHO = currentRole === "SHO";
-  const isEmployee = currentRoleaccess === "EMPLOYEE";
+  const isTableView =
+    accessRole === "SUPER_ADMIN" ||
+    (isHRDepartment && (accessRole === "MANAGER" || accessRole === "HOD"));
 
+  const permissions = {
+    view: isTableView ? "table" : "card",
+    canApproveHR:
+      isHRDepartment && (accessRole === "MANAGER" || accessRole === "HOD"),
+    canApproveSHO: accessRole === "SUPER_ADMIN",
+  };
+
+  const isEmployee = permissions.view === "card";
+  const isHRHead = permissions.canApproveHR;
+  const isSHO = permissions.canApproveSHO;
   useEffect(() => {
     dispatch(fetchPolicies(categoryFilter));
   }, [dispatch, categoryFilter]);
@@ -317,6 +328,8 @@ export default function HRPolicies() {
     if (!p || !p.title) return false;
     if (search && !p.title.toLowerCase().includes(search.toLowerCase()))
       return false;
+    // Employee ko sirf "active" status wali policies dikhengi
+    if (isEmployee && p.status !== "active") return false;
     return true;
   });
 
@@ -663,33 +676,35 @@ export default function HRPolicies() {
                             </div>
                           )}
 
-                          {/* SHO Actions */}
-                          {isSHO && policy.sho_status === "pending" && (
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() =>
-                                  handleSHOAction(policy.id, "approved")
-                                }
-                                className="p-1.5 rounded-sm bg-green-500 hover:bg-green-900 text-white transition-colors disabled:opacity-50"
-                                title="Approve as SHO"
-                              >
-                                <CheckCircle size={18} />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  setRejectModal({
-                                    open: true,
-                                    policyId: policy.id,
-                                    role: "SHO",
-                                  })
-                                }
-                                className="p-1.5 rounded-sm bg-red-500 hover:bg-red-900 text-white transition-colors disabled:opacity-50"
-                                title="Reject as SHO"
-                              >
-                                <XCircle size={18} />
-                              </button>
-                            </div>
-                          )}
+                          {/* SHO Actions - only show after HR Head has approved */}
+                          {isSHO &&
+                            policy.hr_head_status === "approved" &&
+                            policy.sho_status === "pending" && (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() =>
+                                    handleSHOAction(policy.id, "approved")
+                                  }
+                                  className="p-1.5 rounded-sm bg-green-500 hover:bg-green-900 text-white transition-colors disabled:opacity-50"
+                                  title="Approve as SHO"
+                                >
+                                  <CheckCircle size={18} />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    setRejectModal({
+                                      open: true,
+                                      policyId: policy.id,
+                                      role: "SHO",
+                                    })
+                                  }
+                                  className="p-1.5 rounded-sm bg-red-500 hover:bg-red-900 text-white transition-colors disabled:opacity-50"
+                                  title="Reject as SHO"
+                                >
+                                  <XCircle size={18} />
+                                </button>
+                              </div>
+                            )}
 
                           {actionLoading === policy.id.toString() && (
                             <Loader2
