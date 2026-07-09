@@ -1,5 +1,6 @@
 // =====================================================
-// UPDATED Sidebar.tsx — Department + Sub-Dept Access
+// UPDATED Sidebar.tsx — Real Department + Sub-Dept (from DB)
+// Access logic unchanged: still resolved via SUB_DEPT_ACCESS
 // =====================================================
 
 import { useState } from "react";
@@ -17,6 +18,8 @@ import {
   BookOpen,
   GraduationCap,
   Package,
+  CalendarDays,
+  CalendarCheck,
 } from "lucide-react";
 import { useAppSelector } from "@/hooks/useRedux";
 import { cn } from "@/lib/utils";
@@ -42,54 +45,58 @@ const ALL_ACCESS_ROLES: AccessRole[] = [
 const isAccessRole = (role: string): role is AccessRole =>
   ALL_ACCESS_ROLES.includes(role as AccessRole);
 
-// ─── Department / Sub-Department Types ───────────────────────────────────────
-type Department = "HR" | "Finance" | "Operations" | "Sales" | "IT" | "General";
-
-type SubDepartment =
-  // HR
-  | "Ops & Admin"
-  | "Recruitment"
-  | "Statutory"
-  // Finance
-  | "Accounts"
-  | "Audit"
-  | "Payroll"
-  // Operations
-  | "Logistics"
-  | "Procurement"
-  | "Facilities"
-  // Sales
-  | "Inside Sales"
-  | "Field Sales"
-  | "CRM"
-  // IT
-  | "Development"
-  | "Infrastructure"
-  | "Support"
-  // General (no sub-dept)
+// ─── Department / Sub-Department Types (matches your `departments` &
+//     `sub_departments` DB tables) ────────────────────────────────────────────
+type Department =
+  | "Sales"
+  | "Finance"
+  | "IT"
+  | "HR"
+  | "VEH OPS"
+  | "Digital Marketing"
   | "General";
 
-// ─── Department → Sub-Department Map ─────────────────────────────────────────
+type SubDepartment =
+  // Sales (department_id 1)
+  | "Pre-Sales"
+  | "Corp. Sales"
+  | "Tele-Sales"
+  // Finance (department_id 2)
+  | "Statutory"
+  | "Finance"
+  | "Accounting"
+  | "Audit"
+  // IT (department_id 3)
+  | "Website"
+  | "Web App"
+  | "Mobile App"
+  | "MIS & Analytics"
+  // HR (department_id 4) — HR's own "Statutory" row (id 11) is intentionally
+  // ignored since Finance already has a "Statutory" sub-department.
+  | "Recruitment"
+  | "Ops & Admin"
+  // VEH OPS (department_id 5)
+  | "Vendor REL"
+  | "CUS Care"
+  | "Veh. Design"
+  // Digital Marketing (department_id 6)
+  | "SEO"
+  | "SMO"
+  | "Ads"
+  | "GA/E"
+  // Fallback
+  | "General";
+
+// ─── Department → Sub-Department Map (mirrors your `sub_departments` table) ──
 export const DEPARTMENT_SUB_MAP: Record<Department, SubDepartment[]> = {
-  HR: ["Ops & Admin", "Recruitment", "Statutory"],
-  Finance: ["Accounts", "Audit", "Payroll"],
-  Operations: ["Logistics", "Procurement", "Facilities"],
-  Sales: ["Inside Sales", "Field Sales", "CRM"],
-  IT: ["Development", "Infrastructure", "Support"],
+  Sales: ["Pre-Sales", "Corp. Sales", "Tele-Sales"],
+  Finance: ["Statutory", "Finance", "Accounting", "Audit"],
+  IT: ["Website", "Web App", "Mobile App", "MIS & Analytics"],
+  HR: ["Recruitment", "Ops & Admin"],
+  "VEH OPS": ["Vendor REL", "CUS Care", "Veh. Design"],
+  "Digital Marketing": ["SEO", "SMO", "Ads", "GA/E"],
   General: ["General"],
 };
-
-// ─── Access Matrix: SubDepartment → Role → allowed nav routes ────────────────
-//
-//  Structure:
-//    SUB_DEPT_ACCESS[subDept][role] = string[]  (route paths)
-//
-//  Rules applied:
-//   • SUPER_ADMIN always gets everything (handled at runtime)
-//   • HOD gets all routes for their sub-dept
-//   • Lower roles get progressively fewer routes
-//
-// ─────────────────────────────────────────────────────────────────────────────
 
 const ALL_ROUTES = [
   "/approvals",
@@ -100,300 +107,213 @@ const ALL_ROUTES = [
   "/access",
   "/assets",
   "/background-verification",
+  "/attendance",
+  "/leave",
+  "/calendar",
 ];
 
 type RouteAccessMap = Partial<Record<AccessRole, string[]>>;
 
+// ─── Access is resolved by SUB-DEPARTMENT, same as the original file ────────
 export const SUB_DEPT_ACCESS: Record<SubDepartment, RouteAccessMap> = {
-  // ── HR ──────────────────────────────────────────────────────────────────────
-  "Ops & Admin": {
-    EMPLOYEE: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/access",
-      "/assets",
-      "/payroll",
-    ],
-
-    MANAGER: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/access",
-      "/assets",
-      "/payroll",
-    ],
-
+  // ── Sales ───────────────────────────────────────────────────────────────────
+  "Pre-Sales": {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
-  Recruitment: {
-    EMPLOYEE: ["/documents", "/approvals", "/assets", "/access"],
-
-    MANAGER: ["/approvals", "/documents", "/access", "/assets"],
-
+  "Corp. Sales": {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
-  Statutory: {
-    EMPLOYEE: ["/hr-policies", "/ops", "/payroll"],
-    MANAGER: ["/hr-policies", "/ops", "/payroll"],
-
+  "Tele-Sales": {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   // ── Finance ─────────────────────────────────────────────────────────────────
-  Accounts: {
-    EMPLOYEE: ["/documents", "/hr-policies"],
-    TEAM_LEAD: ["/documents", "/hr-policies", "/access"],
-    MANAGER: ["/approvals", "/documents", "/hr-policies", "/access"],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/payroll",
-      "/hr-policies",
-      "/access",
-    ],
+  Statutory: {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  Finance: {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  Accounting: {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   Audit: {
-    EMPLOYEE: ["/documents", "/hr-policies"],
-    TEAM_LEAD: ["/documents", "/hr-policies", "/access"],
-    MANAGER: [
-      "/approvals",
-      "/documents",
-      "/payroll",
-      "/hr-policies",
-      "/access",
-    ],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/payroll",
-      "/ops",
-      "/hr-policies",
-      "/access",
-    ],
-    HOD: ALL_ROUTES,
-    SUPER_ADMIN: ALL_ROUTES,
-  },
-
-  Payroll: {
-    EMPLOYEE: ["/documents", "/hr-policies"],
-    TEAM_LEAD: ["/documents", "/payroll", "/hr-policies"],
-    MANAGER: [
-      "/approvals",
-      "/documents",
-      "/payroll",
-      "/hr-policies",
-      "/access",
-    ],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/payroll",
-      "/ops",
-      "/hr-policies",
-      "/access",
-    ],
-    HOD: ALL_ROUTES,
-    SUPER_ADMIN: ALL_ROUTES,
-  },
-
-  // ── Operations ──────────────────────────────────────────────────────────────
-  Logistics: {
-    EMPLOYEE: ["/documents", "/hr-policies", "/assets"],
-    TEAM_LEAD: ["/documents", "/hr-policies", "/assets", "/access"],
-    MANAGER: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/assets",
-      "/access",
-    ],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/assets",
-      "/access",
-    ],
-    HOD: ALL_ROUTES,
-    SUPER_ADMIN: ALL_ROUTES,
-  },
-
-  Procurement: {
-    EMPLOYEE: ["/documents", "/hr-policies", "/assets"],
-    TEAM_LEAD: ["/documents", "/hr-policies", "/assets"],
-    MANAGER: ["/approvals", "/documents", "/ops", "/hr-policies", "/assets"],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/assets",
-      "/access",
-    ],
-    HOD: ALL_ROUTES,
-    SUPER_ADMIN: ALL_ROUTES,
-  },
-
-  Facilities: {
-    EMPLOYEE: ["/documents", "/hr-policies"],
-    TEAM_LEAD: ["/documents", "/ops", "/hr-policies"],
-    MANAGER: ["/approvals", "/documents", "/ops", "/hr-policies", "/assets"],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/assets",
-      "/access",
-    ],
-    HOD: ALL_ROUTES,
-    SUPER_ADMIN: ALL_ROUTES,
-  },
-
-  // ── Sales ───────────────────────────────────────────────────────────────────
-  "Inside Sales": {
-    EMPLOYEE: ["/documents", "/hr-policies", "/access"],
-    TEAM_LEAD: ["/approvals", "/documents", "/hr-policies", "/access"],
-    MANAGER: ["/approvals", "/documents", "/ops", "/hr-policies", "/access"],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/access",
-      "/assets",
-    ],
-    HOD: ALL_ROUTES,
-    SUPER_ADMIN: ALL_ROUTES,
-  },
-
-  "Field Sales": {
-    EMPLOYEE: ["/documents", "/hr-policies"],
-    TEAM_LEAD: ["/approvals", "/documents", "/hr-policies", "/access"],
-    MANAGER: ["/approvals", "/documents", "/ops", "/hr-policies", "/access"],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/access",
-      "/assets",
-    ],
-    HOD: ALL_ROUTES,
-    SUPER_ADMIN: ALL_ROUTES,
-  },
-
-  CRM: {
-    EMPLOYEE: ["/documents", "/hr-policies", "/access"],
-    TEAM_LEAD: ["/approvals", "/documents", "/hr-policies", "/access"],
-    MANAGER: ["/approvals", "/documents", "/ops", "/hr-policies", "/access"],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/access",
-      "/assets",
-    ],
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   // ── IT ──────────────────────────────────────────────────────────────────────
-  Development: {
-    EMPLOYEE: ["/documents", "/hr-policies", "/access", "/assets"],
-    TEAM_LEAD: [
-      "/approvals",
-      "/documents",
-      "/hr-policies",
-      "/access",
-      "/assets",
-    ],
+  Website: {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  "Web App": {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  "Mobile App": {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  "MIS & Analytics": {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  // ── HR ──────────────────────────────────────────────────────────────────────
+  "Ops & Admin": {
+    EMPLOYEE: ["/hr-policies"],
     MANAGER: [
       "/approvals",
       "/documents",
       "/ops",
       "/hr-policies",
-      "/access",
+      "/attendance",
       "/assets",
-    ],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/access",
-      "/assets",
+      "/payroll",
     ],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
-  Infrastructure: {
-    EMPLOYEE: ["/documents", "/hr-policies", "/assets"],
-    TEAM_LEAD: ["/documents", "/hr-policies", "/access", "/assets"],
-    MANAGER: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/access",
-      "/assets",
-    ],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/access",
-      "/assets",
-    ],
+  Recruitment: {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
-  Support: {
-    EMPLOYEE: ["/documents", "/hr-policies"],
-    TEAM_LEAD: ["/documents", "/hr-policies", "/access"],
-    MANAGER: ["/approvals", "/documents", "/hr-policies", "/access", "/assets"],
-    ZONAL_HEAD: [
-      "/approvals",
-      "/documents",
-      "/ops",
-      "/hr-policies",
-      "/access",
-      "/assets",
-    ],
+  // ── VEH OPS ─────────────────────────────────────────────────────────────────
+  "Vendor REL": {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
-  // ── General / Fallback ───────────────────────────────────────────────────────
+  "CUS Care": {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  "Veh. Design": {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  // ── Digital Marketing ───────────────────────────────────────────────────────
+  SEO: {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  SMO: {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  Ads: {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
+  "GA/E": {
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
+    HOD: ALL_ROUTES,
+    SUPER_ADMIN: ALL_ROUTES,
+  },
+
   General: {
-    EMPLOYEE: ["/documents", "/hr-policies"],
-    TEAM_LEAD: ["/documents", "/hr-policies", "/access"],
-    MANAGER: ["/approvals", "/documents", "/hr-policies", "/access"],
-    ZONAL_HEAD: ["/approvals", "/documents", "/ops", "/hr-policies", "/access"],
+    EMPLOYEE: ["/hr-policies", "/attendance"],
+    TEAM_LEAD: ["/hr-policies", "/attendance"],
+    MANAGER: ["/hr-policies", "/attendance"],
+    ZONAL_HEAD: ["/hr-policies", "/attendance"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 };
 
-// ─── Dashboard route per role ─────────────────────────────────────────────────
 const ROLE_DASHBOARD_MAP: Record<AccessRole, string> = {
   EMPLOYEE: "/employee-dashboard",
   TEAM_LEAD: "/teamlead-dashboard",
@@ -403,7 +323,6 @@ const ROLE_DASHBOARD_MAP: Record<AccessRole, string> = {
   SUPER_ADMIN: "/",
 };
 
-// ─── Nav Item definitions ─────────────────────────────────────────────────────
 interface NavItem {
   label: string;
   icon: any;
@@ -454,6 +373,24 @@ const NAV_ITEMS: NavItem[] = [
     icon: Package,
     to: "/assets",
     color: "text-red-600",
+  },
+  {
+    label: "Attendance",
+    icon: CalendarCheck,
+    to: "/attendance",
+    color: "text-emerald-600",
+  },
+  {
+    label: "Leave",
+    icon: CalendarDays,
+    to: "/leave",
+    color: "text-orange-600",
+  },
+  {
+    label: "Calendar",
+    icon: CalendarDays,
+    to: "/calendar",
+    color: "text-cyan-600",
   },
 ];
 
@@ -506,7 +443,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   // ── Build filtered nav ────────────────────────────────────────────────────
   const dashboardRoute = ROLE_DASHBOARD_MAP[currentRole];
-  // Sidebar.tsx mein — filteredNavItems ke upar
 
   const filteredNavItems = resolveNavItems(
     currentRole,

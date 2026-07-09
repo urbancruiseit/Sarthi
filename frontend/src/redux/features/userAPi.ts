@@ -248,3 +248,21 @@ export const getHREmployees = async () => {
     throw new Error(message);
   }
 };
+
+export const getEmployees = async () => {
+  try {
+    const response = await axiosInstance.get("/user/employeesearchlist");
+
+    if (response.data && response.data.success) {
+      return response.data.data;
+    } else {
+      throw new Error(response.data.message || "Failed to fetch employees");
+    }
+  } catch (error: any) {
+    console.error(
+      "Fetch Employees Error:",
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+};

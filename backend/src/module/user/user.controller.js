@@ -20,6 +20,8 @@ import {
   updatePasswordById,
   getReportingManagerWithDepartment,
   getHREmployees,
+  getAllEmployeesWithShift,
+  getEmployeeList,
 } from "./user.model.js";
 
 import {
@@ -567,6 +569,34 @@ const getHREmployeesController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, employees, "HR Employees fetched successfully"));
 });
 
+const getAllEmployeesWithShiftController = asyncHandler(async (req, res) => {
+  const employees = await getAllEmployeesWithShift();
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        employees,
+        "Employees with department and shift timing fetched successfully",
+      ),
+    );
+});
+
+export const getEmployees = asyncHandler(async (req, res) => {
+  const employees = await getEmployeeList();
+
+  if (!employees || employees.length === 0) {
+    throw new ApiError(404, "Employees not found");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, employees, "Employee list fetched successfully"),
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -583,4 +613,5 @@ export {
   changePasswordbyUserName,
   getAllReportingManagerWithDepartment,
   getHREmployeesController,
+  getAllEmployeesWithShiftController,
 };

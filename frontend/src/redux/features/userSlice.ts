@@ -12,6 +12,7 @@ import {
   getUserById,
   getReportingManagersByDepartment,
   getHREmployees,
+  getEmployees,
 } from "./userAPi";
 
 // ─── Pagination Meta Type ────────────────────────────────────────────────────
@@ -23,11 +24,16 @@ interface PaginationMeta {
   hasPrevPage: boolean;
   hasNextPage: boolean;
 }
+interface EmployeeDropdown {
+  id: number;
+  full_name: string;
+}
 
 interface EmployeeState {
   currentEmployee: Employee | null;
   selectedEmployee: Employee | null;
   employees: Employee[];
+  employeeList: EmployeeDropdown[];
   pagination: PaginationMeta | null; // ✅ flat fields hata ke nested object
   loading: boolean;
   error: string | null;
@@ -43,6 +49,7 @@ const initialState: EmployeeState = {
   currentEmployee: null,
   selectedEmployee: null,
   employees: [],
+  employeeList: [],
   pagination: null, // ✅
   loading: false,
   error: null,
@@ -65,6 +72,18 @@ export const loginEmployeeThunk = createAsyncThunk<
     return Employee;
   } catch (error: any) {
     return rejectWithValue(error.message || "Login failed");
+  }
+});
+
+export const fetchEmployeeListThunk = createAsyncThunk<
+  EmployeeDropdown[],
+  void,
+  { rejectValue: string }
+>("Employee/fetchEmployeeList", async (_, { rejectWithValue }) => {
+  try {
+    return await getEmployees();
+  } catch (error: any) {
+    return rejectWithValue(error.message || "Failed to fetch employee list");
   }
 });
 
@@ -480,6 +499,23 @@ const EmployeeSlice = createSlice({
         },
       )
       .addCase(fetchHREmployeesThunk.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+
+      // FETCH EMPLOYEE DROPDOWN LIST
+      .addCase(fetchEmployeeListThunk.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(
+        fetchEmployeeListThunk.fulfilled,
+        (state, action: PayloadAction<EmployeeDropdown[]>) => {
+          state.loading = false;
+          state.employeeList = action.payload;
+        },
+      )
+      .addCase(fetchEmployeeListThunk.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });

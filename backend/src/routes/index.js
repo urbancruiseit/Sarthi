@@ -17,6 +17,9 @@ import noticeRouter from "../module/Notice/notice.route.js";
 import countryRouter from "../module/Access/country/country.route.js";
 import accessControlRouter from "../module/Accesscontrol/Accesscontrol.route.js";
 import backgroundRouter from "../module/BackgroundVerification/BackgroundVerification.route.js";
+import attendanceRouter from "../module/Attendance/attendance.route.js";
+import shiftassignmentsRouter from "../module/Shiftassignment/shiftassignment.route.js";
+import holidaysRouter from "../module/Calendar/calendar.route.js";
 
 const registerRoutes = (app) => {
   app.use("/api/v1/link", linkRouter);
@@ -37,6 +40,9 @@ const registerRoutes = (app) => {
   app.use("/api/v1/country", countryRouter);
   app.use("/api/v1/access-control", accessControlRouter);
   app.use("/api/v1/background", backgroundRouter);
+  app.use("/api/v1/attendance", attendanceRouter);
+  app.use("/api/v1/shift-assignments", shiftassignmentsRouter);
+  app.use("/api/v1/holidays", holidaysRouter);
 };
 
 export default registerRoutes;

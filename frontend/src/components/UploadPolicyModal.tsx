@@ -32,14 +32,23 @@ interface Props {
   onClose: () => void;
 }
 
-const allowedCategories = ["HR", "Leave", "Holiday", "Finance", "Security"];
+const allowedCategories = [
+  "Organisation Structure",
+  "Leave & Attendance Policy",
+  "Workplace Policy",
+  "Probation, Incentive & Retention Policy",
+  "IT Policy",
+  "Travel Policy",
+  "POSH Policy",
+  "Holiday Calendar",
+];
 
 export default function UploadPolicyForm({ onClose }: Props) {
   const dispatch = useAppDispatch();
 
   const [title, setTitle] = useState("");
   const [version, setVersion] = useState("1.0");
-  const [category, setCategory] = useState("HR");
+  const [category, setCategory] = useState(allowedCategories[0]);
   const [description, setDescription] = useState("");
 
   const [fileUrl, setFileUrl] = useState<string | null>(null);

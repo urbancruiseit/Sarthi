@@ -21,7 +21,16 @@ export const createPolicy = asyncHandler(async (req, res) => {
   }
 
   // Policy.controller.js
-  const allowedCategories = ["HR", "Leave", "Holiday", "Finance", "Security"];
+  const allowedCategories = [
+    "Organisation Structure",
+    "Leave & Attendance Policy",
+    "Workplace Policy",
+    "Probation, Incentive & Retention Policy",
+    "IT Policy",
+    "Travel Policy",
+    "POSH Policy",
+    "Holiday Calendar",
+  ];
 
   if (!allowedCategories.includes(category)) {
     throw new ApiError(400, "Invalid category");
@@ -131,9 +140,10 @@ export const shoApproval = asyncHandler(async (req, res) => {
     sho_status,
     sho_remark,
   });
-  
 
-  return res.status(200).json(new ApiResponse(200, shodata, "Policy approved successfully by SHO"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, shodata, "Policy approved successfully by SHO"));
 });
 
 export const hrHeadApproval = asyncHandler(async (req, res) => {

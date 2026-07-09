@@ -1141,3 +1141,42 @@ export const getHREmployees = async () => {
     throw error;
   }
 };
+
+export const getAllEmployeesWithShift = async () => {
+  try {
+    const sql = `
+      SELECT 
+        u.id,
+        CONCAT(
+          u.firstName, ' ',
+          COALESCE(CONCAT(u.middleName, ' '), ''),
+          u.lastName
+        ) AS full_name,
+        d.department_name,
+        u.shiftTiming
+      FROM ${USER_TABLE} u
+      LEFT JOIN departments d ON u.${USER_COLUMNS.DEPARTMENT_ID} = d.id
+      ORDER BY u.${USER_COLUMNS.ID} DESC
+    `;
+
+    const [rows] = await pool.execute(sql);
+    return rows;
+  } catch (error) {
+    console.error("getAllEmployeesWithShift error:", error);
+    throw error;
+  }
+};
+
+export const getEmployeeList = async () => {
+  const sql = `
+    SELECT
+      id,
+      CONCAT(firstName, ' ', lastName) AS full_name
+    FROM users
+    WHERE is_active = 1
+    ORDER BY firstName ASC;
+  `;
+
+  const [rows] = await pool.query(sql);
+  return rows;
+};

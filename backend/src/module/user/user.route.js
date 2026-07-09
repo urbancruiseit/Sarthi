@@ -6,6 +6,7 @@ import {
   getAllReportingManagerWithDepartment,
   getCurrentUser,
   getEmployeeBYStatus,
+  getEmployees,
   getHREmployeesController,
   getSingaleUser,
   getUserDetailsByRole,
@@ -22,6 +23,7 @@ const router = Router();
 router.route("/").post(registerUser);
 router.route("/").get(getAllEmployee);
 router.route("/login").post(loginUser);
+router.route("/employeesearchlist").get(getEmployees);
 router.route("/current-user").get(verifyJWT, getCurrentUser);
 router.route("/hr-employees").get(getHREmployeesController);
 router.route("/:uuid").put(updateUserRoleManagerDepartment);

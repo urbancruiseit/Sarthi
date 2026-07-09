@@ -15,6 +15,9 @@ import zoneCityReducer from "../redux/features/ZoneCity/zoneCitySlice";
 import accessControlReducer from "../redux/features/Accesscontrol/accesscontrolSlice";
 import countryReducer from "../redux/features/Country/countrySlice";
 import bgvReducer from "../redux/features/BackgroundVerification/BackgroundVerificationSlice";
+import atendanceReducer from "../redux/features/Attendance/attendanceSlice";
+import shiftAssignmentReducer from "../redux/features/Shiftassignment/shiftassignmentSlice";
+import holidayReducer from "../redux/features/Calendar/calendarSlice";
 
 export const store = configureStore({
   reducer: {
@@ -34,6 +37,9 @@ export const store = configureStore({
     accessControl: accessControlReducer,
     country: countryReducer,
     bgv: bgvReducer,
+    attendance: atendanceReducer,
+    shiftAssignment: shiftAssignmentReducer,
+    holiday: holidayReducer,
   },
 });
 

@@ -46,6 +46,9 @@ import Profile from "./pages/Profile";
 import { RouteGuard } from "./components/routeguard";
 import BackgroundVerification from "./pages/BackgroundVerification";
 import OfferLetter from "./pages/Document/OfferLetter";
+import Leave from "./pages/Leave";
+import Attendance from "./pages/Attendance";
+import AttendanceCalendar from "./pages/Calendar";
 
 const queryClient = new QueryClient();
 
@@ -165,7 +168,15 @@ const App = () => (
                   <Route element={<RouteGuard allowedPath="/hr-policies" />}>
                     <Route path="/hr-policies" element={<HRPolicies />} />
                   </Route>
-
+                  <Route element={<RouteGuard allowedPath="/leave" />}>
+                    <Route path="/leave" element={<Leave />} />
+                  </Route>
+                  <Route element={<RouteGuard allowedPath="/attendance" />}>
+                    <Route path="/attendance" element={<Attendance />} />
+                  </Route>
+                  <Route element={<RouteGuard allowedPath="/calendar" />}>
+                    <Route path="/calendar" element={<AttendanceCalendar />} />
+                  </Route>
                   {/* ── Access / Training — guarded ── */}
                   <Route element={<RouteGuard allowedPath="/access" />}>
                     <Route path="/access" element={<EmployeeManager />} />

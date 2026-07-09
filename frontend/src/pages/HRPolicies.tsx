@@ -97,7 +97,7 @@ export default function HRPolicies() {
 
   const accessRole = currentEmployee?.access_role;
   const department = currentEmployee?.department;
-  console.log(" department ", department);
+
   const isHRDepartment = department?.toLowerCase() === "hr";
 
   const isTableView =
