@@ -5,11 +5,11 @@ import {
   getShiftAssignmentsByEmployee as getShiftAssignmentsByEmployeeApi,
   updateShiftAssignment as updateShiftAssignmentApi,
   deleteShiftAssignment as deleteShiftAssignmentApi,
-  ShiftAssignment,
   CreateShiftAssignmentPayload,
   UpdateShiftAssignmentPayload,
   GetShiftAssignmentsParams,
-} from "./shiftAssignmentApi";
+  ShiftAssignment,
+} from "./shiftassignmentApi";
 
 // ---------------------------------------------------------------------------
 // State
