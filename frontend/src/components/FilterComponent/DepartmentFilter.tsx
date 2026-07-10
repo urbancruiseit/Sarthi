@@ -40,7 +40,9 @@ export default function DepartmentFilter({
 
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className={className}>
+      <SelectTrigger
+        className={`w-full sm:w-[180px] h-10 rounded-xl border border-orange-200 hover:bg-orange-100 text-orange-700 shadow-sm transition-all focus:ring-2 focus:ring-orange-300 ${className}`}
+      >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

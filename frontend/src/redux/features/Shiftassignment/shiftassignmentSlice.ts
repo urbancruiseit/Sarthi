@@ -11,10 +11,6 @@ import {
   ShiftAssignment,
 } from "./shiftassignmentApi";
 
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
-
 interface ShiftAssignmentState {
   list: ShiftAssignment[];
   employeeHistory: ShiftAssignment[];
@@ -32,10 +28,6 @@ const initialState: ShiftAssignmentState = {
   error: null,
   employeeHistoryError: null,
 };
-
-// ---------------------------------------------------------------------------
-// Thunks
-// ---------------------------------------------------------------------------
 
 export const fetchShiftAssignments = createAsyncThunk<
   ShiftAssignment[],
@@ -123,10 +115,6 @@ export const deleteShiftAssignmentThunk = createAsyncThunk<
     }
   },
 );
-
-// ---------------------------------------------------------------------------
-// Slice
-// ---------------------------------------------------------------------------
 
 const shiftAssignmentSlice = createSlice({
   name: "shiftAssignment",

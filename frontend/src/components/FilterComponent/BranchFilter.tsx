@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Building2 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
 import {
   Select,
@@ -9,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import { fetchBranchesThunk } from "@/redux/features/branch/branchSlice";
 import { RootState } from "@/redux/store";
-import { Branch } from "@/types";
+
 interface BranchFilterProps {
   value: string;
   onChange: (value: string) => void;
@@ -23,9 +24,10 @@ export default function BranchFilter({
   onChange,
   placeholder = "Branch",
   includeAllOption = true,
-  className = "w-full sm:w-[160px] h-9 text-sm",
+  className = "",
 }: BranchFilterProps) {
   const dispatch = useAppDispatch();
+
   const { branches } = useAppSelector((state: RootState) => state.branch);
 
   useEffect(() => {
@@ -38,11 +40,18 @@ export default function BranchFilter({
 
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className={className}>
-        <SelectValue placeholder={placeholder} />
+      <SelectTrigger
+        className={`w-full sm:w-[180px] h-10 rounded-xl border border-orange-200 hover:bg-orange-100 text-orange-700 shadow-sm transition-all focus:ring-2 focus:ring-orange-300 ${className}`}
+      >
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-orange-600" />
+          <SelectValue placeholder={placeholder} />
+        </div>
       </SelectTrigger>
-      <SelectContent>
+
+      <SelectContent className="rounded-xl border border-sky-100">
         {includeAllOption && <SelectItem value="all">All Branches</SelectItem>}
+
         {branchOptions.map((branch: any) => (
           <SelectItem key={branch.id} value={String(branch.id)}>
             {branch.branch_name ?? branch.name ?? `Branch ${branch.id}`}

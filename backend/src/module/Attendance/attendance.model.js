@@ -119,7 +119,7 @@ export const getAttendanceByDate = async (filters = {}) => {
         ON a.employee_id = u.id
     `;
 
-    // Date Filter
+    // Attendance Date Filter
     if (startDate && endDate) {
       attendanceJoin += ` AND a.attendance_date BETWEEN ? AND ?`;
       params.push(startDate, endDate);
@@ -177,9 +177,27 @@ export const getAttendanceByDate = async (filters = {}) => {
         d.department_name,
 
         u.branchOffice_id,
+        b.branch_name,
 
-        u.workShift AS shift_type,
-        u.shiftTiming AS shift_timing,
+        /* Permanent Shift */
+        u.workShift AS permanent_shift_type,
+        u.shiftTiming AS permanent_shift_timing,
+
+        /* Temporary Shift */
+        eso.shift_type AS temporary_shift_type,
+        eso.shift_timing AS temporary_shift_timing,
+        eso.week_off,
+        eso.from_date,
+        eso.to_date,
+
+        /* Final Shift */
+        COALESCE(eso.shift_type, u.workShift) AS shift_type,
+        COALESCE(eso.shift_timing, u.shiftTiming) AS shift_timing,
+
+        CASE
+          WHEN eso.id IS NOT NULL THEN 'Temporary'
+          ELSE 'Permanent'
+        END AS shift_source,
 
         a.id AS attendance_id,
         a.attendance_date,
@@ -194,7 +212,22 @@ export const getAttendanceByDate = async (filters = {}) => {
       LEFT JOIN departments d
         ON d.id = u.department_id
 
+      LEFT JOIN branches b
+        ON b.id = u.branchOffice_id
+
       ${attendanceJoin}
+
+      /* Temporary Shift Override */
+      LEFT JOIN employee_shift_override eso
+  ON eso.employee_id = u.id
+  AND eso.is_active = 1
+  AND (
+      a.attendance_date BETWEEN eso.from_date AND eso.to_date
+      OR (
+          a.attendance_date IS NULL
+          AND CURDATE() BETWEEN eso.from_date AND eso.to_date
+      )
+  )
 
       ${whereClause}
 
@@ -212,28 +245,87 @@ export const getAttendanceByDate = async (filters = {}) => {
   }
 };
 
-export const getAttendanceByEmployeeAndDate = async (
-  employeeId,
-  attendanceDate,
-) => {
+export const getAttendanceByEmployeeMonth = async (employeeId, month) => {
   try {
-    if (employeeId === undefined || attendanceDate === undefined) {
+    if (!employeeId || !month) {
       throw new Error(
-        `getAttendanceByEmployeeAndDate called with invalid args: employeeId=${employeeId}, attendanceDate=${attendanceDate}`,
+        `getAttendanceByEmployeeMonth called with invalid args: employeeId=${employeeId}, month=${month}`,
       );
     }
 
+    // month is expected as "YYYY-MM"
+    const [year, monthNum] = month.split("-").map(Number);
+    if (!year || !monthNum) {
+      throw new Error(
+        `getAttendanceByEmployeeMonth invalid month format: ${month}`,
+      );
+    }
+
+    const startDate = `${month}-01`;
+    const lastDay = new Date(year, monthNum, 0).getDate(); // last day of that month
+    const endDate = `${month}-${String(lastDay).padStart(2, "0")}`;
+
     const sql = `
-      SELECT * 
-      FROM attendance
-      WHERE employee_id = ? AND attendance_date = ?
-      LIMIT 1
+      WITH RECURSIVE calendar AS (
+        SELECT ? AS dt
+        UNION ALL
+        SELECT DATE_ADD(dt, INTERVAL 1 DAY)
+        FROM calendar
+        WHERE dt < ?
+      )
+      SELECT
+        u.id AS employee_id,
+
+        TRIM(
+          CONCAT(
+            COALESCE(u.firstName,''),
+            ' ',
+            COALESCE(u.middleName,''),
+            ' ',
+            COALESCE(u.lastName,'')
+          )
+        ) AS full_name,
+
+        u.department_id,
+        d.department_name,
+
+        u.branchOffice_id,
+        b.branch_name,
+
+        u.workShift AS shift_type,
+        u.shiftTiming AS shift_timing,
+
+        a.id AS attendance_id,
+        calendar.dt AS attendance_date,
+        COALESCE(a.status,'Absent') AS status,
+        a.punch_in,
+        a.punch_out,
+        a.leave_type,
+        a.remarks
+
+      FROM calendar
+
+      CROSS JOIN users u
+
+      LEFT JOIN attendance a
+        ON a.employee_id = u.id
+        AND a.attendance_date = calendar.dt
+
+      LEFT JOIN departments d
+        ON d.id = u.department_id
+
+      LEFT JOIN branches b
+        ON b.id = u.branchOffice_id
+
+      WHERE u.id = ?
+
+      ORDER BY calendar.dt DESC
     `;
 
-    const [rows] = await pool.execute(sql, [employeeId, attendanceDate]);
-    return rows[0] || null;
+    const [rows] = await pool.execute(sql, [startDate, endDate, employeeId]);
+    return rows;
   } catch (error) {
-    console.error("getAttendanceByEmployeeAndDate error:", error);
+    console.error("getAttendanceByEmployeeMonth error:", error);
     throw error;
   }
 };

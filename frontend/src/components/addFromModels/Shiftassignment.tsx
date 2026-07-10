@@ -43,7 +43,6 @@ import { RootState } from "@/redux/store";
 import { fetchEmployeeListThunk } from "@/redux/features/userSlice";
 import EmployeeFilter from "../FilterComponent/EmployeeFilter";
 
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -65,13 +64,14 @@ type FormState = {
 const SHIFT_TYPES = ["Temporary"];
 
 const WEEK_DAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
+  { label: "Keep Existing", value: "KEEP_EXISTING" },
+  { label: "Sunday", value: "Sunday" },
+  { label: "Monday", value: "Monday" },
+  { label: "Tuesday", value: "Tuesday" },
+  { label: "Wednesday", value: "Wednesday" },
+  { label: "Thursday", value: "Thursday" },
+  { label: "Friday", value: "Friday" },
+  { label: "Saturday", value: "Saturday" },
 ];
 
 const EMPTY_FORM: FormState = {
@@ -81,7 +81,7 @@ const EMPTY_FORM: FormState = {
   toDate: "",
   shiftType: "Temporary",
   shiftTiming: "",
-  weekOff: "Sunday",
+  weekOff: "", // default blank
   reason: "",
   isActive: true,
 };
@@ -167,7 +167,7 @@ export default function ShiftAssignment({
       toDate: row.to_date?.slice(0, 10) ?? "",
       shiftType: "Temporary",
       shiftTiming: row.shift_timing ?? "",
-      weekOff: row.week_off ?? "Sunday",
+      weekOff: row.week_off ?? "",
       reason: row.reason ?? "",
       isActive: !!row.is_active,
     });
@@ -207,8 +207,8 @@ export default function ShiftAssignment({
       fromDate: form.fromDate,
       toDate: form.toDate,
       shiftType: form.shiftType,
-      shiftTiming: form.shiftTiming.trim(),
-      weekOff: form.weekOff,
+      shiftTiming: form.shiftTiming.trim() || null,
+      weekOff: form.weekOff === "KEEP_EXISTING" ? null : form.weekOff,
       reason: form.reason.trim() || null,
       isActive: (form.isActive ? 1 : 0) as 0 | 1,
     };
@@ -358,19 +358,31 @@ export default function ShiftAssignment({
                   className="border-b border-border/50 hover:bg-muted/30"
                 >
                   <td className="px-4 py-3 font-medium">
-                    {row.full_name ?? `#${row.employee_id}`}
+                    {row.full_name ||
+                      row.employee_name ||
+                      `#${row.employee_id ?? "-"}`}
                   </td>
+
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {formatDateLabel(row.from_date)}
+                    {row.from_date ? formatDateLabel(row.from_date) : "-"}
                   </td>
+
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {formatDateLabel(row.to_date)}
+                    {row.to_date ? formatDateLabel(row.to_date) : "-"}
                   </td>
-                  <td className="px-4 py-3">{row.shift_type}</td>
+
+                  <td className="px-4 py-3">{row.shift_type || "-"}</td>
+
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {row.shift_timing}
+                    {row.shift_timing || "-"}
                   </td>
-                  <td className="px-4 py-3">{row.week_off ?? "—"}</td>
+
+                  <td className="px-4 py-3">{row.week_off || "-"}</td>
+
+                  {/* Reason Column */}
+                  <td className="px-4 py-3">{row.reason?.trim() || "-"}</td>
+
+                  {/* Status Column */}
                   <td className="px-4 py-3">
                     <span
                       className="px-3 py-1 rounded-full text-xs font-medium"
@@ -389,6 +401,7 @@ export default function ShiftAssignment({
                       {Number(row.is_active) === 1 ? "Active" : "Inactive"}
                     </span>
                   </td>
+
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Button
@@ -400,6 +413,7 @@ export default function ShiftAssignment({
                         <Pencil size={13} />
                         Edit
                       </Button>
+
                       <Button
                         size="sm"
                         className="h-8 gap-1.5 text-white border-none hover:opacity-90"
@@ -517,17 +531,24 @@ export default function ShiftAssignment({
               </div>
               <div className="space-y-1.5">
                 <Label>Week Off</Label>
+
                 <Select
                   value={form.weekOff}
-                  onValueChange={(v) => setForm((f) => ({ ...f, weekOff: v }))}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      weekOff: v,
+                    }))
+                  }
                 >
                   <SelectTrigger className="h-10 rounded-xl">
-                    <SelectValue placeholder="Week off day" />
+                    <SelectValue placeholder="Keep Existing" />
                   </SelectTrigger>
+
                   <SelectContent>
-                    {WEEK_DAYS.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
+                    {WEEK_DAYS.map((day) => (
+                      <SelectItem key={day.label} value={day.value}>
+                        {day.label}
                       </SelectItem>
                     ))}
                   </SelectContent>

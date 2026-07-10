@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, User } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +30,7 @@ export default function EmployeeFilter({
   value,
   onChange,
   includeAllOption = true,
-  className = "w-full sm:w-[220px] h-9",
+  className = "w-full sm:w-[220px] h-10",
 }: EmployeeFilterProps) {
   const dispatch = useAppDispatch();
   const [open, setOpen] = useState(false);
@@ -65,14 +65,21 @@ export default function EmployeeFilter({
         <Button
           variant="outline"
           role="combobox"
-          className={cn(className, "justify-between")}
+          className={cn(
+            className,
+            "justify-between rounded-xl border border-orange-200 hover:bg-orange-100 text-orange-700 shadow-sm transition-all focus:ring-2 focus:ring-orange-300",
+          )}
         >
-          <span className="truncate">{selectedLabel}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+          <div className="flex items-center gap-2 truncate">
+            <User className="h-4 w-4 text-sky-600 shrink-0" />
+            <span className="truncate">{selectedLabel}</span>
+          </div>
+
+          <ChevronsUpDown className="ml-2 h-4 w-4 text-sky-600 opacity-70" />
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[260px] p-0">
+      <PopoverContent className="w-[260px] p-0 rounded-xl border border-sky-200">
         <Command>
           <CommandInput placeholder="Search employee..." />
 
@@ -90,7 +97,7 @@ export default function EmployeeFilter({
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "mr-2 h-4 w-4 text-sky-600",
                       value === "all" || !value ? "opacity-100" : "opacity-0",
                     )}
                   />
@@ -109,7 +116,7 @@ export default function EmployeeFilter({
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "mr-2 h-4 w-4 text-sky-600",
                       value === String(emp.id) ? "opacity-100" : "opacity-0",
                     )}
                   />

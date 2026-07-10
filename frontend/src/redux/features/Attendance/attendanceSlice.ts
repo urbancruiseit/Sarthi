@@ -19,16 +19,33 @@ export interface AttendanceRecord {
   department_name: string | null;
 
   branchOffice_id?: number | null;
+  branch_name?: string | null;
 
   attendance_date: string | null;
 
-  status: "Present" | "Absent" | "Half Day" | "Leave" | "Holiday" | null;
+  status: "Present" | "Absent" | "Half Day" | "Leave" | "Holiday" | "Pending" | null;
 
   punch_in: string | null;
   punch_out: string | null;
 
-  shift_type: "Regular" | "Temporary" | null;
+  // Final Shift (COALESCE)
+  shift_type: string | null;
   shift_timing: string | null;
+
+  // Permanent Shift
+  permanent_shift_type?: string | null;
+  permanent_shift_timing?: string | null;
+
+  // Temporary Shift
+  temporary_shift_type?: string | null;
+  temporary_shift_timing?: string | null;
+
+  week_off?: string | null;
+  from_date?: string | null;
+  to_date?: string | null;
+
+  // Shift Source
+  shift_source?: "Permanent" | "Temporary";
 
   leave_type: string | null;
   remarks: string | null;

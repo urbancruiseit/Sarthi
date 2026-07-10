@@ -9,10 +9,6 @@ import {
   getShiftAssignments,
 } from "./shiftassignment.model.js";
 
-/**
- * POST /api/shift-assignments
- * Body: { employeeId, fromDate, toDate, shiftType, shiftTiming, weekOff, reason, isActive }
- */
 export const createShiftAssignmentHandler = asyncHandler(async (req, res) => {
   const {
     employeeId,
@@ -25,10 +21,10 @@ export const createShiftAssignmentHandler = asyncHandler(async (req, res) => {
     isActive,
   } = req.body;
 
-  if (!employeeId || !fromDate || !toDate || !shiftType || !shiftTiming) {
+  if (!employeeId || !fromDate || !toDate || !shiftType) {
     throw new ApiError(
       400,
-      "employeeId, fromDate, toDate, shiftType and shiftTiming are required",
+      "employeeId, fromDate, toDate and shiftType are required",
     );
   }
 

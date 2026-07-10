@@ -4,7 +4,7 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import {
   getAttendanceByDate,
-  getAttendanceByEmployeeAndDate,
+  getAttendanceByEmployeeMonth,
   markAttendance,
   updatePunchOut,
 } from "./attendance.model.js";
@@ -39,7 +39,6 @@ const getAttendanceController = asyncHandler(async (req, res) => {
     .toISOString()
     .slice(0, 10);
 
-  
   if (employeeId) {
     filters.employeeId = employeeId;
     filters.startDate = firstDay;
@@ -72,7 +71,6 @@ const getAttendanceController = asyncHandler(async (req, res) => {
     case "EMPLOYEE":
       filters.employeeId = userId;
 
-      // Employee always sees current month
       filters.startDate = firstDay;
       filters.endDate = lastDay;
       delete filters.attendanceDate;
@@ -110,11 +108,10 @@ const getAttendanceController = asyncHandler(async (req, res) => {
 
 const getMyAttendanceController = asyncHandler(async (req, res) => {
   const employeeId = req.user.id; // JWT/auth middleware se aata hai
-  const { date, month } = req.query;
+  const { month } = req.query;
 
-  const attendance = await getAttendanceByEmployeeAndDate({
+  const attendance = await getAttendanceByEmployeeMonth({
     employeeId,
-    attendanceDate: date,
     month,
   });
 

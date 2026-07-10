@@ -4,7 +4,7 @@ export const createShiftAssignment = async ({
   fromDate,
   toDate,
   shiftType,
-  shiftTiming,
+  shiftTiming = null,
   weekOff = null,
   reason = null,
   isActive = 1,
@@ -12,7 +12,16 @@ export const createShiftAssignment = async ({
   try {
     const sql = `
       INSERT INTO employee_shift_override
-        (employee_id, from_date, to_date, shift_type, shift_timing, week_off, reason, is_active)
+        (
+          employee_id,
+          from_date,
+          to_date,
+          shift_type,
+          shift_timing,
+          week_off,
+          reason,
+          is_active
+        )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
@@ -141,7 +150,6 @@ export const getShiftAssignmentById = async (id) => {
     throw error;
   }
 };
-
 
 export const getShiftAssignments = async (filters = {}) => {
   try {

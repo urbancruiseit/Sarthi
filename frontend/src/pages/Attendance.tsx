@@ -5,35 +5,12 @@ import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
 import {
   Users,
   Clock,
-  CheckCircle,
-  Search,
-  CalendarOff,
+  CalendarDays,
+  ArrowLeft,
   Timer,
   TimerReset,
-  AlarmClock,
-  Check,
-  X,
-  CalendarDays,
-  Loader2,
-  ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   fetchAttendance,
@@ -41,175 +18,21 @@ import {
   AttendanceRecord,
 } from "@/redux/features/Attendance/attendanceSlice";
 import { getAttendance } from "@/redux/features/Attendance/attendanceApi";
-import { RootState } from "@/redux/store";
 import ShiftAssignment from "@/components/addFromModels/Shiftassignment";
 import BranchFilter from "@/components/FilterComponent/BranchFilter";
 import DepartmentFilter from "@/components/FilterComponent/DepartmentFilter";
 import EmployeeFilter from "@/components/FilterComponent/EmployeeFilter";
 
-type AttendanceStatus =
-  | "Present"
-  | "Absent"
-  | "Half Day"
-  | "Leave"
-  | "Holiday"
-  | "Pending";
-
-const STATUS_COLORS: Record<AttendanceStatus, { bg: string; color: string }> = {
-  Present: {
-    bg: "hsl(var(--success) / 0.12)",
-    color: "hsl(var(--success))",
-  },
-
-  Absent: {
-    bg: "hsl(var(--destructive) / 0.12)",
-    color: "hsl(var(--destructive))",
-  },
-
-  "Half Day": {
-    bg: "hsl(var(--warning) / 0.12)",
-    color: "hsl(var(--warning))",
-  },
-
-  Leave: {
-    bg: "hsl(var(--primary) / 0.12)",
-    color: "hsl(var(--primary))",
-  },
-
-  Holiday: {
-    bg: "hsl(var(--muted))",
-    color: "hsl(var(--muted-foreground))",
-  },
-
-  Pending: {
-    bg: "#FFF7ED",
-    color: "#EA580C",
-  },
-};
-
-const LEAVE_TYPES = [
-  "Sick Leave",
-  "Casual Leave",
-  "Earned Leave",
-  "Unpaid Leave",
-];
-
-type Override = { status: AttendanceStatus; leaveType?: string };
-
-type ModalState =
-  | { type: "halfday"; empId: string; empName: string }
-  | { type: "leave"; empId: string; empName: string; leaveType: string }
-  | null;
-
-// ---------- Time helpers ----------
-
-function parseTimeToMinutes(time?: string | null): number | null {
-  if (!time) return null;
-
-  const ampm = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-  if (ampm) {
-    let hours = parseInt(ampm[1], 10);
-    const minutes = parseInt(ampm[2], 10);
-    const period = ampm[3].toUpperCase();
-    if (period === "PM" && hours !== 12) hours += 12;
-    if (period === "AM" && hours === 12) hours = 0;
-    return hours * 60 + minutes;
-  }
-
-  const h24 = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-  if (h24) {
-    const hours = parseInt(h24[1], 10);
-    const minutes = parseInt(h24[2], 10);
-    return hours * 60 + minutes;
-  }
-
-  return null;
-}
-
-function formatTime12h(time?: string | null): string {
-  const mins = parseTimeToMinutes(time);
-  if (mins === null) return "—";
-  const h24 = Math.floor(mins / 60);
-  const m = mins % 60;
-  const period = h24 >= 12 ? "PM" : "AM";
-  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-  return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
-}
-
-function getShiftStartMinutes(shiftTiming?: string | null): number {
-  const parsed = parseTimeToMinutes(shiftTiming);
-  return parsed !== null ? parsed : 9 * 60;
-}
-
-function getShiftEndMinutes(shiftTiming?: string | null): number {
-  if (!shiftTiming) return 18 * 60;
-
-  const parts = shiftTiming.split("-");
-  if (parts.length === 2) {
-    const parsed = parseTimeToMinutes(parts[1].trim());
-    if (parsed !== null) return parsed;
-  }
-
-  return 18 * 60;
-}
-
-function formatDuration(totalMinutes: number): string {
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  if (h <= 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
-
-/** Shapes a raw AttendanceRecord into the display-ready row used by the table. */
-function toDisplayRow(r: AttendanceRecord, override?: Override) {
-  const empId = String(r.employee_id);
-
-  const status: AttendanceStatus =
-    override?.status ?? (r.status as AttendanceStatus) ?? "Absent";
-  const leaveType = override?.leaveType ?? r.leave_type ?? undefined;
-
-  const inTime = formatTime12h(r.punch_in);
-  const outTime = formatTime12h(r.punch_out);
-
-  const shiftStartMinutes = getShiftStartMinutes(r.shift_timing);
-  const shiftEndMinutes = getShiftEndMinutes(r.shift_timing);
-  const inMinutes = parseTimeToMinutes(r.punch_in);
-  const outMinutes = parseTimeToMinutes(r.punch_out);
-
-  const isLate = inMinutes !== null && inMinutes > shiftStartMinutes;
-  const lateMinutes = isLate ? inMinutes! - shiftStartMinutes : 0;
-
-  const isEarlyOut = outMinutes !== null && outMinutes < shiftEndMinutes;
-  const earlyMinutes = isEarlyOut ? shiftEndMinutes - outMinutes! : 0;
-
-  const workingMinutes =
-    inMinutes !== null && outMinutes !== null && outMinutes > inMinutes
-      ? outMinutes - inMinutes
-      : null;
-
-  const workingHours =
-    workingMinutes !== null ? formatDuration(workingMinutes) : null;
-
-  return {
-    id: empId,
-    attendanceDate: r.attendance_date,
-    fullName: r.full_name,
-    department: r.department_name || "—",
-    shiftTiming: r.shift_timing || "Morning",
-    branchOfficeId: r.branchOffice_id,
-    status,
-    leaveType,
-    inTime,
-    outTime,
-    isLate,
-    lateMinutes,
-    isEarlyOut,
-    earlyMinutes,
-    workingMinutes,
-    workingHours,
-  };
-}
+import {
+  ModalState,
+  Override,
+  toDisplayRow,
+  LEAVE_TYPES,
+} from "../components/Attendance/Attendanceutils";
+import AttendanceStatsCards from "../components/Attendance/Attendancestatscards";
+import AttendanceTable from "../components/Attendance/Attendancetable";
+import HalfDayModal from "../components/Attendance/Halfdaymodal";
+import LeaveModal from "../components/Attendance/Leavemodal";
 
 export default function Attendance() {
   const navigate = useNavigate();
@@ -315,49 +138,32 @@ export default function Attendance() {
   const isDrillDown = !!selectedEmployee;
   const rowsToRender = isDrillDown ? employeeMonthData : attendanceData;
 
-  const presentCount = rowsToRender.filter(
-    (e) => e.status === "Present",
-  ).length;
-
-  const absentCount = rowsToRender.filter((e) => e.status === "Absent").length;
-
-  const leaveCount = rowsToRender.filter((e) => e.status === "Leave").length;
-
-  const totalLateMinutes = rowsToRender.reduce((total, emp) => {
-    return total + (emp.lateMinutes || 0);
-  }, 0);
-
   const totalOvertimeMinutes = rowsToRender.reduce((total, emp) => {
     if (!emp.workingMinutes) return total;
 
-    // Office Working Hours = 8 Hours 30 Minutes
     const overtime = emp.workingMinutes - 510;
-
     return total + (overtime > 0 ? overtime : 0);
   }, 0);
 
   const totalShortMinutes = rowsToRender.reduce((total, emp) => {
     if (!emp.workingMinutes) return total;
 
-    // Employee worked less than 8:30 Hours
     const shortTime = 510 - emp.workingMinutes;
-
     return total + (shortTime > 0 ? shortTime : 0);
   }, 0);
 
-  const totalEarlyMinutes = rowsToRender.reduce((total, emp) => {
-    return total + (emp.earlyMinutes || 0);
-  }, 0);
+  const formatDuration = (minutes: number) => {
+    const hrs = Math.floor(minutes / 60);
+    const mins = minutes % 60;
 
-  const totalLossMinutes = rowsToRender.reduce((total, emp) => {
-    return total + (emp.lateMinutes || 0) + (emp.earlyMinutes || 0);
-  }, 0);
+    if (hrs && mins) return `${hrs}h ${mins}m`;
+    if (hrs) return `${hrs}h`;
+    return `${mins}m`;
+  };
 
-  const totalLateTime = formatDuration(totalLateMinutes);
   const totalOvertime = formatDuration(totalOvertimeMinutes);
   const totalShortTime = formatDuration(totalShortMinutes);
-  const totalEarlyTime = formatDuration(totalEarlyMinutes);
-  const totalLossTime = formatDuration(totalLossMinutes);
+
   const openHalfDayModal = (empId: string, empName: string) => {
     setModal({ type: "halfday", empId, empName });
   };
@@ -555,75 +361,29 @@ export default function Attendance() {
             </div>
           )}
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-6 xl:grid-cols-6 gap-4">
-            {[
-              {
-                label: isDrillDown ? "This Month" : "Selected Date",
-                value: isDrillDown ? currentMonthStr : selectedDateLabel,
-                icon: CalendarDays,
-                bg: "bg-orange-200",
-              },
-              {
-                label: "Present",
-                value: presentCount,
-                icon: CheckCircle,
-                bg: "bg-green-200",
-              },
-              {
-                label: "Absent",
-                value: absentCount,
-                icon: Users,
-                bg: "bg-red-200",
-              },
-              {
-                label: "Leave",
-                value: leaveCount,
-                icon: CalendarOff,
-                bg: "bg-blue-200",
-              },
-              {
-                label: "Short Time",
-                value: totalShortTime,
-                icon: Timer,
-                bg: "bg-rose-200",
-              },
-              {
-                label: "Overtime",
-                value: totalOvertime,
-                icon: TimerReset,
-                bg: "bg-violet-200",
-              },
-            ].map(({ label, value, icon: Icon, bg }) => (
-              <div
-                key={label}
-                className={`${bg} rounded-2xl p-5 flex items-center gap-4 shadow-md hover:shadow-xl transition-all`}
-              >
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/40">
-                  <Icon size={28} className="text-gray-700" />
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold tracking-wide text-gray-700">
-                    {label}
-                  </p>
-
-                  <p className="text-2xl font-extrabold text-gray-900 mt-1">
-                    {value}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <AttendanceStatsCards
+            rows={rowsToRender}
+            isDrillDown={isDrillDown}
+            currentMonthStr={currentMonthStr}
+            selectedDateLabel={selectedDateLabel}
+          />
 
           {/* Search + Filters (Branch, Department, Employee, Calendar) — hidden in drill-down */}
           {!isDrillDown && (
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative max-w-xs w-full">
-                <Search
-                  size={15}
+                <svg
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                />
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -668,440 +428,64 @@ export default function Attendance() {
                   Today
                 </Button>
               )}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 h-9">
+                  <Timer size={16} className="text-rose-600" />
+                  <span className="text-sm font-medium text-rose-700">
+                    Short Time:
+                  </span>
+                  <span className="font-bold text-rose-800">
+                    {totalShortTime}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 h-9">
+                  <TimerReset size={16} className="text-violet-600" />
+                  <span className="text-sm font-medium text-violet-700">
+                    Overtime:
+                  </span>
+                  <span className="font-bold text-violet-800">
+                    {totalOvertime}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Table */}
-          <div
-            className="rounded-xl border-2 bg-card overflow-hidden"
-            style={{ borderColor: "#BBF7D0" }}
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm table-fixed">
-                <colgroup>
-                  {isDrillDown ? (
-                    <>
-                      <col className="w-[13%]" />
-                      <col className="w-[11%]" />
-                      <col className="w-[11%]" />
-                      <col className="w-[11%]" />
-                      <col className="w-[13%]" />
-                      <col className="w-[13%]" />
-                      <col className="w-[13%]" />
-                      <col className="w-[15%]" />
-                    </>
-                  ) : (
-                    <>
-                      <col className="w-[16%]" />
-                      <col className="w-[12%]" />
-                      <col className="w-[10%]" />
-                      <col className="w-[10%]" />
-                      <col className="w-[12%]" />
-                      <col className="w-[12%]" />
-                      <col className="w-[13%]" />
-                      <col className="w-[15%]" />
-                    </>
-                  )}
-                </colgroup>
-                <thead>
-                  <tr style={{ background: "#166534" }}>
-                    {[
-                      "Employee",
-                      "Department",
-                      "Shift",
-                      ...(isDrillDown ? ["Date"] : []),
-                      "Punch-In",
-                      "Punch-Out",
-                      "Working Hours",
-                      "Status",
-                      "Actions",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className="text-left px-4 py-3 text-xs font-semibold text-white uppercase"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(isDrillDown ? employeeMonthLoading : loading) &&
-                    rowsToRender.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={isDrillDown ? 9 : 8}
-                          className="px-4 py-8 text-center"
-                        >
-                          <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
-                            <Loader2 size={16} className="animate-spin" />
-                            Loading attendance…
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-
-                  {!(isDrillDown ? employeeMonthLoading : loading) &&
-                    rowsToRender.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={isDrillDown ? 9 : 8}
-                          className="px-4 py-8 text-center text-sm text-muted-foreground"
-                        >
-                          {isDrillDown
-                            ? "No attendance records found for this month."
-                            : "No attendance records found."}
-                        </td>
-                      </tr>
-                    )}
-
-                  {rowsToRender.map((emp, idx) => {
-                    const sc = STATUS_COLORS[
-                      emp.status as AttendanceStatus
-                    ] ?? {
-                      bg: "#F3F4F6",
-                      color: "#6B7280",
-                    };
-                    const hasPunchIn = emp.inTime !== "—";
-                    const hasPunchOut = emp.outTime !== "—";
-                    return (
-                      <tr
-                        key={
-                          isDrillDown
-                            ? `${emp.id}-${emp.attendanceDate ?? idx}`
-                            : emp.id
-                        }
-                        className={
-                          "border-b border-border/50 hover:bg-muted/30" +
-                          (isDrillDown ? "" : " cursor-pointer")
-                        }
-                        onClick={
-                          isDrillDown
-                            ? undefined
-                            : () => openEmployeeMonth(emp.id, emp.fullName)
-                        }
-                        title={
-                          isDrillDown
-                            ? undefined
-                            : "Click to view this month's full attendance"
-                        }
-                      >
-                        <td
-                          className={
-                            "px-4 py-3 truncate" +
-                            (isDrillDown ? "" : " font-medium hover:underline")
-                          }
-                        >
-                          {emp.fullName}
-                        </td>
-                        <td className="px-4 py-3 truncate">{emp.department}</td>
-                        <td className="px-4 py-3 truncate">
-                          {emp.shiftTiming}
-                        </td>
-
-                        {isDrillDown && (
-                          <td className="px-4 py-3 truncate">
-                            {emp.attendanceDate
-                              ? new Date(emp.attendanceDate).toLocaleDateString(
-                                  "en-IN",
-                                  {
-                                    day: "2-digit",
-                                    month: "short",
-                                  },
-                                )
-                              : "—"}
-                          </td>
-                        )}
-
-                        <td className="px-4 py-3">
-                          {hasPunchIn ? (
-                            <div className="flex flex-col leading-tight">
-                              <span
-                                className="font-medium"
-                                style={{
-                                  color: emp.isLate
-                                    ? "hsl(var(--destructive))"
-                                    : "hsl(var(--success))",
-                                }}
-                              >
-                                {emp.inTime}
-                              </span>
-                              {emp.isLate && (
-                                <span
-                                  className="text-[13px] font-medium"
-                                  style={{ color: "hsl(var(--destructive))" }}
-                                >
-                                  {formatDuration(emp.lateMinutes)} late
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              {emp.inTime}
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          {hasPunchOut ? (
-                            <div className="flex flex-col leading-tight">
-                              <span
-                                className="font-medium"
-                                style={{
-                                  color: emp.isEarlyOut
-                                    ? "hsl(var(--destructive))"
-                                    : "hsl(var(--success))",
-                                }}
-                              >
-                                {emp.outTime}
-                              </span>
-                              {emp.isEarlyOut && (
-                                <span
-                                  className="text-[11px] font-medium"
-                                  style={{ color: "hsl(var(--destructive))" }}
-                                >
-                                  {formatDuration(emp.earlyMinutes)} early
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              {emp.outTime}
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          {emp.workingHours ? (
-                            <span
-                              className="font-medium"
-                              style={{
-                                color:
-                                  emp.workingMinutes !== null &&
-                                  emp.workingMinutes >= 8 * 60 + 30
-                                    ? "hsl(var(--success))"
-                                    : "hsl(var(--destructive))",
-                              }}
-                            >
-                              {emp.workingHours}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-3">
-                          <span
-                            className="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-                            style={{ background: sc.bg, color: sc.color }}
-                          >
-                            {emp.status}
-                            {emp.status === "Leave" && emp.leaveType
-                              ? ` · ${emp.leaveType}`
-                              : ""}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div
-                            className="flex items-center gap-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs gap-1.5 text-white border-none hover:opacity-90"
-                              style={{ background: "#F97316" }}
-                              onClick={() =>
-                                openHalfDayModal(emp.id, emp.fullName)
-                              }
-                            >
-                              <Timer size={13} />
-                              Half Day
-                            </Button>
-
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs gap-1.5 text-white border-none hover:opacity-90"
-                              style={{ background: "#16A34A" }}
-                              onClick={() =>
-                                openLeaveModal(
-                                  emp.id,
-                                  emp.fullName,
-                                  emp.leaveType,
-                                )
-                              }
-                            >
-                              <CalendarOff size={13} />
-                              Leave
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <AttendanceTable
+            rows={rowsToRender}
+            isDrillDown={isDrillDown}
+            loading={isDrillDown ? employeeMonthLoading : loading}
+            onRowClick={openEmployeeMonth}
+            onHalfDay={openHalfDayModal}
+            
+          />
         </TabsContent>
         <TabsContent value="shift" className="mt-6">
           <ShiftAssignment />
         </TabsContent>
       </Tabs>
 
-      {/* Half Day Confirmation Modal */}
-      <Dialog
+      <HalfDayModal
         open={modal?.type === "halfday"}
+        empName={modal?.type === "halfday" ? modal.empName : ""}
+        dateLabel={selectedDateLabel}
         onOpenChange={(open) => !open && setModal(null)}
-      >
-        <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl border-none shadow-2xl bg-white">
-          <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
-            <X className="h-4 w-4 text-red-500 hover:text-red-700 transition-colors" />
-            <span className="sr-only">Close</span>
-          </DialogClose>
+        onConfirm={confirmHalfDay}
+      />
 
-          <div
-            className="h-24 w-full relative"
-            style={{ background: "#F97316" }}
-          >
-            <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 w-[72px] h-[72px] rounded-2xl bg-white border-2 border-border shadow-lg flex items-center justify-center">
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center"
-                style={{ background: "#FFEDD5" }}
-              >
-                <Timer size={24} style={{ color: "#F97316" }} />
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-14 px-6 pb-6 space-y-6">
-            <DialogHeader className="space-y-2.5">
-              <DialogTitle className="text-center text-xl font-bold">
-                Mark as Half Day
-              </DialogTitle>
-              <DialogDescription className="text-center text-sm leading-relaxed text-muted-foreground">
-                {modal?.type === "halfday" && (
-                  <>
-                    You're about to mark{" "}
-                    <span className="font-semibold text-foreground">
-                      {modal.empName}
-                    </span>{" "}
-                    as{" "}
-                    <span className="font-semibold text-foreground">
-                      Half Day
-                    </span>{" "}
-                    for{" "}
-                    <span className="font-medium text-foreground">
-                      {selectedDateLabel}
-                    </span>
-                    . This action can be updated later.
-                  </>
-                )}
-              </DialogDescription>
-            </DialogHeader>
-
-            <DialogFooter className="flex-row justify-center gap-3 sm:justify-center pt-2">
-              <Button
-                variant="outline"
-                className="flex-1 h-11 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 hover:border-gray-300 transition-all"
-                onClick={() => setModal(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 h-11 rounded-xl gap-2 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200 border-none"
-                style={{ background: "#F97316" }}
-                onClick={confirmHalfDay}
-              >
-                <Check size={16} />
-                Confirm
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Leave Confirmation Modal */}
-      <Dialog
+      <LeaveModal
         open={modal?.type === "leave"}
+        empName={modal?.type === "leave" ? modal.empName : ""}
+        leaveType={modal?.type === "leave" ? modal.leaveType : LEAVE_TYPES[0]}
         onOpenChange={(open) => !open && setModal(null)}
-      >
-        <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl border-none shadow-2xl bg-white">
-          <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">
-            <X className="h-4 w-4 text-red-500 hover:text-red-700 transition-colors" />
-            <span className="sr-only">Close</span>
-          </DialogClose>
-
-          <div
-            className="h-24 w-full relative"
-            style={{ background: "#16A34A" }}
-          >
-            <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 w-[72px] h-[72px] rounded-2xl bg-white border-2 border-border shadow-lg flex items-center justify-center">
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center"
-                style={{ background: "#DCFCE7" }}
-              >
-                <CalendarOff size={24} style={{ color: "#16A34A" }} />
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-14 px-6 pb-6 space-y-6">
-            <DialogHeader className="space-y-2.5">
-              <DialogTitle className="text-center text-xl font-bold">
-                Mark Leave
-              </DialogTitle>
-              <DialogDescription className="text-center text-sm leading-relaxed text-muted-foreground">
-                {modal?.type === "leave" && (
-                  <>
-                    Select a leave type for{" "}
-                    <span className="font-semibold text-foreground">
-                      {modal.empName}
-                    </span>
-                  </>
-                )}
-              </DialogDescription>
-            </DialogHeader>
-
-            {modal?.type === "leave" && (
-              <Select
-                value={modal.leaveType}
-                onValueChange={(value) =>
-                  setModal({ ...modal, leaveType: value })
-                }
-              >
-                <SelectTrigger className="w-full h-11 rounded-xl border-2 focus:ring-2 focus:ring-primary/20 transition-all">
-                  <SelectValue placeholder="Select leave type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LEAVE_TYPES.map((lt) => (
-                    <SelectItem key={lt} value={lt}>
-                      {lt}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            <DialogFooter className="flex-row justify-center gap-3 sm:justify-center pt-2">
-              <Button
-                variant="outline"
-                className="flex-1 h-11 rounded-xl text-sm font-medium border-2 hover:bg-gray-50 hover:border-gray-300 transition-all"
-                onClick={() => setModal(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 h-11 rounded-xl gap-2 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200 border-none"
-                style={{ background: "#16A34A" }}
-                onClick={confirmLeave}
-              >
-                <Check size={16} />
-                Confirm
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
+        onLeaveTypeChange={(value) =>
+          setModal((prev) =>
+            prev?.type === "leave" ? { ...prev, leaveType: value } : prev,
+          )
+        }
+        onConfirm={confirmLeave}
+      />
     </div>
   );
 }
