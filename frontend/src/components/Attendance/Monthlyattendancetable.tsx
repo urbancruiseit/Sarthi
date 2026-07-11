@@ -1,5 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /* ------------------------------------------------------------------ */
 /*  STATIC CONFIG                                                      */
@@ -204,34 +212,36 @@ const Empreport = () => {
       <div className="sticky top-0 z-30 bg-white shadow-sm">
         <div className="pl-4 border-l-8 border-orange-500 bg-white px-3">
           <div className="flex justify-between items-center py-4">
-            <h2 className="text-3xl font-bold text-orange-700 p-2">
+            <h2 className="text-3xl font-bold text-emerald-800 p-2">
               Employee Attendance – {selectedMonth} {selectedYear}
             </h2>
 
             <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
-              >
-                {ALL_MONTHS.map((month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-[110px] text-sm font-medium text-slate-700 focus:ring-emerald-500">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ALL_MONTHS.map((month) => (
+                    <SelectItem key={month} value={month}>
+                      {month}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
-              >
-                {YEARS.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger className="w-[90px] text-sm font-medium text-slate-700 focus:ring-emerald-500">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {YEARS.map((y) => (
+                    <SelectItem key={y} value={y}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -241,14 +251,14 @@ const Empreport = () => {
       <div className="bg-white rounded-xl mt-2 shadow overflow-x-auto border border-slate-200">
         <table className="border-collapse text-xs whitespace-nowrap w-full">
           <thead>
-            <tr className="bg-orange-600 text-white">
-              <th className="sticky left-0 z-20 bg-green-600 border border-white p-2 min-w-[40px]">
+            <tr>
+              <th className="sticky left-0 z-20 bg-emerald-800 text-white border border-white p-2 min-w-[40px]">
                 S.N.
               </th>
-              <th className="sticky left-[40px] z-20 bg-green-600 border border-white p-1 w-[36px] min-w-[36px]">
+              <th className="sticky left-[40px] z-20 bg-emerald-800 text-white border border-white p-1 w-[36px] min-w-[36px]">
                 Staff Name
               </th>
-              <th className="sticky left-[76px] z-20 bg-green-600 border border-white p-1 min-w-[60px]">
+              <th className="sticky left-[76px] z-20 bg-emerald-800 text-white border border-white p-1 min-w-[60px]">
                 <div className="flex items-center justify-center gap-1">
                   Days <ChevronDown className="w-3 h-3" />
                 </div>
@@ -257,8 +267,8 @@ const Empreport = () => {
               {daysArray.map((day) => (
                 <th
                   key={day}
-                  className={`border border-grey-700 p-1 min-w-[46px] text-center ${
-                    isSundayCol(day) ? "bg-green-800" : "bg-green-600"
+                  className={`border border-slate-300 text-white p-1 min-w-[46px] text-center ${
+                    isSundayCol(day) ? "bg-emerald-900" : "bg-emerald-800"
                   }`}
                 >
                   <div className="text-[11px] leading-tight">
@@ -270,19 +280,19 @@ const Empreport = () => {
                 </th>
               ))}
 
-              <th className="border border-white p-2 bg-orange-800 min-w-[70px]">
+              <th className="border border-white p-2 bg-orange-700 text-white min-w-[70px]">
                 Total Hours
               </th>
-              <th className="border border-white p-2 bg-green-800 min-w-[60px]">
+              <th className="border border-white p-2 bg-emerald-900 text-white min-w-[60px]">
                 Total Present
               </th>
-              <th className="border border-white p-2 bg-red-800 min-w-[60px]">
+              <th className="border border-white p-2 bg-red-800 text-white min-w-[60px]">
                 Total Absent
               </th>
-              <th className="border border-white p-2 bg-pink-700 min-w-[70px]">
+              <th className="border border-white p-2 bg-pink-700 text-white min-w-[70px]">
                 Total late marks
               </th>
-              <th className="border border-white p-2 bg-orange-700 min-w-[70px]">
+              <th className="border border-white p-2 bg-orange-800 text-white min-w-[70px]">
                 Total half day
               </th>
             </tr>
@@ -308,18 +318,23 @@ const Empreport = () => {
                             rowSpan={ROW_TYPES.length}
                             className={`sticky left-[40px] z-10 border w-[36px] min-w-[36px] max-w-[36px] p-0 text-center align-middle ${rowBg}`}
                           >
-                            <div
-                              className="flex items-center justify-center mx-auto font-extrabold text-[11px]"
-                              style={{
-                                writingMode: "vertical-rl",
-                                transform: "rotate(180deg)",
-                                whiteSpace: "nowrap",
-                                lineHeight: "14px",
-                                padding: "6px 0",
-                                letterSpacing: "2px",
-                              }}
-                            >
-                              {employee.name.toUpperCase()}
+                            <div className="flex flex-col items-center justify-center gap-1 py-1.5">
+                              <span
+                                className={`h-2 w-2 rounded-full ${employee.avatarColor}`}
+                                aria-hidden="true"
+                              />
+                              <div
+                                className="flex items-center justify-center mx-auto font-extrabold text-[11px]"
+                                style={{
+                                  writingMode: "vertical-rl",
+                                  transform: "rotate(180deg)",
+                                  whiteSpace: "nowrap",
+                                  lineHeight: "14px",
+                                  letterSpacing: "2px",
+                                }}
+                              >
+                                {employee.name.toUpperCase()}
+                              </div>
                             </div>
                           </td>
                         </>
@@ -343,11 +358,12 @@ const Empreport = () => {
                       {employee.days.map((d) => {
                         if (rowType === "Status") {
                           return (
-                            <td
-                              key={d.day}
-                              className={`border text-center font-semibold p-1 ${CODE_STYLE[d.code]}`}
-                            >
-                              {d.code}
+                            <td key={d.day} className="border text-center p-1">
+                              <Badge
+                                className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold border-none justify-center w-full hover:opacity-90 ${CODE_STYLE[d.code]}`}
+                              >
+                                {d.code}
+                              </Badge>
                             </td>
                           );
                         }
@@ -383,31 +399,31 @@ const Empreport = () => {
                         <>
                           <td
                             rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold bg-green-50"
+                            className="border text-center align-middle font-bold bg-orange-50 text-orange-800"
                           >
                             {employee.totalHours}
                           </td>
                           <td
                             rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold bg-green-50"
+                            className="border text-center align-middle font-bold bg-emerald-50 text-emerald-800"
                           >
                             {employee.totalPresent}
                           </td>
                           <td
                             rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold bg-red-50"
+                            className="border text-center align-middle font-bold bg-red-50 text-red-700"
                           >
                             {employee.totalAbsent}
                           </td>
                           <td
                             rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold text-red-600 bg-pink-50"
+                            className="border text-center align-middle font-bold text-pink-700 bg-pink-50"
                           >
                             {employee.totalLate}
                           </td>
                           <td
                             rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold text-green-700 bg-orange-50"
+                            className="border text-center align-middle font-bold text-orange-800 bg-orange-50"
                           >
                             {employee.totalHalfDay}
                           </td>

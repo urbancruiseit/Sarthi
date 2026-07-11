@@ -33,12 +33,21 @@ import AttendanceStatsCards from "../components/Attendance/Attendancestatscards"
 import AttendanceTable from "../components/Attendance/Attendancetable";
 import HalfDayModal from "../components/Attendance/Halfdaymodal";
 import LeaveModal from "../components/Attendance/Leavemodal";
+import PunchButton from "@/components/Attendance/Punchbutton";
+import { useAccessControl } from "@/utils/Accesscontrol";
+import Monthlyattendancetable from "@/components/Attendance/monthlyAttendanceTable";
 
 export default function Attendance() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
   const { list, loading, error } = useAppSelector((s) => s.attendance);
+  const currentEmployeeId = useAppSelector((s) => s.user.currentEmployee.id);
+
+  // Role-based access — only Super Admin / HR Department Manager can see
+  // the Branch / Department / Employee filters.
+  const { can } = useAccessControl();
+  const canSeeFilters = can("ATTENDANCE_FILTERS");
 
   const [search, setSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState<string>("all");
@@ -78,7 +87,11 @@ export default function Attendance() {
   const [employeeMonthError, setEmployeeMonthError] = useState<string | null>(
     null,
   );
-
+  const myAttendance = useMemo(() => {
+    return list.find(
+      (item) => Number(item.employee_id) === Number(currentEmployeeId),
+    );
+  }, [list, currentEmployeeId]);
   // Fetch attendance whenever the calendar date changes (only relevant in list view).
   useEffect(() => {
     if (!selectedEmployee) {
@@ -285,13 +298,20 @@ export default function Attendance() {
             </p>
           </div>
 
-          <TabsList className="grid grid-cols-3 w-fit bg-white border border-orange-200">
+          <TabsList className="grid grid-cols-4 w-fit bg-white border border-orange-200">
             <TabsTrigger
               value="attendance"
               className="gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
             >
               <Users size={14} />
               Attendance
+            </TabsTrigger>
+            <TabsTrigger
+              value="weekoff"
+              className="gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+            >
+              <Users size={14} />
+              Monthly Attendance
             </TabsTrigger>
             <TabsTrigger
               value="shift"
@@ -370,7 +390,7 @@ export default function Attendance() {
 
           {/* Search + Filters (Branch, Department, Employee, Calendar) — hidden in drill-down */}
           {!isDrillDown && (
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="relative max-w-xs w-full">
                 <svg
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -392,17 +412,26 @@ export default function Attendance() {
                 />
               </div>
 
-              <BranchFilter value={branchFilter} onChange={setBranchFilter} />
+              {/* Branch / Department / Employee filters — only Super Admin
+                  or HR Department Manager can see these */}
+              {canSeeFilters && (
+                <>
+                  <BranchFilter
+                    value={branchFilter}
+                    onChange={setBranchFilter}
+                  />
 
-              <DepartmentFilter
-                value={departmentFilter}
-                onChange={setDepartmentFilter}
-              />
+                  <DepartmentFilter
+                    value={departmentFilter}
+                    onChange={setDepartmentFilter}
+                  />
 
-              <EmployeeFilter
-                value={employeeFilter}
-                onChange={setEmployeeFilter}
-              />
+                  <EmployeeFilter
+                    value={employeeFilter}
+                    onChange={setEmployeeFilter}
+                  />
+                </>
+              )}
 
               {/* Calendar filter — department ke bagal me, isi se date filter hota hai */}
               <div className="relative w-full sm:w-[170px]">
@@ -449,6 +478,19 @@ export default function Attendance() {
                   </span>
                 </div>
               </div>
+
+              {/* Punch In / Punch Out — pushed to the right side of the filters row */}
+              <div className="sm:ml-auto">
+                <PunchButton
+                  attendanceId={myAttendance?.attendance_id}
+                  attendanceDate={selectedDate}
+                  isPunchedIn={
+                    !!myAttendance?.punch_in && !myAttendance?.punch_out
+                  }
+                  punchInTime={myAttendance?.punch_in}
+                  onSuccess={refetchCurrentView}
+                />
+              </div>
             </div>
           )}
 
@@ -458,8 +500,10 @@ export default function Attendance() {
             loading={isDrillDown ? employeeMonthLoading : loading}
             onRowClick={openEmployeeMonth}
             onHalfDay={openHalfDayModal}
-            
           />
+        </TabsContent>
+        <TabsContent value="weekoff" className="mt-6">
+          <Monthlyattendancetable />
         </TabsContent>
         <TabsContent value="shift" className="mt-6">
           <ShiftAssignment />

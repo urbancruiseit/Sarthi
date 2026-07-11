@@ -3,6 +3,7 @@ import {
   getAttendance,
   getMyAttendance,
   markAttendance,
+  updateAttendance,
 } from "./attendanceApi";
 
 export interface AttendanceRecord {
@@ -23,7 +24,14 @@ export interface AttendanceRecord {
 
   attendance_date: string | null;
 
-  status: "Present" | "Absent" | "Half Day" | "Leave" | "Holiday" | "Pending" | null;
+  status:
+    | "Present"
+    | "Absent"
+    | "Half Day"
+    | "Leave"
+    | "Holiday"
+    | "Pending"
+    | null;
 
   punch_in: string | null;
   punch_out: string | null;
@@ -127,6 +135,20 @@ export const markEmployeeAttendance = createAsyncThunk(
   },
 );
 
+export const updateEmployeeAttendance = createAsyncThunk(
+  "attendance/updateEmployeeAttendance",
+  async (
+    payload: Parameters<typeof updateAttendance>[0],
+    { rejectWithValue },
+  ) => {
+    try {
+      return await updateAttendance(payload);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  },
+);
+
 const attendanceSlice = createSlice({
   name: "attendance",
   initialState,
@@ -188,6 +210,7 @@ const attendanceSlice = createSlice({
       // Mark Attendance
       // =======================
 
+      // Mark Attendance
       .addCase(markEmployeeAttendance.pending, (state) => {
         state.marking = true;
         state.error = null;
@@ -198,6 +221,21 @@ const attendanceSlice = createSlice({
       })
 
       .addCase(markEmployeeAttendance.rejected, (state, action) => {
+        state.marking = false;
+        state.error = action.payload as string;
+      })
+
+      // Update Attendance
+      .addCase(updateEmployeeAttendance.pending, (state) => {
+        state.marking = true;
+        state.error = null;
+      })
+
+      .addCase(updateEmployeeAttendance.fulfilled, (state) => {
+        state.marking = false;
+      })
+
+      .addCase(updateEmployeeAttendance.rejected, (state, action) => {
         state.marking = false;
         state.error = action.payload as string;
       });

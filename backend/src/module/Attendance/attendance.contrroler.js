@@ -123,13 +123,15 @@ const getMyAttendanceController = asyncHandler(async (req, res) => {
 });
 
 const markAttendanceController = asyncHandler(async (req, res) => {
-  const { employeeId, attendanceDate, punchIn } = req.body;
+  const employeeId = req.user?.id;
+  const { attendanceDate, punchIn } = req.body;
 
-  if (!employeeId || !attendanceDate || !punchIn) {
-    throw new ApiError(
-      400,
-      "employeeId, attendanceDate and punchIn are required",
-    );
+  if (!employeeId) {
+    throw new ApiError(401, "Unauthorized: employee id not found on request");
+  }
+
+  if (!attendanceDate || !punchIn) {
+    throw new ApiError(400, "attendanceDate and punchIn are required");
   }
 
   const result = await markAttendance({
@@ -138,25 +140,27 @@ const markAttendanceController = asyncHandler(async (req, res) => {
     status: "Pending",
     punchIn,
   });
+
   return res
     .status(200)
     .json(new ApiResponse(200, result, "Attendance marked successfully"));
 });
 
 const updatePunchOutController = asyncHandler(async (req, res) => {
-  const { employeeId, attendanceDate, punch_out, status } = req.body;
+  const employeeId = req.user?.id;
+  console.log();
+  const { attendanceDate, punchOut, punch_out } = req.body;
 
-  if (!employeeId || !attendanceDate || !punch_out) {
-    throw new ApiError(
-      400,
-      "employeeId, attendanceDate and punchOut are required",
-    );
+  const finalPunchOut = punchOut || punch_out;
+
+  if (!attendanceDate || !finalPunchOut) {
+    throw new ApiError(400, "attendanceDate and punchOut are required");
   }
 
   const result = await updatePunchOut({
     employeeId,
     attendanceDate,
-    punch_out,
+    punch_out: finalPunchOut,
     status: "Present",
   });
 

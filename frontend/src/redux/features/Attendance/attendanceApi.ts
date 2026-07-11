@@ -79,10 +79,29 @@ export const getMyAttendance = async (
   }
 };
 
-
 export const markAttendance = async (payload: MarkAttendancePayload) => {
   try {
-    const response = await axiosInstance.post("/attendance/mark", payload);
+    console.log("payload ", payload);
+    const response = await axiosInstance.post("/attendance", payload);
+
+    if (response.data && response.data.success) {
+      return response.data.data;
+    } else {
+      throw new Error(response.data.message || "Failed to mark attendance");
+    }
+  } catch (error: any) {
+    console.error(
+      "Mark Attendance Error:",
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+};
+
+export const updateAttendance = async (payload: MarkAttendancePayload) => {
+  try {
+    console.log("payload ", payload);
+    const response = await axiosInstance.put("/attendance/update", payload);
 
     if (response.data && response.data.success) {
       return response.data.data;

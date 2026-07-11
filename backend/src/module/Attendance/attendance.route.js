@@ -10,8 +10,8 @@ const router = Router();
 
 router
   .route("/")
-  .post(markAttendanceController)
+  .post(verifyJWT, markAttendanceController)
   .get(verifyJWT, getAttendanceController);
-router.route("/update").put(updatePunchOutController);
+router.route("/update").put(verifyJWT, updatePunchOutController);
 
 export default router;
