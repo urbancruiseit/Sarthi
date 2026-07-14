@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { ChevronDown, Search, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -8,6 +8,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import BranchFilter from "@/components/FilterComponent/BranchFilter";
+import DepartmentFilter from "@/components/FilterComponent/DepartmentFilter";
+import EmployeeFilter from "@/components/FilterComponent/EmployeeFilter";
+import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
+import {
+  AttendanceRecord,
+  fetchMonthlyAttendance,
+} from "@/redux/features/Attendance/attendanceSlice";
+import { RootState } from "@/redux/store";
 
 /* ------------------------------------------------------------------ */
 /*  STATIC CONFIG                                                      */
@@ -32,38 +41,46 @@ const ALL_MONTHS = Object.keys(MONTH_MAP);
 const YEARS = ["2024", "2025", "2026"];
 const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 
-// attendance-code -> pill style (matches the reference sheet)
-const CODE_STYLE: Record<string, string> = {
-  "1P": "bg-green-100 text-green-700",
-  WO: "bg-sky-100 text-sky-700",
-  COF: "bg-[#5b3a22] text-white",
-  PL: "bg-emerald-600 text-white",
-  HD: "bg-yellow-100 text-yellow-700",
+// attendance-status -> single-letter/short code used in the pill
+const STATUS_TO_CODE: Record<string, string> = {
+  Present: "P",
+  Absent: "A",
+  Pending: "PD",
+  "Half Day": "HD",
+  Leave: "L",
+  "Week Off": "WO",
+  "Comp Off": "COF",
+  Holiday: "HOL",
 };
 
-const STAFF_NAMES = [
-  "Sristi Kumari",
-  "Rahul Verma",
-  "Ankita Sharma",
-  "Mohit Yadav",
-];
+// code -> pill style
+const CODE_STYLE: Record<string, string> = {
+  P: "bg-green-100 text-green-700",
+  A: "bg-red-100 text-red-700",
+  PD: "bg-amber-100 text-amber-700",
+  HD: "bg-yellow-100 text-yellow-700",
+  L: "bg-emerald-600 text-white",
+  WO: "bg-sky-100 text-sky-700",
+  COF: "bg-[#5b3a22] text-white",
+  HOL: "bg-purple-100 text-purple-700",
+};
 
 const AVATAR_COLORS = [
   "bg-pink-400",
   "bg-indigo-400",
   "bg-emerald-400",
   "bg-amber-400",
+  "bg-sky-400",
+  "bg-rose-400",
+  "bg-lime-400",
+  "bg-violet-400",
 ];
 
-/* ------------------------------------------------------------------ */
-/*  DUMMY DATA GENERATOR (no API / no redux — everything is fabricated) */
-/* ------------------------------------------------------------------ */
+const ROW_TYPES = ["Status", "IN", "OUT", "WH", "OT", "F"] as const;
 
-// small deterministic pseudo-random helper so the demo looks the same on every render
-function seededRandom(seed: number) {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
+/* ------------------------------------------------------------------ */
+/*  HELPERS                                                             */
+/* ------------------------------------------------------------------ */
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -73,6 +90,94 @@ function minutesToHHMM(mins: number) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${pad(h)}:${pad(m)}`;
+}
+
+// API sends attendance_date as e.g. "2026-06-30T18:30:00.000Z" which is
+// midnight IST for the *next* calendar day — shift by +5:30 to recover
+// the intended local (IST) calendar date.
+function toISTParts(isoStr: string) {
+  const d = new Date(isoStr);
+  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+  return {
+    year: ist.getUTCFullYear(),
+    month: ist.getUTCMonth() + 1, // 1-12
+    day: ist.getUTCDate(),
+    dow: ist.getUTCDay(), // 0 = Sunday
+  };
+}
+
+// "09:00:00" -> "09:00"
+function hhmmss(t: string | null | undefined) {
+  if (!t) return null;
+  return t.slice(0, 5);
+}
+
+function timeToMinutes(t: string | null | undefined) {
+  if (!t) return null;
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// "11:30 am - 8:00 pm" -> minutes-from-midnight of the start time, or null
+function parseShiftStartMinutes(shiftTiming: string | null | undefined) {
+  if (!shiftTiming) return null;
+  const start = shiftTiming.split("-")[0]?.trim();
+  if (!start) return null;
+  const match = start.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
+  if (!match) return null;
+  let [, hStr, mStr, ampm] = match;
+  let h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  if (ampm.toLowerCase() === "pm" && h !== 12) h += 12;
+  if (ampm.toLowerCase() === "am" && h === 12) h = 0;
+  return h * 60 + m;
+}
+
+/* ------------------------------------------------------------------ */
+/*  TYPES (matching the real API payload)                              */
+/* ------------------------------------------------------------------ */
+
+interface ApiAttendanceRecord {
+  attendance_id: number | null;
+  employee_id: number;
+  full_name: string;
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
+  department_id: number | null;
+  department_name: string | null;
+  branchOffice_id: string | null;
+  branch_name: string | null;
+  permanent_shift_timing: string | null;
+  permanent_shift_type?: string | null;
+  temporary_shift_timing: string | null;
+  temporary_shift_type?: string | null;
+  shift_timing?: string | null;
+  shift_type?: string | null;
+  shift_source?: string | null;
+  // attendance_date can legitimately be null (e.g. employee with no
+  // attendance record for the fetched range at all — comes back as a
+  // single placeholder row so the employee still shows up in the table)
+  attendance_date: string | null;
+  status: string;
+  punch_in: string | null;
+  punch_out: string | null;
+  leave_type: string | null;
+  remarks: string | null;
+  from_date?: string | null;
+  to_date?: string | null;
+  week_off?: string | null;
+  // Server-calculated summary fields (preferred over manual punch-based
+  // calculation when present). late_time / early_exit_time are
+  // intentionally NOT consumed anywhere in this component.
+  late_minutes?: number | null;
+  early_exit_minutes?: number | null;
+  worked_minutes?: number | null;
+  overtime_minutes?: number | null;
+  short_minutes?: number | null;
+  worked_time?: string | null;
+  overtime_time?: string | null;
+  short_time?: string | null;
 }
 
 type DayCell = {
@@ -85,9 +190,11 @@ type DayCell = {
   f: string;
 };
 
-type DummyEmployee = {
+type ProcessedEmployee = {
   id: number;
   name: string;
+  departmentId: number | null;
+  branchOfficeId: string | null;
   avatarColor: string;
   days: DayCell[];
   totalHours: string;
@@ -97,91 +204,169 @@ type DummyEmployee = {
   totalHalfDay: number;
 };
 
-function buildDummyEmployees(
-  month: number,
-  year: number,
+function processRecords(
+  records: ApiAttendanceRecord[],
+  monthNum: number,
+  yearNum: number,
   daysInMonth: number,
-): DummyEmployee[] {
-  return STAFF_NAMES.map((name, empIdx) => {
+): ProcessedEmployee[] {
+  const byEmployee = new Map<number, ApiAttendanceRecord[]>();
+  for (const r of records) {
+    // Attendance record nahi hai to employee ko skip mat karo, bas is
+    // placeholder record ko list me daal do taaki employee row bane.
+    if (!r.attendance_date) {
+      if (!byEmployee.has(r.employee_id)) {
+        byEmployee.set(r.employee_id, [r]);
+      }
+      continue;
+    }
+
+    const { year, month } = toISTParts(r.attendance_date);
+
+    if (year !== yearNum || month !== monthNum) continue;
+
+    const list = byEmployee.get(r.employee_id) ?? [];
+    list.push(r);
+    byEmployee.set(r.employee_id, list);
+  }
+
+  const employees: ProcessedEmployee[] = [];
+  let colorIdx = 0;
+
+  for (const [employeeId, recs] of byEmployee.entries()) {
+    const byDay = new Map<number, ApiAttendanceRecord>();
+    for (const r of recs) {
+      if (!r.attendance_date) continue;
+      const { day } = toISTParts(r.attendance_date);
+      byDay.set(day, r);
+    }
+
     let presentCount = 0;
+    let absentCount = 0;
     let lateCount = 0;
     let halfDayCount = 0;
     let totalWorkMinutes = 0;
 
     const days: DayCell[] = Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1;
-      const dow = new Date(year, month - 1, day).getDay(); // 0 = Sunday
-      const seed = empIdx * 97 + day * 13;
+      const rec = byDay.get(day);
 
-      // pick attendance code
-      let code = "1P";
-      if (dow === 0) {
-        code = "WO";
-      } else if (seededRandom(seed) < 0.06) {
-        code = "COF";
-      } else if (seededRandom(seed + 1) < 0.03) {
-        code = "PL";
-      }
-
-      if (code !== "1P") {
+      if (
+        !rec ||
+        !rec.attendance_date ||
+        (rec.punch_in == null && rec.punch_out == null)
+      ) {
         return {
           day,
-          code,
+          code: "-",
           in: "-",
           out: "-",
           wh: "-",
-          ot: "",
-          f: "",
+          ot: "-",
+          f: "-",
         };
       }
+      const code =
+        STATUS_TO_CODE[rec.status] ??
+        rec.status?.slice(0, 3).toUpperCase() ??
+        "-";
 
-      presentCount += 1;
+      if (rec.status === "Present") presentCount += 1;
+      if (rec.status === "Absent") absentCount += 1;
+      if (rec.status === "Half Day") halfDayCount += 1;
 
-      const inHour = 10 + Math.floor(seededRandom(seed + 2) * 2); // 10-11
-      const inMin = Math.floor(seededRandom(seed + 3) * 59);
-      const workMin = 480 + Math.floor(seededRandom(seed + 4) * 60); // 8h - 9h
-      const outTotalMin = inHour * 60 + inMin + workMin;
-      const otMin = Math.max(0, workMin - 480);
-      const isLate = inHour >= 11 && seededRandom(seed + 5) < 0.4;
-      const isHalfDay = seededRandom(seed + 6) < 0.03;
+      const inMin = timeToMinutes(rec.punch_in);
+      const outMin = timeToMinutes(rec.punch_out);
 
-      if (isLate) lateCount += 1;
-      if (isHalfDay) halfDayCount += 1;
+      let wh = "-";
+      let ot = "";
 
-      totalWorkMinutes += workMin;
+      const workedMinutesFromApi =
+        typeof rec.worked_minutes === "number" ? rec.worked_minutes : null;
+      const overtimeMinutesFromApi =
+        typeof rec.overtime_minutes === "number" ? rec.overtime_minutes : null;
+
+      if (rec.worked_time) {
+        wh = rec.worked_time.slice(0, 5);
+      } else if (
+        typeof rec.worked_minutes === "number" &&
+        rec.worked_minutes > 0
+      ) {
+        wh = minutesToHHMM(rec.worked_minutes);
+      }
+
+      // Total Worked Minutes
+      if (typeof rec.worked_minutes === "number") {
+        totalWorkMinutes += rec.worked_minutes;
+      }
+
+      if (rec.overtime_time) {
+        ot = rec.overtime_time.slice(0, 5);
+      } else if (
+        typeof rec.overtime_minutes === "number" &&
+        rec.overtime_minutes > 0
+      ) {
+        ot = minutesToHHMM(rec.overtime_minutes);
+      }
+
+      // Late Time (Backend Calculated)
+      let f = "-";
+
+      if (rec.late_minutes && rec.late_minutes > 0) {
+        lateCount += 1;
+      }
+
+      if (rec.late_time) {
+        f = rec.late_time.slice(0, 5);
+      } else if (typeof rec.late_minutes === "number" && rec.late_minutes > 0) {
+        f = minutesToHHMM(rec.late_minutes);
+      }
 
       return {
         day,
         code,
-        in: `${pad(inHour)}:${pad(inMin)}`,
-        out: minutesToHHMM(outTotalMin),
-        wh: minutesToHHMM(workMin),
-        ot: otMin > 0 ? minutesToHHMM(otMin) : "",
-        f: isLate ? minutesToHHMM(Math.floor(seededRandom(seed + 7) * 15)) : "",
+        in: hhmmss(rec.punch_in) ?? "-",
+        out: hhmmss(rec.punch_out) ?? "-",
+        wh,
+        ot,
+        f,
       };
     });
 
-    return {
-      id: empIdx + 1,
-      name,
-      avatarColor: AVATAR_COLORS[empIdx % AVATAR_COLORS.length],
+    const firstRec = recs[0];
+
+    employees.push({
+      id: employeeId,
+      // API sometimes sends double spaces (e.g. "Abhishek  Jaiswal") —
+      // collapse extra whitespace so it displays cleanly.
+      name: (firstRec.full_name || "").replace(/\s+/g, " ").trim(),
+      departmentId: firstRec.department_id,
+      branchOfficeId: firstRec.branchOffice_id,
+      avatarColor: AVATAR_COLORS[colorIdx % AVATAR_COLORS.length],
       days,
       totalHours: minutesToHHMM(totalWorkMinutes),
       totalPresent: presentCount,
-      totalAbsent: 0,
+      totalAbsent: absentCount,
       totalLate: lateCount,
       totalHalfDay: halfDayCount,
-    };
-  });
+    });
+    colorIdx += 1;
+  }
+
+  return employees.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /* ------------------------------------------------------------------ */
-/*  COMPONENT                                                          */
+/*  COMPONENT                                                           */
 /* ------------------------------------------------------------------ */
 
-const ROW_TYPES = ["Status", "IN", "OUT", "WH", "OT", "F"] as const;
+const Monthlyattendancetable = () => {
+  const dispatch = useAppDispatch();
+  const { list, loading } = useAppSelector(
+    (state: RootState) => state.attendance,
+  );
+  console.log("list ", list);
 
-const Empreport = () => {
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear().toString(),
   );
@@ -189,16 +374,60 @@ const Empreport = () => {
     ALL_MONTHS[new Date().getMonth()],
   );
 
+  // ---- Filters (same as Attendance tab: Search, Branch, Department, Employee) ----
+  const [search, setSearch] = useState("");
+  const [branchFilter, setBranchFilter] = useState<string>("all");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [employeeFilter, setEmployeeFilter] = useState<string>("all");
+
   const monthNum = MONTH_MAP[selectedMonth];
   const yearNum = Number(selectedYear);
 
   const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  const employees = useMemo(
-    () => buildDummyEmployees(monthNum, yearNum, daysInMonth),
-    [monthNum, yearNum, daysInMonth],
+  // Fetch whenever month/year changes
+  useEffect(() => {
+    dispatch(
+      fetchMonthlyAttendance({
+        month: `${yearNum}-${pad(monthNum)}`,
+      } as any),
+    );
+  }, [dispatch, monthNum, yearNum]);
+
+  const allEmployees = useMemo(
+    () =>
+      processRecords(
+        (list ?? []) as unknown as ApiAttendanceRecord[],
+        monthNum,
+        yearNum,
+        daysInMonth,
+      ),
+    [list, monthNum, yearNum, daysInMonth],
   );
+
+  const employees = useMemo(() => {
+    return allEmployees.filter((emp) => {
+      const matchesSearch = emp.name
+        .toLowerCase()
+        .includes(search.toLowerCase());
+
+      const matchesEmployee =
+        employeeFilter === "all" || String(emp.id) === employeeFilter;
+
+      const matchesDepartment =
+        departmentFilter === "all" ||
+        String(emp.departmentId ?? "") === departmentFilter;
+
+      const matchesBranch =
+        branchFilter === "all" ||
+        String(emp.branchOfficeId ?? "") === branchFilter;
+
+      return (
+        matchesSearch && matchesEmployee && matchesDepartment && matchesBranch
+      );
+    });
+  }, [allEmployees, search, employeeFilter, departmentFilter, branchFilter]);
 
   const weekdayLetterFor = (day: number) =>
     WEEKDAY_LETTERS[new Date(yearNum, monthNum - 1, day).getDay()];
@@ -208,237 +437,297 @@ const Empreport = () => {
 
   return (
     <div className="">
-      {/* HEADER */}
+      {/* HEADER (filters) — stays fixed at top, never scrolls away */}
       <div className="sticky top-0 z-30 bg-white shadow-sm">
-        <div className="pl-4 border-l-8 border-orange-500 bg-white px-3">
-          <div className="flex justify-between items-center py-4">
-            <h2 className="text-3xl font-bold text-emerald-800 p-2">
-              Employee Attendance – {selectedMonth} {selectedYear}
-            </h2>
-
-            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-[110px] text-sm font-medium text-slate-700 focus:ring-emerald-500">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ALL_MONTHS.map((month) => (
-                    <SelectItem key={month} value={month}>
-                      {month}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
-                <SelectTrigger className="w-[90px] text-sm font-medium text-slate-700 focus:ring-emerald-500">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {YEARS.map((y) => (
-                    <SelectItem key={y} value={y}>
-                      {y}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-center gap-5 w-full py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-10 justify-center">
+            {/* Search employees */}
+            <div className="relative max-w-xs w-full sm:w-[200px]">
+              <Search
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search employees…"
+                className="w-full pl-9 pr-4 h-9 rounded-lg border border-input bg-background text-sm"
+              />
             </div>
+
+            {/* Branch / Department / Employee filters */}
+            <BranchFilter value={branchFilter} onChange={setBranchFilter} />
+            <DepartmentFilter
+              value={departmentFilter}
+              onChange={setDepartmentFilter}
+            />
+            <EmployeeFilter
+              value={employeeFilter}
+              onChange={setEmployeeFilter}
+            />
+
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-[110px] h-9 text-sm font-medium border-orange-300 text-orange-600 bg-orange-50 focus:ring-orange-500">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ALL_MONTHS.map((month) => (
+                  <SelectItem key={month} value={month}>
+                    {month}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-[90px] h-9 text-sm font-medium border-orange-300 text-orange-600 bg-orange-50 focus:ring-orange-500">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {YEARS.map((y) => (
+                  <SelectItem key={y} value={y}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white rounded-xl mt-2 shadow overflow-x-auto border border-slate-200">
-        <table className="border-collapse text-xs whitespace-nowrap w-full">
-          <thead>
-            <tr>
-              <th className="sticky left-0 z-20 bg-emerald-800 text-white border border-white p-2 min-w-[40px]">
-                S.N.
-              </th>
-              <th className="sticky left-[40px] z-20 bg-emerald-800 text-white border border-white p-1 w-[36px] min-w-[36px]">
-                Staff Name
-              </th>
-              <th className="sticky left-[76px] z-20 bg-emerald-800 text-white border border-white p-1 min-w-[60px]">
-                <div className="flex items-center justify-center gap-1">
-                  Days <ChevronDown className="w-3 h-3" />
-                </div>
-              </th>
-
-              {daysArray.map((day) => (
-                <th
-                  key={day}
-                  className={`border border-slate-300 text-white p-1 min-w-[46px] text-center ${
-                    isSundayCol(day) ? "bg-emerald-900" : "bg-emerald-800"
-                  }`}
-                >
-                  <div className="text-[11px] leading-tight">
-                    {weekdayLetterFor(day)}
-                  </div>
-                  <div className="text-[11px] leading-tight font-semibold">
-                    {pad(day)}-{pad(monthNum)}
+      <div
+        className="bg-white rounded-xl mt-2 shadow overflow-auto border border-slate-200"
+        style={{ maxHeight: "calc(100vh - 180px)" }}
+      >
+        {loading && employees.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm py-16">
+            <Loader2 size={16} className="animate-spin" />
+            Loading monthly attendance…
+          </div>
+        ) : (
+          <table className="border-collapse text-xs whitespace-nowrap w-full">
+            <thead className="sticky top-0 z-40">
+              <tr>
+                <th className="sticky left-0 top-0 z-50 bg-blue-800 text-white border border-white p-2 min-w-[40px]">
+                  #
+                </th>
+                <th className="sticky left-[40px] top-0 z-50 bg-blue-800 text-white border border-white p-1 w-[62px] min-w-[2px]">
+                  Name
+                </th>
+                <th className="sticky left-[76px] top-0 z-50 bg-emerald-800 text-white border border-white p-1 min-w-[60px]">
+                  <div className="flex items-center justify-center gap-1">
+                    Days <ChevronDown className="w-3 h-3" />
                   </div>
                 </th>
-              ))}
 
-              <th className="border border-white p-2 bg-orange-700 text-white min-w-[70px]">
-                Total Hours
-              </th>
-              <th className="border border-white p-2 bg-emerald-900 text-white min-w-[60px]">
-                Total Present
-              </th>
-              <th className="border border-white p-2 bg-red-800 text-white min-w-[60px]">
-                Total Absent
-              </th>
-              <th className="border border-white p-2 bg-pink-700 text-white min-w-[70px]">
-                Total late marks
-              </th>
-              <th className="border border-white p-2 bg-orange-800 text-white min-w-[70px]">
-                Total half day
-              </th>
-            </tr>
-          </thead>
+                {daysArray.map((day) => (
+                  <th
+                    key={day}
+                    className={`sticky top-0 z-30 border border-slate-300 text-white p-1 min-w-[46px] text-center ${
+                      isSundayCol(day) ? "bg-emerald-900" : "bg-emerald-800"
+                    }`}
+                  >
+                    <div className="text-[11px] leading-tight">
+                      {weekdayLetterFor(day)}
+                    </div>
+                    <div className="leading-tight text-center">
+                      <span className="text-[14px] font-bold">{pad(day)}</span>
+                      <span className="text-[11px] font-medium">
+                        -{pad(monthNum)}
+                      </span>
+                    </div>
+                  </th>
+                ))}
 
-          <tbody>
-            {employees.map((employee, empIndex) => {
-              const rowBg = empIndex % 2 === 0 ? "bg-white" : "bg-slate-50";
+                <th className="sticky top-0 z-30 border border-white p-2 bg-orange-700 text-white min-w-[70px]">
+                  <span className="font-semibold">Total</span>
+                  <br />
+                  Hours
+                </th>
+                <th className="sticky top-0 z-30 border border-white p-2 bg-emerald-900 text-white min-w-[60px]">
+                  Present
+                </th>
+                <th className="sticky top-0 z-30 border border-white p-2 bg-red-800 text-white min-w-[60px]">
+                  Absent
+                </th>
+                <th className="sticky top-0 z-30 border border-white p-2 bg-pink-700 text-white min-w-[70px]">
+                  <span className="font-semibold">Late</span>
+                  <br />
+                  Marks
+                </th>
 
-              return (
-                <React.Fragment key={employee.id}>
-                  {ROW_TYPES.map((rowType, rowIdx) => (
-                    <tr key={`${employee.id}-${rowType}`} className={rowBg}>
-                      {rowIdx === 0 && (
-                        <>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className={`sticky left-0 z-10 border font-bold text-center align-middle ${rowBg}`}
-                          >
-                            {employee.id}
-                          </td>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className={`sticky left-[40px] z-10 border w-[36px] min-w-[36px] max-w-[36px] p-0 text-center align-middle ${rowBg}`}
-                          >
-                            <div className="flex flex-col items-center justify-center gap-1 py-1.5">
-                              <span
-                                className={`h-2 w-2 rounded-full ${employee.avatarColor}`}
-                                aria-hidden="true"
-                              />
-                              <div
-                                className="flex items-center justify-center mx-auto font-extrabold text-[11px]"
-                                style={{
-                                  writingMode: "vertical-rl",
-                                  transform: "rotate(180deg)",
-                                  whiteSpace: "nowrap",
-                                  lineHeight: "14px",
-                                  letterSpacing: "2px",
-                                }}
-                              >
-                                {employee.name.toUpperCase()}
+                <th className="sticky top-0 z-30 border border-white p-2 bg-orange-800 text-white min-w-[70px]">
+                  <span className="font-semibold">Total</span>
+                  <br />
+                  Half Day
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {employees.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={daysInMonth + 8}
+                    className="px-4 py-10 text-center text-sm text-muted-foreground"
+                  >
+                    No attendance records found for this month.
+                  </td>
+                </tr>
+              )}
+
+              {employees.map((employee, empIndex) => {
+                const rowBg = empIndex % 2 === 0 ? "bg-white" : "bg-slate-50";
+
+                return (
+                  <React.Fragment key={employee.id}>
+                    {ROW_TYPES.map((rowType, rowIdx) => (
+                      <tr key={`${employee.id}-${rowType}`} className={rowBg}>
+                        {rowIdx === 0 && (
+                          <>
+                            <td
+                              rowSpan={ROW_TYPES.length}
+                              className={`sticky left-0 z-10 border font-bold text-center align-middle ${rowBg}`}
+                            >
+                              {employee.id}
+                            </td>
+                            <td
+                              rowSpan={ROW_TYPES.length}
+                              className={`sticky left-[40px] z-10 border w-[50px] min-w-[50px] p-1 text-center align-middle ${rowBg}`}
+                            >
+                              <div className="flex flex-col items-center justify-center gap-1 py-1.5">
+                                {/* <span
+                                  className={`h-2 w-2 rounded-full ${employee.avatarColor}`}
+                                  aria-hidden="true"
+                                /> */}
+                                <div className="flex flex-col items-center justify-center py-2">
+                                  <span
+                                    className="text-blue-700 font-semibold text-center leading-4"
+                                    title={employee.name}
+                                  >
+                                    <span className="block text-sm font-bold">
+                                      {employee.name.split(" ")[0]}
+                                    </span>
+
+                                    <span className="block text-[11px] font-medium">
+                                      {employee.name
+                                        .split(" ")
+                                        .slice(1)
+                                        .join(" ")}
+                                    </span>
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                        </>
-                      )}
+                            </td>
+                          </>
+                        )}
 
-                      {/* row-type label ("Days" sticky column) */}
-                      <td
-                        className={`sticky left-[76px] z-10 border p-1 font-semibold text-center ${
-                          rowType === "OT"
-                            ? "bg-green-50"
-                            : rowType === "F"
-                              ? "bg-red-50 text-red-600"
-                              : rowType === "Status"
-                                ? "bg-slate-100"
-                                : "bg-white"
-                        }`}
-                      >
-                        {rowType}
-                      </td>
+                        {/* row-type label ("Days" sticky column) */}
+                        <td
+                          className={`sticky left-[76px] z-10 border p-1 font-semibold text-center ${
+                            rowType === "OT"
+                              ? "bg-green-50"
+                              : rowType === "F"
+                                ? "bg-red-50 text-red-600"
+                                : rowType === "Status"
+                                  ? "bg-slate-100"
+                                  : "bg-white"
+                          }`}
+                        >
+                          {rowType}
+                        </td>
 
-                      {employee.days.map((d) => {
-                        if (rowType === "Status") {
-                          return (
-                            <td key={d.day} className="border text-center p-1">
-                              <Badge
-                                className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold border-none justify-center w-full hover:opacity-90 ${CODE_STYLE[d.code]}`}
+                        {employee.days.map((d) => {
+                          if (rowType === "Status") {
+                            return (
+                              <td
+                                key={d.day}
+                                className="border text-center p-1"
                               >
-                                {d.code}
-                              </Badge>
+                                <Badge
+                                  className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold border-none justify-center w-full hover:opacity-90 ${
+                                    CODE_STYLE[d.code] ??
+                                    "bg-slate-100 text-slate-600"
+                                  }`}
+                                >
+                                  {d.code}
+                                </Badge>
+                              </td>
+                            );
+                          }
+                          const value =
+                            rowType === "IN"
+                              ? d.in
+                              : rowType === "OUT"
+                                ? d.out
+                                : rowType === "WH"
+                                  ? d.wh
+                                  : rowType === "OT"
+                                    ? d.ot
+                                    : d.f;
+
+                          return (
+                            <td
+                              key={d.day}
+                              className={`border text-center ${
+                                rowType === "F"
+                                  ? "text-red-600 font-semibold bg-red-50"
+                                  : rowType === "OT"
+                                    ? "text-green-700 bg-green-50"
+                                    : "text-slate-700"
+                              }`}
+                            >
+                              {value || "-"}
                             </td>
                           );
-                        }
-                        const value =
-                          rowType === "IN"
-                            ? d.in
-                            : rowType === "OUT"
-                              ? d.out
-                              : rowType === "WH"
-                                ? d.wh
-                                : rowType === "OT"
-                                  ? d.ot
-                                  : d.f;
+                        })}
 
-                        return (
-                          <td
-                            key={d.day}
-                            className={`border text-center ${
-                              rowType === "F"
-                                ? "text-red-600 font-semibold bg-red-50"
-                                : rowType === "OT"
-                                  ? "text-green-700 bg-green-50"
-                                  : "text-slate-700"
-                            }`}
-                          >
-                            {value || "-"}
-                          </td>
-                        );
-                      })}
-
-                      {/* summary columns - only rendered once, on the first row, spanning all rows */}
-                      {rowIdx === 0 && (
-                        <>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold bg-orange-50 text-orange-800"
-                          >
-                            {employee.totalHours}
-                          </td>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold bg-emerald-50 text-emerald-800"
-                          >
-                            {employee.totalPresent}
-                          </td>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold bg-red-50 text-red-700"
-                          >
-                            {employee.totalAbsent}
-                          </td>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold text-pink-700 bg-pink-50"
-                          >
-                            {employee.totalLate}
-                          </td>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold text-orange-800 bg-orange-50"
-                          >
-                            {employee.totalHalfDay}
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  ))}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+                        {/* summary columns - only rendered once, on the first row, spanning all rows */}
+                        {rowIdx === 0 && (
+                          <>
+                            <td
+                              rowSpan={ROW_TYPES.length}
+                              className="border text-center align-middle font-bold bg-orange-50 text-orange-800"
+                            >
+                              {employee.totalHours}
+                            </td>
+                            <td
+                              rowSpan={ROW_TYPES.length}
+                              className="border text-center align-middle font-bold bg-emerald-50 text-emerald-800"
+                            >
+                              {employee.totalPresent}
+                            </td>
+                            <td
+                              rowSpan={ROW_TYPES.length}
+                              className="border text-center align-middle font-bold bg-red-50 text-red-700"
+                            >
+                              {employee.totalAbsent}
+                            </td>
+                            <td
+                              rowSpan={ROW_TYPES.length}
+                              className="border text-center align-middle font-bold text-pink-700 bg-pink-50"
+                            >
+                              {employee.totalLate}
+                            </td>
+                            <td
+                              rowSpan={ROW_TYPES.length}
+                              className="border text-center align-middle font-bold text-orange-800 bg-orange-50"
+                            >
+                              {employee.totalHalfDay}
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
 };
 
-export default Empreport;
+export default Monthlyattendancetable;

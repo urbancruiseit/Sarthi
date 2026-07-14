@@ -4,9 +4,10 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import {
   getAttendanceByDate,
-  getAttendanceByEmployeeMonth,
+  getAttendanceByMonth,
   markAttendance,
   updatePunchOut,
+  updateStatus,
 } from "./attendance.model.js";
 
 const getAttendanceController = asyncHandler(async (req, res) => {
@@ -106,19 +107,25 @@ const getAttendanceController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, attendance, "Attendance fetched successfully"));
 });
 
-const getMyAttendanceController = asyncHandler(async (req, res) => {
-  const employeeId = req.user.id; // JWT/auth middleware se aata hai
-  const { month } = req.query;
+const getMonthlyAttendanceController = asyncHandler(async (req, res) => {
+  const { month, employeeId, branchId, departmentId, managerId } = req.query;
 
-  const attendance = await getAttendanceByEmployeeMonth({
-    employeeId,
+  const attendance = await getAttendanceByMonth({
     month,
+    employeeId,
+    branchId,
+    departmentId,
+    managerId,
   });
 
   return res
     .status(200)
     .json(
-      new ApiResponse(200, attendance, "My attendance fetched successfully"),
+      new ApiResponse(
+        200,
+        attendance,
+        "Monthly attendance fetched successfully",
+      ),
     );
 });
 
@@ -176,9 +183,40 @@ const updatePunchOutController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, result, "Punch-out updated successfully"));
 });
 
+const updateStatusController = asyncHandler(async (req, res) => {
+  const { employeeId, attendanceDate, status } = req.body;
+
+  if (!employeeId || !attendanceDate || !status) {
+    throw new ApiError(
+      400,
+      "employeeId, attendanceDate and status are required",
+    );
+  }
+
+  const result = await updateStatus({
+    employeeId,
+    attendanceDate,
+    status,
+  });
+
+  if (result.affectedRows === 0) {
+    throw new ApiError(
+      404,
+      "No attendance record found for this employee on this date",
+    );
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, result, "Attendance status updated successfully"),
+    );
+});
+
 export {
   getAttendanceController,
-  getMyAttendanceController,
+  getMonthlyAttendanceController,
   markAttendanceController,
   updatePunchOutController,
+  updateStatusController,
 };

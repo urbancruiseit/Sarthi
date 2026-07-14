@@ -1,4 +1,4 @@
-import { Loader2, Timer, CalendarOff } from "lucide-react";
+import { Loader2, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AttendanceStatus,
@@ -6,13 +6,14 @@ import {
   STATUS_COLORS,
   formatDuration,
 } from "./Attendanceutils";
+import { useAccessControl } from "@/utils/Accesscontrol";
 
 interface AttendanceTableProps {
   rows: DisplayRow[];
   isDrillDown: boolean;
   loading: boolean;
   onRowClick: (empId: string, empName: string) => void;
-  onHalfDay: (empId: string, empName: string) => void;
+  onUpdateStatus: (empId: string, empName: string) => void;
 }
 
 export default function AttendanceTable({
@@ -20,10 +21,19 @@ export default function AttendanceTable({
   isDrillDown,
   loading,
   onRowClick,
-  onHalfDay,
+  onUpdateStatus,
 }: AttendanceTableProps) {
   // Column count kept in sync with the <th> list below so colSpan/colgroup never drift.
-  const columnCount = isDrillDown ? 10 : 9;
+
+  const { can } = useAccessControl();
+  const canSeeFilters = can("ATTENDANCE_FILTERS");
+  const columnCount = isDrillDown
+    ? canSeeFilters
+      ? 10
+      : 9
+    : canSeeFilters
+      ? 9
+      : 8;
 
   return (
     <div
@@ -44,7 +54,7 @@ export default function AttendanceTable({
                 <col className="w-[10%]" />
                 <col className="w-[11%]" />
                 <col className="w-[11%]" />
-                <col className="w-[9%]" />
+                {canSeeFilters && <col className="w-[9%]" />}
               </>
             ) : (
               <>
@@ -56,7 +66,7 @@ export default function AttendanceTable({
                 <col className="w-[11%]" />
                 <col className="w-[12%]" />
                 <col className="w-[12%]" />
-                <col className="w-[8%]" />
+                {canSeeFilters && <col className="w-[8%]" />}
               </>
             )}
           </colgroup>
@@ -72,7 +82,7 @@ export default function AttendanceTable({
                 "Punch-Out",
                 "Working Hours",
                 "Status",
-                "Actions",
+                ...(canSeeFilters ? ["Actions"] : []),
               ].map((h) => (
                 <th
                   key={h}
@@ -278,22 +288,24 @@ export default function AttendanceTable({
                         : ""}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div
-                      className="flex items-center"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Button
-                        size="sm"
-                        className="h-8 text-xs gap-1.5 text-white border-none hover:opacity-90"
-                        style={{ background: "#F97316" }}
-                        onClick={() => onHalfDay(emp.id, emp.fullName)}
+                  {canSeeFilters && (
+                    <td className="px-4 py-3">
+                      <div
+                        className="flex items-center"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <Timer size={13} />
-                        Half Day
-                      </Button>
-                    </div>
-                  </td>
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs gap-1.5 text-white border-none hover:opacity-90"
+                          style={{ background: "#F97316" }}
+                          onClick={() => onUpdateStatus(emp.id, emp.fullName)}
+                        >
+                          <ClipboardCheck size={13} />
+                          Update Status
+                        </Button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               );
             })}

@@ -1167,16 +1167,24 @@ export const getAllEmployeesWithShift = async () => {
   }
 };
 
-export const getEmployeeList = async () => {
-  const sql = `
+export const getEmployeeList = async (branchId = null) => {
+  let sql = `
     SELECT
       id,
       CONCAT(firstName, ' ', lastName) AS full_name
     FROM users
     WHERE is_active = 1
-    ORDER BY firstName ASC;
   `;
 
-  const [rows] = await pool.query(sql);
+  const params = [];
+
+  if (branchId) {
+    sql += ` AND branchOffice_id = ?`;
+    params.push(branchId);
+  }
+
+  sql += ` ORDER BY firstName ASC`;
+
+  const [rows] = await pool.query(sql, params);
   return rows;
 };

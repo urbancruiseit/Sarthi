@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ClipboardCheck, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,8 +35,14 @@ export default function AttendanceStatusModal({
 }: AttendanceStatusModalProps) {
   const [attendanceStatus, setAttendanceStatus] = useState("Present");
 
+  // Reset to a sane default each time the modal is opened fresh
+  const handleOpenChange = (next: boolean) => {
+    if (next) setAttendanceStatus("Present");
+    onOpenChange(next);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[520px] [&>button]:hidden rounded-2xl p-0 overflow-hidden">
         <div className="p-7">
           <DialogClose className="absolute right-5 top-5">
@@ -75,6 +81,7 @@ export default function AttendanceStatusModal({
                   <SelectItem value="Half Day">Half Day</SelectItem>
                   <SelectItem value="Leave">Leave</SelectItem>
                   <SelectItem value="Week Off">Week Off</SelectItem>
+                  <SelectItem value="Comp Off">Comp Off</SelectItem>
                   <SelectItem value="Holiday">Holiday</SelectItem>
                 </SelectContent>
               </Select>

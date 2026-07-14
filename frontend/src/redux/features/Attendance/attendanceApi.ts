@@ -36,7 +36,6 @@ export const getAttendance = async (filters: AttendanceFilters = {}) => {
     });
 
     if (response.data && response.data.success) {
-      console.log(" response.data.data ", response.data.data);
       return response.data.data;
     } else {
       throw new Error(response.data.message || "Failed to fetch attendance");
@@ -81,7 +80,6 @@ export const getMyAttendance = async (
 
 export const markAttendance = async (payload: MarkAttendancePayload) => {
   try {
-    console.log("payload ", payload);
     const response = await axiosInstance.post("/attendance", payload);
 
     if (response.data && response.data.success) {
@@ -100,8 +98,78 @@ export const markAttendance = async (payload: MarkAttendancePayload) => {
 
 export const updateAttendance = async (payload: MarkAttendancePayload) => {
   try {
-    console.log("payload ", payload);
     const response = await axiosInstance.put("/attendance/update", payload);
+
+    if (response.data && response.data.success) {
+      return response.data.data;
+    } else {
+      throw new Error(response.data.message || "Failed to mark attendance");
+    }
+  } catch (error: any) {
+    console.error(
+      "Mark Attendance Error:",
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+};
+
+// Get Monthly Attendance (Admin / HR)
+export const getMonthlyAttendance = async (filters: AttendanceFilters = {}) => {
+  try {
+    const response = await axiosInstance.get("/attendance/monthly", {
+      params: filters,
+    });
+    console.log(" response.data.data-------- ", response.data.data);
+    if (response.data?.success) {
+      return response.data.data;
+    }
+
+    throw new Error(
+      response.data?.message || "Failed to fetch monthly attendance",
+    );
+  } catch (error: any) {
+    console.error(
+      "Get Monthly Attendance Error:",
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+};
+
+// Get Logged-in Employee Monthly Attendance
+export const getMyMonthlyAttendance = async (
+  filters: Omit<
+    AttendanceFilters,
+    "employeeId" | "branchId" | "departmentId" | "month"
+  > = {},
+) => {
+  try {
+    const response = await axiosInstance.get("/attendance/my-monthly", {
+      params: filters,
+    });
+
+    if (response.data?.success) {
+      return response.data.data;
+    }
+
+    throw new Error(
+      response.data?.message || "Failed to fetch my monthly attendance",
+    );
+  } catch (error: any) {
+    console.error(
+      "Get My Monthly Attendance Error:",
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+};
+
+export const updateAttendanceStatus = async (
+  payload: MarkAttendancePayload,
+) => {
+  try {
+    const response = await axiosInstance.patch("/attendance/status", payload);
 
     if (response.data && response.data.success) {
       return response.data.data;

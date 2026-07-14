@@ -77,13 +77,17 @@ export const loginEmployeeThunk = createAsyncThunk<
 
 export const fetchEmployeeListThunk = createAsyncThunk<
   EmployeeDropdown[],
-  void,
+  number | string | undefined,
   { rejectValue: string }
->("Employee/fetchEmployeeList", async (_, { rejectWithValue }) => {
+>("Employee/fetchEmployeeList", async (branchId, { rejectWithValue }) => {
   try {
-    return await getEmployees();
+    return await getEmployees(branchId);
   } catch (error: any) {
-    return rejectWithValue(error.message || "Failed to fetch employee list");
+    return rejectWithValue(
+      error.response?.data?.message ||
+        error.message ||
+        "Failed to fetch employee list",
+    );
   }
 });
 

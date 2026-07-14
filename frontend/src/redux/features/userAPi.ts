@@ -249,15 +249,19 @@ export const getHREmployees = async () => {
   }
 };
 
-export const getEmployees = async () => {
+export const getEmployees = async (branchId?: number | string) => {
   try {
-    const response = await axiosInstance.get("/user/employeesearchlist");
+    const response = await axiosInstance.get("/user/employeesearchlist", {
+      params: {
+        branchId,
+      },
+    });
 
-    if (response.data && response.data.success) {
+    if (response.data?.success) {
       return response.data.data;
-    } else {
-      throw new Error(response.data.message || "Failed to fetch employees");
     }
+
+    throw new Error(response.data?.message || "Failed to fetch employees");
   } catch (error: any) {
     console.error(
       "Fetch Employees Error:",

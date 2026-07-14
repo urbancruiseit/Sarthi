@@ -1,9 +1,11 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import {
   getAttendance,
+  getMonthlyAttendance,
   getMyAttendance,
   markAttendance,
   updateAttendance,
+  updateAttendanceStatus,
 } from "./attendanceApi";
 
 export interface AttendanceRecord {
@@ -135,6 +137,20 @@ export const markEmployeeAttendance = createAsyncThunk(
   },
 );
 
+export const fetchMonthlyAttendance = createAsyncThunk<
+  AttendanceRecord[],
+  AttendanceFilters
+>(
+  "attendance/fetchMonthlyAttendance",
+  async (filters = {}, { rejectWithValue }) => {
+    try {
+      return await getMonthlyAttendance(filters);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  },
+);
+
 export const updateEmployeeAttendance = createAsyncThunk(
   "attendance/updateEmployeeAttendance",
   async (
@@ -143,6 +159,20 @@ export const updateEmployeeAttendance = createAsyncThunk(
   ) => {
     try {
       return await updateAttendance(payload);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  },
+);
+
+export const updateEmployeeAttendanceStatus = createAsyncThunk(
+  "attendance/updateEmployeeAttendanceStatus",
+  async (
+    payload: Parameters<typeof updateAttendanceStatus>[0],
+    { rejectWithValue },
+  ) => {
+    try {
+      return await updateAttendanceStatus(payload);
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
@@ -236,6 +266,36 @@ const attendanceSlice = createSlice({
       })
 
       .addCase(updateEmployeeAttendance.rejected, (state, action) => {
+        state.marking = false;
+        state.error = action.payload as string;
+      })
+      .addCase(fetchMonthlyAttendance.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      .addCase(
+        fetchMonthlyAttendance.fulfilled,
+        (state, action: PayloadAction<AttendanceRecord[]>) => {
+          state.loading = false;
+          state.list = action.payload;
+        },
+      )
+
+      .addCase(fetchMonthlyAttendance.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(updateEmployeeAttendanceStatus.pending, (state) => {
+        state.marking = true;
+        state.error = null;
+      })
+
+      .addCase(updateEmployeeAttendanceStatus.fulfilled, (state) => {
+        state.marking = false;
+      })
+
+      .addCase(updateEmployeeAttendanceStatus.rejected, (state, action) => {
         state.marking = false;
         state.error = action.payload as string;
       });

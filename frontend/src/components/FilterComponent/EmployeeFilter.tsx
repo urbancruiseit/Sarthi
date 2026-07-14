@@ -22,6 +22,7 @@ import { RootState } from "@/redux/store";
 interface EmployeeFilterProps {
   value: string;
   onChange: (value: string) => void;
+  branchId?: string;
   includeAllOption?: boolean;
   className?: string;
 }
@@ -29,6 +30,7 @@ interface EmployeeFilterProps {
 export default function EmployeeFilter({
   value,
   onChange,
+  branchId,
   includeAllOption = true,
   className = "w-full sm:w-[220px] h-10",
 }: EmployeeFilterProps) {
@@ -40,10 +42,12 @@ export default function EmployeeFilter({
   );
 
   useEffect(() => {
-    if (!employeeList?.length) {
-      dispatch(fetchEmployeeListThunk());
-    }
-  }, [dispatch, employeeList]);
+    dispatch(
+      fetchEmployeeListThunk(
+        branchId && branchId !== "all" ? branchId : undefined,
+      ),
+    );
+  }, [dispatch, branchId]);
 
   const employeeOptions = useMemo(
     () => (Array.isArray(employeeList) ? employeeList : []),

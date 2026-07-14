@@ -584,7 +584,9 @@ const getAllEmployeesWithShiftController = asyncHandler(async (req, res) => {
 });
 
 export const getEmployees = asyncHandler(async (req, res) => {
-  const employees = await getEmployeeList();
+  const { branchId } = req.query;
+
+  const employees = await getEmployeeList(branchId);
 
   if (!employees || employees.length === 0) {
     throw new ApiError(404, "Employees not found");
@@ -596,7 +598,6 @@ export const getEmployees = asyncHandler(async (req, res) => {
       new ApiResponse(200, employees, "Employee list fetched successfully"),
     );
 });
-
 export {
   registerUser,
   loginUser,

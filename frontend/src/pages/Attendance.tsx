@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   fetchAttendance,
   markEmployeeAttendance,
+  updateEmployeeAttendanceStatus,
   AttendanceRecord,
 } from "@/redux/features/Attendance/attendanceSlice";
 import { getAttendance } from "@/redux/features/Attendance/attendanceApi";
@@ -31,11 +32,29 @@ import {
 } from "../components/Attendance/Attendanceutils";
 import AttendanceStatsCards from "../components/Attendance/Attendancestatscards";
 import AttendanceTable from "../components/Attendance/Attendancetable";
-import HalfDayModal from "../components/Attendance/Halfdaymodal";
 import LeaveModal from "../components/Attendance/Leavemodal";
+
 import PunchButton from "@/components/Attendance/Punchbutton";
 import { useAccessControl } from "@/utils/Accesscontrol";
-import Monthlyattendancetable from "@/components/Attendance/monthlyAttendanceTable";
+import Monthlyattendancetable from "@/components/Attendance/Monthlyattendancetable";
+import AttendanceStatusModal from "@/components/Attendance/Halfdaymodal";
+
+// Tab-wise header content — title/subtitle badalte rahenge jab tab change ho.
+// "calendar" isn't included because that tab navigates away instead of rendering here.
+const TAB_CONTENT: Record<string, { title: string; subtitle: string }> = {
+  attendance: {
+    title: "Attendance Management",
+    subtitle: "Attendance tracking & workforce operations",
+  },
+  weekoff: {
+    title: "Monthly Attendance",
+    subtitle: "Month-wise attendance sheet & summary",
+  },
+  shift: {
+    title: "Shift Assignment",
+    subtitle: "Assign and manage employee shifts",
+  },
+};
 
 export default function Attendance() {
   const navigate = useNavigate();
@@ -44,8 +63,6 @@ export default function Attendance() {
   const { list, loading, error } = useAppSelector((s) => s.attendance);
   const currentEmployeeId = useAppSelector((s) => s.user.currentEmployee.id);
 
-  // Role-based access — only Super Admin / HR Department Manager can see
-  // the Branch / Department / Employee filters.
   const { can } = useAccessControl();
   const canSeeFilters = can("ATTENDANCE_FILTERS");
 
@@ -57,6 +74,9 @@ export default function Attendance() {
   const [modal, setModal] = useState<ModalState>(null);
 
   const [activeTab, setActiveTab] = useState("attendance");
+
+  // Current tab ke hisaab se header title/subtitle — fallback attendance tab pe.
+  const headerContent = TAB_CONTENT[activeTab] ?? TAB_CONTENT.attendance;
 
   const todayISO = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const currentMonthStr = useMemo(() => todayISO.slice(0, 7), [todayISO]);
@@ -92,6 +112,7 @@ export default function Attendance() {
       (item) => Number(item.employee_id) === Number(currentEmployeeId),
     );
   }, [list, currentEmployeeId]);
+
   // Fetch attendance whenever the calendar date changes (only relevant in list view).
   useEffect(() => {
     if (!selectedEmployee) {
@@ -177,8 +198,9 @@ export default function Attendance() {
   const totalOvertime = formatDuration(totalOvertimeMinutes);
   const totalShortTime = formatDuration(totalShortMinutes);
 
-  const openHalfDayModal = (empId: string, empName: string) => {
-    setModal({ type: "halfday", empId, empName });
+  // Opens the generic status-update modal (replaces the old Half Day-only quick action)
+  const openStatusModal = (empId: string, empName: string) => {
+    setModal({ type: "status", empId, empName });
   };
 
   const openLeaveModal = (empId: string, empName: string, current?: string) => {
@@ -226,23 +248,24 @@ export default function Attendance() {
     }
   };
 
-  const confirmHalfDay = async () => {
-    if (!modal || modal.type !== "halfday") return;
+  // Generic status update — replaces confirmHalfDay
+  const confirmStatusUpdate = async (status: string) => {
+    if (!modal || modal.type !== "status") return;
     const empId = modal.empId;
 
     setOverrides((prev) => ({
       ...prev,
-      [empId]: { status: "Half Day" },
+      [empId]: { status },
     }));
     setModal(null);
 
     try {
       await dispatch(
-        markEmployeeAttendance({
-          employee_id: Number(empId),
-          attendance_date: selectedDate,
-          status: "Half Day",
-        } as any),
+        updateEmployeeAttendanceStatus({
+          employeeId: empId,
+          attendanceDate: selectedDate,
+          status,
+        }),
       ).unwrap();
       refetchCurrentView();
     } catch {
@@ -291,10 +314,10 @@ export default function Attendance() {
         >
           <div>
             <h1 className="text-2xl font-bold" style={{ color: "#166534" }}>
-              Attendance Management
+              {headerContent.title}
             </h1>
             <p className="text-sm mt-1" style={{ color: "#EA580C" }}>
-              Attendance tracking & workforce operations
+              {headerContent.subtitle}
             </p>
           </div>
 
@@ -429,6 +452,7 @@ export default function Attendance() {
                   <EmployeeFilter
                     value={employeeFilter}
                     onChange={setEmployeeFilter}
+                    branchId={branchFilter}
                   />
                 </>
               )}
@@ -499,7 +523,7 @@ export default function Attendance() {
             isDrillDown={isDrillDown}
             loading={isDrillDown ? employeeMonthLoading : loading}
             onRowClick={openEmployeeMonth}
-            onHalfDay={openHalfDayModal}
+            onUpdateStatus={openStatusModal}
           />
         </TabsContent>
         <TabsContent value="weekoff" className="mt-6">
@@ -510,12 +534,12 @@ export default function Attendance() {
         </TabsContent>
       </Tabs>
 
-      <HalfDayModal
-        open={modal?.type === "halfday"}
-        empName={modal?.type === "halfday" ? modal.empName : ""}
+      <AttendanceStatusModal
+        open={modal?.type === "status"}
+        empName={modal?.type === "status" ? modal.empName : ""}
         dateLabel={selectedDateLabel}
         onOpenChange={(open) => !open && setModal(null)}
-        onConfirm={confirmHalfDay}
+        onConfirm={confirmStatusUpdate}
       />
 
       <LeaveModal
