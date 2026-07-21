@@ -1,13 +1,14 @@
 import axiosInstance from "@/utils/axiosInstance"; // apna actual path daalna
 
 interface AttendanceFilters {
-  date?: string; // "2026-07-06"
-  month?: string; // "2026-07"
-  startDate?: string; // "2026-06-01"
-  endDate?: string; // "2026-06-30"
+  date?: string; 
+  month?: string; 
+  startDate?: string; 
+  endDate?: string; 
   employeeId?: string | number;
   branchId?: string | number;
   departmentId?: string | number;
+  status?:string
 }
 
 interface MarkAttendancePayload {

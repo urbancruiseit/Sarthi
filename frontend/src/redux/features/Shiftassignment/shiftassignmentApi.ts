@@ -154,7 +154,7 @@ export const updateShiftAssignment = async (
 ) => {
   try {
     const response = await axiosInstance.put(
-      `/shift-assignments/${id}`,
+      `/shift-assignments/update/${id}`,
       payload,
     );
 

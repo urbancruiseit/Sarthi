@@ -10,6 +10,7 @@ export const getAttendanceByDate = async (filters = {}) => {
       branchId,
       departmentId,
       managerId,
+      status,
     } = filters;
 
     const conditions = [];
@@ -20,7 +21,6 @@ export const getAttendanceByDate = async (filters = {}) => {
         ON a.employee_id = u.id
     `;
 
-    // Attendance Date Filter
     if (startDate && endDate) {
       attendanceJoin += ` AND a.attendance_date BETWEEN ? AND ?`;
       params.push(startDate, endDate);
@@ -29,28 +29,25 @@ export const getAttendanceByDate = async (filters = {}) => {
       params.push(attendanceDate);
     }
 
-    // Employee Filter
     if (employeeId) {
       conditions.push("u.id = ?");
       params.push(employeeId);
     }
-
-    // Branch Filter
     if (branchId) {
       conditions.push("u.branchOffice_id = ?");
       params.push(branchId);
     }
-
-    // Department Filter
     if (departmentId) {
       conditions.push("u.department_id = ?");
       params.push(departmentId);
     }
-
-    // Manager Filter
     if (managerId) {
       conditions.push("(u.manager_id = ? OR u.id = ?)");
       params.push(managerId, managerId);
+    }
+    if (status && status !== "All") {
+      conditions.push("LOWER(COALESCE(a.status, 'Absent')) = LOWER(?)");
+      params.push(status);
     }
 
     const whereClause =
@@ -80,18 +77,15 @@ export const getAttendanceByDate = async (filters = {}) => {
         u.branchOffice_id,
         b.branch_name,
 
-        /* Permanent Shift */
         u.workShift AS permanent_shift_type,
         u.shiftTiming AS permanent_shift_timing,
 
-        /* Temporary Shift */
         eso.shift_type AS temporary_shift_type,
         eso.shift_timing AS temporary_shift_timing,
         eso.week_off,
         eso.from_date,
         eso.to_date,
 
-        /* Final Shift */
         COALESCE(eso.shift_type, u.workShift) AS shift_type,
         COALESCE(eso.shift_timing, u.shiftTiming) AS shift_timing,
 
@@ -118,38 +112,105 @@ export const getAttendanceByDate = async (filters = {}) => {
 
       ${attendanceJoin}
 
-      /* Temporary Shift Override */
       LEFT JOIN employee_shift_override eso
-  ON eso.employee_id = u.id
-  AND eso.is_active = 1
-  AND (
-      a.attendance_date BETWEEN eso.from_date AND eso.to_date
-      OR (
-          a.attendance_date IS NULL
-          AND CURDATE() BETWEEN eso.from_date AND eso.to_date
-      )
-  )
+        ON eso.employee_id = u.id
+        AND eso.is_active = 1
+        AND (
+            a.attendance_date BETWEEN eso.from_date AND eso.to_date
+            OR (
+                a.attendance_date IS NULL
+                AND CURDATE() BETWEEN eso.from_date AND eso.to_date
+            )
+        )
 
       ${whereClause}
 
-     ORDER BY
-  STR_TO_DATE(
-    TRIM(
-      SUBSTRING_INDEX(
-        COALESCE(eso.shift_timing, u.shiftTiming),
-        '-',
-        1
-      )
-    ),
-    '%h:%i %p'
-  ) ASC,
-  u.firstName ASC,
-  a.attendance_date DESC;
+      ORDER BY
+        STR_TO_DATE(
+          TRIM(
+            SUBSTRING_INDEX(
+              COALESCE(eso.shift_timing, u.shiftTiming),
+              '-',
+              1
+            )
+          ),
+          '%h:%i %p'
+        ) ASC,
+        u.firstName ASC,
+        a.attendance_date DESC;
     `;
 
     const [rows] = await pool.execute(sql, params);
 
-    return rows;
+    // ---------- SUMMARY CALCULATION ----------
+
+    const uniqueEmployees = new Set();
+    let presentCount = 0;
+    let absentCount = 0;
+    let leaveCount = 0;
+    let lwpCount = 0;
+
+    for (const row of rows) {
+      uniqueEmployees.add(row.employee_id);
+
+      const status = (row.status || "").toLowerCase();
+
+      if (status === "present") presentCount++;
+      else if (status === "absent") absentCount++;
+      else if (status === "leave") leaveCount++;
+      else if (status === "lwp") lwpCount++;
+    }
+
+    // ---------- COMP OFF COUNT (from comp_offs table, status = 'Available') ----------
+    // CHANGED: date filter hata diya — Comp Off ek "currently available balance" hai,
+    // "is specific date ko earn hua" wala count nahi. Sirf employee/branch/department/manager
+    // se filter karo, taaki employeeId diya jaaye to uska sahi available balance mile,
+    // chahe date filter kuch bhi ho.
+
+    const compOffConditions = ["co.status = 'Available'"];
+    const compOffParams = [];
+
+    if (employeeId) {
+      compOffConditions.push("co.employee_id = ?");
+      compOffParams.push(employeeId);
+    }
+    if (branchId) {
+      compOffConditions.push("u.branchOffice_id = ?");
+      compOffParams.push(branchId);
+    }
+    if (departmentId) {
+      compOffConditions.push("u.department_id = ?");
+      compOffParams.push(departmentId);
+    }
+    if (managerId) {
+      compOffConditions.push("(u.manager_id = ? OR u.id = ?)");
+      compOffParams.push(managerId, managerId);
+    }
+
+    const compOffSql = `
+      SELECT COUNT(*) AS compOffCount
+      FROM comp_offs co
+      JOIN users u ON u.id = co.employee_id
+      WHERE ${compOffConditions.join(" AND ")}
+    `;
+
+    const [compOffRows] = await pool.execute(compOffSql, compOffParams);
+    const compOffCount = compOffRows[0]?.compOffCount || 0;
+
+    const summary = {
+      month: new Date().toISOString().slice(0, 7),
+      totalEmployee: uniqueEmployees.size,
+      present: presentCount,
+      absent: absentCount,
+      leave: leaveCount,
+      compOff: compOffCount,
+      lwp: lwpCount,
+    };
+
+    return {
+      data: rows,
+      summary,
+    };
   } catch (error) {
     console.error("getAttendanceByDate error:", error);
     throw error;
@@ -309,20 +370,134 @@ export const getAttendanceByMonth = async (filters = {}) => {
       )}`;
     };
 
-    return rows.map((row) => ({
-      ...row,
+    // ---------- Helper: shift_timing string se start time (minutes) nikalo ----------
+    const getShiftStartMinutes = (shiftTiming) => {
+      if (!shiftTiming) return null;
 
-      late_time: formatMinutes(row.late_minutes),
-      early_exit_time: formatMinutes(row.early_exit_minutes),
-      worked_time: formatMinutes(row.worked_minutes),
-      overtime_time: formatMinutes(row.overtime_minutes),
-      short_time: formatMinutes(row.short_minutes),
+      const startPart = shiftTiming.split("-")[0]?.trim();
+      if (!startPart) return null;
+
+      const match = startPart.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (!match) return null;
+
+      let [, hh, mm, meridian] = match;
+      hh = parseInt(hh, 10);
+      mm = parseInt(mm, 10);
+
+      if (meridian) {
+        meridian = meridian.toUpperCase();
+        if (meridian === "PM" && hh !== 12) hh += 12;
+        if (meridian === "AM" && hh === 12) hh = 0;
+      }
+
+      return hh * 60 + mm;
+    };
+
+    // ---------- Helper: punch_in (HH:MM:SS ya HH:MM) se minutes nikalo ----------
+    const getPunchInMinutes = (punchIn) => {
+      if (!punchIn) return null;
+
+      const parts = String(punchIn).split(":");
+      const hh = parseInt(parts[0], 10);
+      const mm = parseInt(parts[1], 10);
+
+      if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+      return hh * 60 + mm;
+    };
+
+    const LATE_GRACE_MINUTES = 10; // 10 minute grace period
+
+    // ---------- Row-level: isLate flag add karo ----------
+    const enrichedRows = rows.map((row) => {
+      const shiftStartMinutes = getShiftStartMinutes(row.shift_timing);
+      const punchInMinutes = getPunchInMinutes(row.punch_in);
+
+      let isLate = false;
+
+      if (
+        row.status === "Present" &&
+        shiftStartMinutes != null &&
+        punchInMinutes != null
+      ) {
+        const diff = punchInMinutes - shiftStartMinutes;
+        isLate = diff > LATE_GRACE_MINUTES;
+      }
+
+      return {
+        ...row,
+        late_time: formatMinutes(row.late_minutes),
+        early_exit_time: formatMinutes(row.early_exit_minutes),
+        worked_time: formatMinutes(row.worked_minutes),
+        overtime_time: formatMinutes(row.overtime_minutes),
+        short_time: formatMinutes(row.short_minutes),
+        is_late: isLate,
+      };
+    });
+
+    // ---------- Employee-wise Month Summary ----------
+    const summaryMap = new Map();
+
+    for (const row of enrichedRows) {
+      if (!summaryMap.has(row.employee_id)) {
+        summaryMap.set(row.employee_id, {
+          employeeId: row.employee_id,
+          fullName: row.full_name,
+          totalMinutes: 0, // NEW — worked_minutes accumulate karne ke liye
+          present: 0,
+          absent: 0,
+          lateMarks: 0,
+          halfDay: 0,
+        });
+      }
+
+      const emp = summaryMap.get(row.employee_id);
+
+      // NEW — Total Hours ke liye worked_minutes sab dino ka sum
+      emp.totalMinutes += row.worked_minutes || 0;
+
+      if (row.status === "Present") {
+        emp.present++;
+        if (row.is_late) emp.lateMarks++;
+      } else if (row.status === "Absent") {
+        emp.absent++;
+      } else if (row.status === "Half Day") {
+        emp.halfDay++;
+      }
+    }
+
+    // totalMinutes ko totalHours (HH:MM string) me convert karke summary banao
+    const summary = Array.from(summaryMap.values()).map((emp) => ({
+      ...emp,
+      totalHours: formatMinutes(emp.totalMinutes), // NEW
     }));
+
+    // ---------- Overall totals (poore filter-set ke liye) ----------
+    const overallSummary = summary.reduce(
+      (acc, emp) => {
+        acc.totalMinutes += emp.totalMinutes; // NEW
+        acc.present += emp.present;
+        acc.absent += emp.absent;
+        acc.lateMarks += emp.lateMarks;
+        acc.halfDay += emp.halfDay;
+        return acc;
+      },
+      { totalMinutes: 0, present: 0, absent: 0, lateMarks: 0, halfDay: 0 },
+    );
+
+    // NEW — overall totalMinutes ko bhi HH:MM string me convert karo
+    overallSummary.totalHours = formatMinutes(overallSummary.totalMinutes);
+
+    return {
+      data: enrichedRows,
+      summary, // per-employee breakdown (totalHours included)
+      overallSummary, // total across all employees (totalHours included)
+    };
   } catch (error) {
     console.error("getAttendanceByMonth error:", error);
     throw error;
   }
 };
+
 export const markAttendance = async ({
   employeeId,
   attendanceDate,
@@ -397,6 +572,28 @@ export const markAttendance = async ({
   }
 };
 
+export const updateStatus = async ({ employeeId, attendanceDate, status }) => {
+  try {
+    const sql = `
+      UPDATE attendance
+      SET status = ?
+      WHERE employee_id = ? 
+        AND attendance_date = ?
+    `;
+
+    const [result] = await pool.execute(sql, [
+      status,
+      employeeId,
+      attendanceDate,
+    ]);
+
+    return result;
+  } catch (error) {
+    console.error("updateStatus error:", error);
+    throw error;
+  }
+};
+
 export const updatePunchOut = async ({
   employeeId,
   attendanceDate,
@@ -409,7 +606,9 @@ export const updatePunchOut = async ({
       SELECT
           a.id,
           a.punch_in,
-          COALESCE(eso.shift_timing, u.shiftTiming) AS shift_timing
+          COALESCE(eso.shift_timing, u.shiftTiming) AS shift_timing,
+          u.branchOffice_id,
+          h.id AS holiday_id
       FROM attendance a
       JOIN users u
         ON u.id = a.employee_id
@@ -419,10 +618,15 @@ export const updatePunchOut = async ({
        AND eso.is_active = 1
        AND ? BETWEEN eso.from_date AND eso.to_date
 
+      LEFT JOIN holidays h
+        ON h.branch_id = u.branchOffice_id
+       AND h.date = ?
+       AND h.is_active = 1
+
       WHERE a.employee_id = ?
         AND a.attendance_date = ?
       `,
-      [attendanceDate, employeeId, attendanceDate],
+      [attendanceDate, attendanceDate, employeeId, attendanceDate],
     );
 
     if (!rows.length) {
@@ -431,12 +635,21 @@ export const updatePunchOut = async ({
 
     const attendance = rows[0];
 
+    // Sunday check
+    const isSunday = new Date(attendanceDate).getDay() === 0; // 0 = Sunday
+
+    // Branch holiday check (from holidays table join)
+    const isBranchHoliday = attendance.holiday_id != null;
+
+    const isHoliday = isSunday || isBranchHoliday;
+
     let workedMinutes = 0;
     let overtimeMinutes = 0;
     let shortMinutes = 0;
     let earlyExitMinutes = 0;
 
-    const REQUIRED_MINUTES = 8 * 60 + 30; // 510 Minutes
+    // 8:00 on Sunday/branch holiday, else 8:30
+    const REQUIRED_MINUTES = isHoliday ? 8 * 60 : 8 * 60 + 30;
 
     const formatMinutes = (minutes) => {
       if (minutes == null || minutes < 0) return "00:00";
@@ -479,6 +692,10 @@ export const updatePunchOut = async ({
       }
 
       console.log({
+        isHoliday,
+        isSunday,
+        isBranchHoliday,
+        requiredMinutes: REQUIRED_MINUTES,
         shiftTiming: attendance.shift_timing,
         punchIn,
         punchOut,
@@ -520,6 +737,9 @@ export const updatePunchOut = async ({
     return {
       success: result.affectedRows > 0,
 
+      is_holiday: isHoliday,
+      required_minutes: REQUIRED_MINUTES,
+
       worked_minutes: workedMinutes,
       overtime_minutes: overtimeMinutes,
       short_minutes: shortMinutes,
@@ -535,24 +755,126 @@ export const updatePunchOut = async ({
     throw error;
   }
 };
-export const updateStatus = async ({ employeeId, attendanceDate, status }) => {
+
+export const runAutoAttendanceMarking = async () => {
+  const connection = await pool.getConnection();
+
   try {
-    const sql = `
-      UPDATE attendance
-      SET status = ?
-      WHERE employee_id = ? 
-        AND attendance_date = ?
-    `;
+    await connection.beginTransaction();
 
-    const [result] = await pool.execute(sql, [
-      status,
-      employeeId,
-      attendanceDate,
-    ]);
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const todayDayName = new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+    }); // e.g. "Sunday"
 
-    return result;
+    const [employees] = await connection.execute(
+      `
+      SELECT
+        u.id AS employee_id,
+        u.weeklyOff AS permanent_week_off,
+
+        eso.week_off AS temp_week_off,
+        eso.is_active AS eso_active,
+        eso.from_date,
+        eso.to_date,
+
+        a.id AS attendance_id,
+        a.punch_in,
+        a.status AS existing_status
+
+      FROM users u
+
+      LEFT JOIN employee_shift_override eso
+        ON eso.employee_id = u.id
+        AND eso.is_active = 1
+        AND ? BETWEEN eso.from_date AND eso.to_date
+
+      LEFT JOIN attendance a
+        ON a.employee_id = u.id
+        AND a.attendance_date = ?
+
+      WHERE u.status = 'Active'
+      `,
+      [todayDate, todayDate],
+    );
+
+    let weekOffCount = 0;
+    let absentCount = 0;
+    let skippedCount = 0;
+
+    for (const emp of employees) {
+      // Already punch-in ho chuka hai -> skip
+      if (emp.attendance_id && emp.punch_in) {
+        skippedCount++;
+        continue;
+      }
+
+      // Already manual status hai (Leave, LWP, etc.) -> skip
+      if (
+        emp.attendance_id &&
+        emp.existing_status &&
+        !["Pending", "Absent"].includes(emp.existing_status)
+      ) {
+        skippedCount++;
+        continue;
+      }
+
+      const effectiveWeekOff =
+        emp.temp_week_off || emp.permanent_week_off || "";
+
+      const weekOffDays = effectiveWeekOff
+        .split(",")
+        .map((d) => d.trim().toLowerCase())
+        .filter(Boolean);
+
+      const isWeekOffToday = weekOffDays.includes(todayDayName.toLowerCase());
+
+      const finalStatus = isWeekOffToday ? "Week Off" : "Absent";
+
+      if (isWeekOffToday) weekOffCount++;
+      else absentCount++;
+
+      if (emp.attendance_id) {
+        await connection.execute(
+          `UPDATE attendance
+           SET status = ?, remarks = ?
+           WHERE id = ?`,
+          [
+            finalStatus,
+            "Auto-marked by system (no punch-in till 1:00 PM)",
+            emp.attendance_id,
+          ],
+        );
+      } else {
+        await connection.execute(
+          `INSERT INTO attendance
+            (employee_id, attendance_date, status, remarks, created_at)
+           VALUES (?, ?, ?, ?, NOW())`,
+          [
+            emp.employee_id,
+            todayDate,
+            finalStatus,
+            "Auto-marked by system (no punch-in till 1:00 PM)",
+          ],
+        );
+      }
+    }
+
+    await connection.commit();
+
+    return {
+      date: todayDate,
+      day: todayDayName,
+      totalChecked: employees.length,
+      markedAbsent: absentCount,
+      markedWeekOff: weekOffCount,
+      skipped: skippedCount,
+    };
   } catch (error) {
-    console.error("updateStatus error:", error);
+    await connection.rollback();
+    console.error("runAutoAttendanceMarking error:", error);
     throw error;
+  } finally {
+    connection.release();
   }
 };

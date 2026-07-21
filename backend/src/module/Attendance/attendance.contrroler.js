@@ -2,6 +2,7 @@
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { createCompOffIfEligible } from "../CompOff/compOff.model.js";
 import {
   getAttendanceByDate,
   getAttendanceByMonth,
@@ -19,6 +20,7 @@ const getAttendanceController = asyncHandler(async (req, res) => {
     employeeId,
     branchId,
     departmentId,
+    status,
   } = req.query;
 
   const role = req.user.access_role;
@@ -27,6 +29,7 @@ const getAttendanceController = asyncHandler(async (req, res) => {
   const filters = {
     branchId,
     departmentId,
+    status,
   };
 
   // Current Month Helper
@@ -144,7 +147,7 @@ const markAttendanceController = asyncHandler(async (req, res) => {
   const result = await markAttendance({
     employeeId,
     attendanceDate,
-    status: "Pending",
+    status: "P",
     punchIn,
   });
 
@@ -154,8 +157,8 @@ const markAttendanceController = asyncHandler(async (req, res) => {
 });
 
 const updatePunchOutController = asyncHandler(async (req, res) => {
-  const employeeId = req.user?.id;
-  console.log();
+  const employeeId = 9;
+
   const { attendanceDate, punchOut, punch_out } = req.body;
 
   const finalPunchOut = punchOut || punch_out;
@@ -177,6 +180,8 @@ const updatePunchOutController = asyncHandler(async (req, res) => {
       "No attendance record found for this employee on this date",
     );
   }
+
+  await createCompOffIfEligible(employeeId, attendanceDate);
 
   return res
     .status(200)
@@ -212,6 +217,22 @@ const updateStatusController = asyncHandler(async (req, res) => {
       new ApiResponse(200, result, "Attendance status updated successfully"),
     );
 });
+
+export const triggerAutoAttendanceController = asyncHandler(
+  async (req, res) => {
+    const role = req.user.access_role;
+
+    if (role !== "SUPER_ADMIN") {
+      throw new ApiError(403, "You are not authorized to run this action");
+    }
+
+    const result = await runAutoAttendanceMarking();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, result, "Auto attendance marking completed"));
+  },
+);
 
 export {
   getAttendanceController,

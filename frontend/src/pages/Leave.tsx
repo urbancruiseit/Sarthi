@@ -1,428 +1,287 @@
-import React, { useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Users, UserPlus, Gift, Building2, ClipboardList } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
+import { RootState } from "@/redux/store";
 
-/* ------------------------------------------------------------------ */
-/*  STATIC CONFIG                                                      */
-/* ------------------------------------------------------------------ */
+import { daysBetween } from "@/utils/leaveUtils"; // ya jahan utility rakhi ho
+import ApplyLeaveModal from "@/components/Leave/ApplyLeaveModal";
+import BranchFilter from "@/components/FilterComponent/BranchFilter";
 
-const MONTH_MAP: Record<string, number> = {
-  JAN: 1,
-  FEB: 2,
-  MAR: 3,
-  APR: 4,
-  MAY: 5,
-  JUN: 6,
-  JUL: 7,
-  AUG: 8,
-  SEP: 9,
-  OCT: 10,
-  NOV: 11,
-  DEC: 12,
-};
+import {
+  fetchHolidays,
+  createHolidayThunk,
+  updateHolidayThunk,
+  deleteHolidayThunk,
+} from "@/redux/features/Calendar/calendarSlice";
 
-const ALL_MONTHS = Object.keys(MONTH_MAP);
-const YEARS = ["2024", "2025", "2026"];
-const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
+import {
+  LeaveRequest,
+  INITIAL_REQUESTS,
+  TAB_CONTENT,
+} from "@/components/Leave/Leaveutils";
+import LeaveRequestsTab from "@/components/Leave/LeaveRequestsTab";
+import AssignLeaveTab, {
+  AssignLeaveFormData,
+} from "@/components/Leave/AssignLeaveTab";
+import HolidayManager from "@/components/Callender/Holidaymanager";
+import DutyRoster from "@/components/Leave/Dutyroster";
 
-// attendance-code -> pill style (matches the reference sheet)
-const CODE_STYLE: Record<string, string> = {
-  "1P": "bg-green-100 text-green-700",
-  WO: "bg-sky-100 text-sky-700",
-  COF: "bg-[#5b3a22] text-white",
-  PL: "bg-emerald-600 text-white",
-  HD: "bg-yellow-100 text-yellow-700",
-};
+function Leave() {
+  const dispatch = useAppDispatch();
 
-const STAFF_NAMES = [
-  "Sristi Kumari",
-  "Rahul Verma",
-  "Ankita Sharma",
-  "Mohit Yadav",
-];
+  const [activeTab, setActiveTab] = useState("leave");
+  const headerContent = TAB_CONTENT[activeTab] ?? TAB_CONTENT.leave;
 
-const AVATAR_COLORS = [
-  "bg-pink-400",
-  "bg-indigo-400",
-  "bg-emerald-400",
-  "bg-amber-400",
-];
+  /* ---------------- Leave requests state ---------------- */
+  const [requests, setRequests] = useState<LeaveRequest[]>(INITIAL_REQUESTS);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
-/* ------------------------------------------------------------------ */
-/*  DUMMY DATA GENERATOR (no API / no redux — everything is fabricated) */
-/* ------------------------------------------------------------------ */
+  // In a real integration this would come from the logged-in employee /
+  // current user in redux, same pattern as Attendance's currentEmployeeId.
+  const currentEmployeeName = "You";
+  const currentEmployeeDept = "—";
 
-// small deterministic pseudo-random helper so the demo looks the same on every render
-function seededRandom(seed: number) {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-function minutesToHHMM(mins: number) {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${pad(h)}:${pad(m)}`;
-}
-
-type DayCell = {
-  day: number;
-  code: string;
-  in: string;
-  out: string;
-  wh: string;
-  ot: string;
-  f: string;
-};
-
-type DummyEmployee = {
-  id: number;
-  name: string;
-  avatarColor: string;
-  days: DayCell[];
-  totalHours: string;
-  totalPresent: number;
-  totalAbsent: number;
-  totalLate: number;
-  totalHalfDay: number;
-};
-
-function buildDummyEmployees(
-  month: number,
-  year: number,
-  daysInMonth: number,
-): DummyEmployee[] {
-  return STAFF_NAMES.map((name, empIdx) => {
-    let presentCount = 0;
-    let lateCount = 0;
-    let halfDayCount = 0;
-    let totalWorkMinutes = 0;
-
-    const days: DayCell[] = Array.from({ length: daysInMonth }, (_, i) => {
-      const day = i + 1;
-      const dow = new Date(year, month - 1, day).getDay(); // 0 = Sunday
-      const seed = empIdx * 97 + day * 13;
-
-      // pick attendance code
-      let code = "1P";
-      if (dow === 0) {
-        code = "WO";
-      } else if (seededRandom(seed) < 0.06) {
-        code = "COF";
-      } else if (seededRandom(seed + 1) < 0.03) {
-        code = "PL";
-      }
-
-      if (code !== "1P") {
-        return {
-          day,
-          code,
-          in: "-",
-          out: "-",
-          wh: "-",
-          ot: "",
-          f: "",
-        };
-      }
-
-      presentCount += 1;
-
-      const inHour = 10 + Math.floor(seededRandom(seed + 2) * 2); // 10-11
-      const inMin = Math.floor(seededRandom(seed + 3) * 59);
-      const workMin = 480 + Math.floor(seededRandom(seed + 4) * 60); // 8h - 9h
-      const outTotalMin = inHour * 60 + inMin + workMin;
-      const otMin = Math.max(0, workMin - 480);
-      const isLate = inHour >= 11 && seededRandom(seed + 5) < 0.4;
-      const isHalfDay = seededRandom(seed + 6) < 0.03;
-
-      if (isLate) lateCount += 1;
-      if (isHalfDay) halfDayCount += 1;
-
-      totalWorkMinutes += workMin;
-
-      return {
-        day,
-        code,
-        in: `${pad(inHour)}:${pad(inMin)}`,
-        out: minutesToHHMM(outTotalMin),
-        wh: minutesToHHMM(workMin),
-        ot: otMin > 0 ? minutesToHHMM(otMin) : "",
-        f: isLate ? minutesToHHMM(Math.floor(seededRandom(seed + 7) * 15)) : "",
-      };
-    });
-
-    return {
-      id: empIdx + 1,
-      name,
-      avatarColor: AVATAR_COLORS[empIdx % AVATAR_COLORS.length],
-      days,
-      totalHours: minutesToHHMM(totalWorkMinutes),
-      totalPresent: presentCount,
-      totalAbsent: 0,
-      totalLate: lateCount,
-      totalHalfDay: halfDayCount,
+  const handleApply = (req: {
+    leaveType: string;
+    fromDate: string;
+    toDate: string;
+    reason: string;
+  }) => {
+    const newRequest: LeaveRequest = {
+      id: `LR-${Math.floor(1000 + Math.random() * 9000)}`,
+      employeeName: currentEmployeeName,
+      department: currentEmployeeDept,
+      leaveType: req.leaveType,
+      fromDate: req.fromDate,
+      toDate: req.toDate,
+      days: daysBetween(req.fromDate, req.toDate),
+      reason: req.reason,
+      status: "Pending",
+      appliedOn: new Date().toISOString().slice(0, 10),
     };
-  });
-}
+    setRequests((prev) => [newRequest, ...prev]);
+    setModalOpen(false);
+  };
 
-/* ------------------------------------------------------------------ */
-/*  COMPONENT                                                          */
-/* ------------------------------------------------------------------ */
+  const handleAssign = (data: AssignLeaveFormData) => {
+    const assigned: LeaveRequest = {
+      id: `LR-${Math.floor(1000 + Math.random() * 9000)}`,
+      employeeName: data.employeeName.trim(),
+      department: data.department.trim() || "—",
+      leaveType: data.leaveType,
+      fromDate: data.fromDate,
+      toDate: data.toDate,
+      days: daysBetween(data.fromDate, data.toDate),
+      reason: data.reason.trim() || "Assigned by admin",
+      status: "Approved", // direct assign = pre-approved
+      appliedOn: new Date().toISOString().slice(0, 10),
+    };
+    setRequests((prev) => [assigned, ...prev]);
+  };
 
-const ROW_TYPES = ["Status", "IN", "OUT", "WH", "OT", "F"] as const;
+  const filteredRequests = useMemo(() => {
+    const keyword = search.toLowerCase();
+    return requests.filter(
+      (r) =>
+        r.employeeName.toLowerCase().includes(keyword) ||
+        r.leaveType.toLowerCase().includes(keyword) ||
+        r.department.toLowerCase().includes(keyword),
+    );
+  }, [requests, search]);
 
-const Empreport = () => {
-  const [selectedYear, setSelectedYear] = useState(
-    new Date().getFullYear().toString(),
+  const recentlyAssigned = useMemo(
+    () => requests.filter((r) => r.reason === "Assigned by admin").slice(0, 5),
+    [requests],
   );
-  const [selectedMonth, setSelectedMonth] = useState(
-    ALL_MONTHS[new Date().getMonth()],
+
+  /* ---------------- Company Holiday state (moved in from AttendanceCalendar) ---------------- */
+  const branches = useAppSelector((s: RootState) => s.branch.branches) ?? [];
+  const {
+    list: holidays,
+    loading: holidaysLoading,
+    creating,
+  } = useAppSelector((s: RootState) => s.holiday);
+
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => currentYear - 1 + i);
+
+  const [branch, setBranch] = useState<string>("");
+  const [holidayYear, setHolidayYear] = useState<number>(currentYear);
+
+  // Default to the first available branch once branches have loaded.
+  useEffect(() => {
+    if (!branch && branches.length > 0) {
+      setBranch(String(branches[0].id));
+    }
+  }, [branches, branch]);
+
+  const branchLabel =
+    branches.find((b: any) => String(b.id) === branch)?.branch_name ??
+    branches.find((b: any) => String(b.id) === branch)?.name ??
+    "Branch";
+
+  // Fetch holidays only when the Company Holiday tab is active — avoids an
+  // unnecessary dispatch on first load when the user is on the Leave tab.
+  useEffect(() => {
+    if (activeTab !== "holiday" || !branch) return;
+    dispatch(fetchHolidays({ branchId: branch, year: holidayYear }));
+  }, [dispatch, activeTab, branch, holidayYear]);
+
+  const branchHolidays = useMemo(
+    () => holidays.filter((h) => String(h.branch_id) === branch),
+    [holidays, branch],
   );
 
-  const monthNum = MONTH_MAP[selectedMonth];
-  const yearNum = Number(selectedYear);
+  const handleAddHoliday = async (data: {
+    branchId: string;
+    date: string;
+    name: string;
+  }) => {
+    try {
+      await dispatch(
+        createHolidayThunk({
+          branchId: data.branchId,
+          date: data.date,
+          name: data.name,
+        }),
+      ).unwrap();
 
-  const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
-  const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+      dispatch(fetchHolidays({ branchId: branch, year: holidayYear }));
+    } catch (err) {
+      console.error("Failed to add holiday:", err);
+    }
+  };
 
-  const employees = useMemo(
-    () => buildDummyEmployees(monthNum, yearNum, daysInMonth),
-    [monthNum, yearNum, daysInMonth],
-  );
+  const handleEditHoliday = async (data: {
+    id: string;
+    branchId: string;
+    date: string;
+    name: string;
+  }) => {
+    try {
+      await dispatch(
+        updateHolidayThunk({
+          id: data.id,
+          branchId: data.branchId,
+          date: data.date,
+          name: data.name,
+        }),
+      ).unwrap();
 
-  const weekdayLetterFor = (day: number) =>
-    WEEKDAY_LETTERS[new Date(yearNum, monthNum - 1, day).getDay()];
+      dispatch(fetchHolidays({ branchId: branch, year: holidayYear }));
+    } catch (err) {
+      console.error("Failed to update holiday:", err);
+    }
+  };
 
-  const isSundayCol = (day: number) =>
-    new Date(yearNum, monthNum - 1, day).getDay() === 0;
+  const handleRemoveHoliday = (id: string) => {
+    dispatch(deleteHolidayThunk(id));
+  };
 
   return (
-    <div className="">
-      {/* HEADER */}
-      <div className="sticky top-0 z-30 bg-white shadow-sm">
-        <div className="pl-4 border-l-8 border-orange-500 bg-white px-3">
-          <div className="flex justify-between items-center py-4">
-            <h2 className="text-3xl font-bold text-orange-700 p-2">
-              Employee Attendance – {selectedMonth} {selectedYear}
-            </h2>
-
-            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
-              >
-                {ALL_MONTHS.map((month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
-              >
-                {YEARS.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
-            </div>
+    <div className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        {/* ---------- Header (same visual language as Attendance) ---------- */}
+        <div
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl p-4 border-l-4"
+          style={{ background: "#FFF7ED", borderColor: "#F97316" }}
+        >
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: "#166534" }}>
+              {headerContent.title}
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "#EA580C" }}>
+              {headerContent.subtitle}
+            </p>
           </div>
+
+          <TabsList className="grid grid-cols-4 w-fit bg-white border border-orange-200">
+            <TabsTrigger
+              value="leave"
+              className="gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+            >
+              <Users size={14} />
+              Leave
+            </TabsTrigger>
+            <TabsTrigger
+              value="assign"
+              className="gap-1.5 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            >
+              <UserPlus size={14} />
+              Assign Leave
+            </TabsTrigger>
+            <TabsTrigger
+              value="holiday"
+              className="gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white"
+            >
+              <Gift size={14} />
+              Company Holiday
+            </TabsTrigger>
+            <TabsTrigger
+              value="duty-roster"
+              className="gap-1.5 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+            >
+              <ClipboardList size={14} />
+              Duty Roster
+            </TabsTrigger>
+          </TabsList>
         </div>
-      </div>
 
-      {/* TABLE */}
-      <div className="bg-white rounded-xl mt-2 shadow overflow-x-auto border border-slate-200">
-        <table className="border-collapse text-xs whitespace-nowrap w-full">
-          <thead>
-            <tr className="bg-orange-600 text-white">
-              <th className="sticky left-0 z-20 bg-green-600 border border-white p-2 min-w-[40px]">
-                S.N.
-              </th>
-              <th className="sticky left-[40px] z-20 bg-green-600 border border-white p-1 w-[36px] min-w-[36px]">
-                Staff Name
-              </th>
-              <th className="sticky left-[76px] z-20 bg-green-600 border border-white p-1 min-w-[60px]">
-                <div className="flex items-center justify-center gap-1">
-                  Days <ChevronDown className="w-3 h-3" />
-                </div>
-              </th>
+        {/* ---------- Leave Tab ---------- */}
+        <TabsContent value="leave" className="mt-6">
+          <LeaveRequestsTab
+            requests={filteredRequests}
+            search={search}
+            onSearchChange={setSearch}
+            onApplyClick={() => setModalOpen(true)}
+          />
+        </TabsContent>
 
-              {daysArray.map((day) => (
-                <th
-                  key={day}
-                  className={`border border-grey-700 p-1 min-w-[46px] text-center ${
-                    isSundayCol(day) ? "bg-green-800" : "bg-green-600"
-                  }`}
-                >
-                  <div className="text-[11px] leading-tight">
-                    {weekdayLetterFor(day)}
-                  </div>
-                  <div className="text-[11px] leading-tight font-semibold">
-                    {pad(day)}-{pad(monthNum)}
-                  </div>
-                </th>
-              ))}
+        {/* ---------- Assign Leave Tab ---------- */}
+        <TabsContent value="assign" className="mt-6">
+          <AssignLeaveTab
+            onAssign={handleAssign}
+            recentlyAssigned={recentlyAssigned}
+          />
+        </TabsContent>
 
-              <th className="border border-white p-2 bg-orange-800 min-w-[70px]">
-                Total Hours
-              </th>
-              <th className="border border-white p-2 bg-green-800 min-w-[60px]">
-                Total Present
-              </th>
-              <th className="border border-white p-2 bg-red-800 min-w-[60px]">
-                Total Absent
-              </th>
-              <th className="border border-white p-2 bg-pink-700 min-w-[70px]">
-                Total late marks
-              </th>
-              <th className="border border-white p-2 bg-orange-700 min-w-[70px]">
-                Total half day
-              </th>
-            </tr>
-          </thead>
+        {/* ---------- Company Holiday Tab ---------- */}
+        <TabsContent value="holiday" className="space-y-4 mt-6">
+          {/* Branch filter — Attendance.tsx jaisa hi plain usage */}
+          <div className="flex items-center gap-2">
+            <Building2 size={16} className="text-muted-foreground" />
+            <BranchFilter value={branch} onChange={setBranch} />
+          </div>
 
-          <tbody>
-            {employees.map((employee, empIndex) => {
-              const rowBg = empIndex % 2 === 0 ? "bg-white" : "bg-slate-50";
+          <HolidayManager
+            branch={branch}
+            branchLabel={branchLabel}
+            holidays={branchHolidays}
+            loading={holidaysLoading}
+            creating={creating}
+            yearOptions={YEAR_OPTIONS}
+            onAddHoliday={handleAddHoliday}
+            onEditHoliday={handleEditHoliday}
+            onRemoveHoliday={handleRemoveHoliday}
+          />
+        </TabsContent>
 
-              return (
-                <React.Fragment key={employee.id}>
-                  {ROW_TYPES.map((rowType, rowIdx) => (
-                    <tr key={`${employee.id}-${rowType}`} className={rowBg}>
-                      {rowIdx === 0 && (
-                        <>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className={`sticky left-0 z-10 border font-bold text-center align-middle ${rowBg}`}
-                          >
-                            {employee.id}
-                          </td>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className={`sticky left-[40px] z-10 border w-[36px] min-w-[36px] max-w-[36px] p-0 text-center align-middle ${rowBg}`}
-                          >
-                            <div
-                              className="flex items-center justify-center mx-auto font-extrabold text-[11px]"
-                              style={{
-                                writingMode: "vertical-rl",
-                                transform: "rotate(180deg)",
-                                whiteSpace: "nowrap",
-                                lineHeight: "14px",
-                                padding: "6px 0",
-                                letterSpacing: "2px",
-                              }}
-                            >
-                              {employee.name.toUpperCase()}
-                            </div>
-                          </td>
-                        </>
-                      )}
+        {/* ---------- Duty Roster Tab ---------- */}
+        <TabsContent value="duty-roster" className="mt-6">
+          <DutyRoster />
+        </TabsContent>
+      </Tabs>
 
-                      {/* row-type label ("Days" sticky column) */}
-                      <td
-                        className={`sticky left-[76px] z-10 border p-1 font-semibold text-center ${
-                          rowType === "OT"
-                            ? "bg-green-50"
-                            : rowType === "F"
-                              ? "bg-red-50 text-red-600"
-                              : rowType === "Status"
-                                ? "bg-slate-100"
-                                : "bg-white"
-                        }`}
-                      >
-                        {rowType}
-                      </td>
-
-                      {employee.days.map((d) => {
-                        if (rowType === "Status") {
-                          return (
-                            <td
-                              key={d.day}
-                              className={`border text-center font-semibold p-1 ${CODE_STYLE[d.code]}`}
-                            >
-                              {d.code}
-                            </td>
-                          );
-                        }
-                        const value =
-                          rowType === "IN"
-                            ? d.in
-                            : rowType === "OUT"
-                              ? d.out
-                              : rowType === "WH"
-                                ? d.wh
-                                : rowType === "OT"
-                                  ? d.ot
-                                  : d.f;
-
-                        return (
-                          <td
-                            key={d.day}
-                            className={`border text-center ${
-                              rowType === "F"
-                                ? "text-red-600 font-semibold bg-red-50"
-                                : rowType === "OT"
-                                  ? "text-green-700 bg-green-50"
-                                  : "text-slate-700"
-                            }`}
-                          >
-                            {value || "-"}
-                          </td>
-                        );
-                      })}
-
-                      {/* summary columns - only rendered once, on the first row, spanning all rows */}
-                      {rowIdx === 0 && (
-                        <>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold bg-green-50"
-                          >
-                            {employee.totalHours}
-                          </td>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold bg-green-50"
-                          >
-                            {employee.totalPresent}
-                          </td>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold bg-red-50"
-                          >
-                            {employee.totalAbsent}
-                          </td>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold text-red-600 bg-pink-50"
-                          >
-                            {employee.totalLate}
-                          </td>
-                          <td
-                            rowSpan={ROW_TYPES.length}
-                            className="border text-center align-middle font-bold text-green-700 bg-orange-50"
-                          >
-                            {employee.totalHalfDay}
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  ))}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <ApplyLeaveModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleApply}
+      />
     </div>
   );
-};
+}
 
-export default Empreport;
+export default Leave;

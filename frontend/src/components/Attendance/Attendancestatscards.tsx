@@ -6,12 +6,14 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { DisplayRow } from "./Attendanceutils";
+import { AttendanceSummary } from "@/redux/features/Attendance/attendanceSlice";
 
 interface AttendanceStatsCardsProps {
   rows: DisplayRow[];
   isDrillDown: boolean;
   currentMonthStr: string;
   selectedDateLabel: string;
+  summary?: AttendanceSummary | null; // NEW — backend se calculated counts
 }
 
 export default function AttendanceStatsCards({
@@ -19,11 +21,22 @@ export default function AttendanceStatsCards({
   isDrillDown,
   currentMonthStr,
   selectedDateLabel,
+  summary,
 }: AttendanceStatsCardsProps) {
-  const totalEmployee = rows.length;
-  const presentCount = rows.filter((e) => e.status === "Present").length;
-  const absentCount = rows.filter((e) => e.status === "Absent").length;
-  const leaveCount = rows.filter((e) => e.status === "Leave").length;
+  // Agar backend summary available hai (list view), wahi use karo.
+  // Warna (drill-down / summary missing) rows se hi calculate kar lo — fallback.
+  const totalEmployee = summary ? summary.totalEmployee : rows.length;
+  const presentCount = summary
+    ? summary.present
+    : rows.filter((e) => e.status === "Present").length;
+  const absentCount = summary
+    ? summary.absent
+    : rows.filter((e) => e.status === "Absent").length;
+  const leaveCount = summary
+    ? summary.leave
+    : rows.filter((e) => e.status === "Leave").length;
+  const compOffCount = summary ? summary.compOff : 0;
+  const lwpCount = summary ? summary.lwp : 0;
 
   const cards = [
     {
@@ -58,13 +71,13 @@ export default function AttendanceStatsCards({
     },
     {
       label: "Comp Off",
-      value: 0,
+      value: compOffCount,
       icon: TimerReset,
       bg: "bg-violet-200",
     },
     {
       label: "LWP",
-      value: 0,
+      value: lwpCount,
       icon: TimerReset,
       bg: "bg-yellow-200",
     },

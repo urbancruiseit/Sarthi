@@ -7,6 +7,7 @@ import {
   createShiftAssignment,
   getShiftAssignmentById,
   getShiftAssignments,
+  updateShiftAssignment,
 } from "./shiftassignment.model.js";
 
 export const createShiftAssignmentHandler = asyncHandler(async (req, res) => {

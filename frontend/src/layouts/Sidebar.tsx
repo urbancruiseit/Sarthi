@@ -1,8 +1,3 @@
-// =====================================================
-// UPDATED Sidebar.tsx — Real Department + Sub-Dept (from DB)
-// Access logic unchanged: still resolved via SUB_DEPT_ACCESS
-// =====================================================
-
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
@@ -71,8 +66,6 @@ type SubDepartment =
   | "Web App"
   | "Mobile App"
   | "MIS & Analytics"
-  // HR (department_id 4) — HR's own "Statutory" row (id 11) is intentionally
-  // ignored since Finance already has a "Statutory" sub-department.
   | "Recruitment"
   | "Ops & Admin"
   // VEH OPS (department_id 5)
@@ -432,11 +425,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const { currentEmployee } = useAppSelector((state) => state.user);
 
-  // ── Resolve role ──────────────────────────────────────────────────────────
   const rawRole = currentEmployee?.access_role ?? "";
   const currentRole: AccessRole = isAccessRole(rawRole) ? rawRole : "EMPLOYEE";
 
-  // ── Resolve sub-department ────────────────────────────────────────────────
   const rawSubDept = currentEmployee?.subDepartment_name ?? "";
   const currentSubDept: SubDepartment =
     rawSubDept in SUB_DEPT_ACCESS ? (rawSubDept as SubDepartment) : "General";
@@ -457,7 +448,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        "flex flex-col h-full transition-all duration-300 ease-in-out",
+        "absolute top-0 left-0 z-40 flex flex-col h-full transition-all duration-300 ease-in-out",
         "border-r border-green-200 bg-green-50 text-green-900",
         "shadow-lg shadow-green-900/5",
         isCollapsed ? "w-16" : "w-64",

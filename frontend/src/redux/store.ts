@@ -18,6 +18,7 @@ import bgvReducer from "../redux/features/BackgroundVerification/BackgroundVerif
 import atendanceReducer from "../redux/features/Attendance/attendanceSlice";
 import shiftAssignmentReducer from "../redux/features/Shiftassignment/shiftassignmentSlice";
 import holidayReducer from "../redux/features/Calendar/calendarSlice";
+import dutyrosterReducer from "../redux/features/Calendar/calendarSlice";
 
 export const store = configureStore({
   reducer: {
@@ -40,6 +41,7 @@ export const store = configureStore({
     attendance: atendanceReducer,
     shiftAssignment: shiftAssignmentReducer,
     holiday: holidayReducer,
+    dutyRoster: dutyrosterReducer,
   },
 });
 

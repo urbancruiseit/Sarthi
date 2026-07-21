@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Search, Loader2 } from "lucide-react";
+import {
+  ChevronDown,
+  Search,
+  Loader2,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlarmClock,
+  CalendarClock,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -17,10 +26,6 @@ import {
   fetchMonthlyAttendance,
 } from "@/redux/features/Attendance/attendanceSlice";
 import { RootState } from "@/redux/store";
-
-/* ------------------------------------------------------------------ */
-/*  STATIC CONFIG                                                      */
-/* ------------------------------------------------------------------ */
 
 const MONTH_MAP: Record<string, number> = {
   JAN: 1,
@@ -41,7 +46,6 @@ const ALL_MONTHS = Object.keys(MONTH_MAP);
 const YEARS = ["2024", "2025", "2026"];
 const WEEKDAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 
-// attendance-status -> single-letter/short code used in the pill
 const STATUS_TO_CODE: Record<string, string> = {
   Present: "P",
   Absent: "A",
@@ -53,7 +57,6 @@ const STATUS_TO_CODE: Record<string, string> = {
   Holiday: "HOL",
 };
 
-// code -> pill style
 const CODE_STYLE: Record<string, string> = {
   P: "bg-green-100 text-green-700",
   A: "bg-red-100 text-red-700",
@@ -78,10 +81,6 @@ const AVATAR_COLORS = [
 
 const ROW_TYPES = ["Status", "IN", "OUT", "WH", "OT", "F"] as const;
 
-/* ------------------------------------------------------------------ */
-/*  HELPERS                                                             */
-/* ------------------------------------------------------------------ */
-
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -92,21 +91,17 @@ function minutesToHHMM(mins: number) {
   return `${pad(h)}:${pad(m)}`;
 }
 
-// API sends attendance_date as e.g. "2026-06-30T18:30:00.000Z" which is
-// midnight IST for the *next* calendar day — shift by +5:30 to recover
-// the intended local (IST) calendar date.
 function toISTParts(isoStr: string) {
   const d = new Date(isoStr);
   const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
   return {
     year: ist.getUTCFullYear(),
-    month: ist.getUTCMonth() + 1, // 1-12
+    month: ist.getUTCMonth() + 1,
     day: ist.getUTCDate(),
-    dow: ist.getUTCDay(), // 0 = Sunday
+    dow: ist.getUTCDay(),
   };
 }
 
-// "09:00:00" -> "09:00"
 function hhmmss(t: string | null | undefined) {
   if (!t) return null;
   return t.slice(0, 5);
@@ -118,7 +113,6 @@ function timeToMinutes(t: string | null | undefined) {
   return h * 60 + m;
 }
 
-// "11:30 am - 8:00 pm" -> minutes-from-midnight of the start time, or null
 function parseShiftStartMinutes(shiftTiming: string | null | undefined) {
   if (!shiftTiming) return null;
   const start = shiftTiming.split("-")[0]?.trim();
@@ -132,10 +126,6 @@ function parseShiftStartMinutes(shiftTiming: string | null | undefined) {
   if (ampm.toLowerCase() === "am" && h === 12) h = 0;
   return h * 60 + m;
 }
-
-/* ------------------------------------------------------------------ */
-/*  TYPES (matching the real API payload)                              */
-/* ------------------------------------------------------------------ */
 
 interface ApiAttendanceRecord {
   attendance_id: number | null;
@@ -155,9 +145,7 @@ interface ApiAttendanceRecord {
   shift_timing?: string | null;
   shift_type?: string | null;
   shift_source?: string | null;
-  // attendance_date can legitimately be null (e.g. employee with no
-  // attendance record for the fetched range at all — comes back as a
-  // single placeholder row so the employee still shows up in the table)
+
   attendance_date: string | null;
   status: string;
   punch_in: string | null;
@@ -167,9 +155,7 @@ interface ApiAttendanceRecord {
   from_date?: string | null;
   to_date?: string | null;
   week_off?: string | null;
-  // Server-calculated summary fields (preferred over manual punch-based
-  // calculation when present). late_time / early_exit_time are
-  // intentionally NOT consumed anywhere in this component.
+
   late_minutes?: number | null;
   early_exit_minutes?: number | null;
   worked_minutes?: number | null;
@@ -178,6 +164,7 @@ interface ApiAttendanceRecord {
   worked_time?: string | null;
   overtime_time?: string | null;
   short_time?: string | null;
+  is_late?: boolean; // NEW — backend se aata hai (10 min grace ke saath calculated)
 }
 
 type DayCell = {
@@ -212,8 +199,6 @@ function processRecords(
 ): ProcessedEmployee[] {
   const byEmployee = new Map<number, ApiAttendanceRecord[]>();
   for (const r of records) {
-    // Attendance record nahi hai to employee ko skip mat karo, bas is
-    // placeholder record ko list me daal do taaki employee row bane.
     if (!r.attendance_date) {
       if (!byEmployee.has(r.employee_id)) {
         byEmployee.set(r.employee_id, [r]);
@@ -281,11 +266,6 @@ function processRecords(
       let wh = "-";
       let ot = "";
 
-      const workedMinutesFromApi =
-        typeof rec.worked_minutes === "number" ? rec.worked_minutes : null;
-      const overtimeMinutesFromApi =
-        typeof rec.overtime_minutes === "number" ? rec.overtime_minutes : null;
-
       if (rec.worked_time) {
         wh = rec.worked_time.slice(0, 5);
       } else if (
@@ -295,7 +275,6 @@ function processRecords(
         wh = minutesToHHMM(rec.worked_minutes);
       }
 
-      // Total Worked Minutes
       if (typeof rec.worked_minutes === "number") {
         totalWorkMinutes += rec.worked_minutes;
       }
@@ -309,17 +288,22 @@ function processRecords(
         ot = minutesToHHMM(rec.overtime_minutes);
       }
 
-      // Late Time (Backend Calculated)
-      let f = "-";
-
-      if (rec.late_minutes && rec.late_minutes > 0) {
+      // CHANGED: Late Mark ab backend ke "is_late" flag se count hota hai
+      // (shift start time + 10 min grace ke baad punch-in hua ho tabhi true).
+      // Pehle ye short_minutes se count ho raha tha, jo galat signal tha.
+      if (rec.is_late) {
         lateCount += 1;
       }
 
-      if (rec.late_time) {
-        f = rec.late_time.slice(0, 5);
-      } else if (typeof rec.late_minutes === "number" && rec.late_minutes > 0) {
-        f = minutesToHHMM(rec.late_minutes);
+      let f = "-";
+
+      if (rec.short_time) {
+        f = rec.short_time.slice(0, 5);
+      } else if (
+        typeof rec.short_minutes === "number" &&
+        rec.short_minutes > 0
+      ) {
+        f = minutesToHHMM(rec.short_minutes);
       }
 
       return {
@@ -337,8 +321,6 @@ function processRecords(
 
     employees.push({
       id: employeeId,
-      // API sometimes sends double spaces (e.g. "Abhishek  Jaiswal") —
-      // collapse extra whitespace so it displays cleanly.
       name: (firstRec.full_name || "").replace(/\s+/g, " ").trim(),
       departmentId: firstRec.department_id,
       branchOfficeId: firstRec.branchOffice_id,
@@ -356,16 +338,13 @@ function processRecords(
   return employees.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/* ------------------------------------------------------------------ */
-/*  COMPONENT                                                           */
-/* ------------------------------------------------------------------ */
-
 const Monthlyattendancetable = () => {
   const dispatch = useAppDispatch();
-  const { list, loading } = useAppSelector(
+
+  // CHANGED: monthlyOverallSummary bhi nikala redux se (top-level cards ke liye)
+  const { monthlyList, monthlyOverallSummary, loading } = useAppSelector(
     (state: RootState) => state.attendance,
   );
-  console.log("list ", list);
 
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear().toString(),
@@ -374,7 +353,6 @@ const Monthlyattendancetable = () => {
     ALL_MONTHS[new Date().getMonth()],
   );
 
-  // ---- Filters (same as Attendance tab: Search, Branch, Department, Employee) ----
   const [search, setSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
@@ -386,7 +364,6 @@ const Monthlyattendancetable = () => {
   const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  // Fetch whenever month/year changes
   useEffect(() => {
     dispatch(
       fetchMonthlyAttendance({
@@ -398,12 +375,12 @@ const Monthlyattendancetable = () => {
   const allEmployees = useMemo(
     () =>
       processRecords(
-        (list ?? []) as unknown as ApiAttendanceRecord[],
+        (monthlyList ?? []) as unknown as ApiAttendanceRecord[],
         monthNum,
         yearNum,
         daysInMonth,
       ),
-    [list, monthNum, yearNum, daysInMonth],
+    [monthlyList, monthNum, yearNum, daysInMonth],
   );
 
   const employees = useMemo(() => {
@@ -435,13 +412,47 @@ const Monthlyattendancetable = () => {
   const isSundayCol = (day: number) =>
     new Date(yearNum, monthNum - 1, day).getDay() === 0;
 
+  // NEW — Top-level summary cards data. Backend se overall summary aata hai
+  // (poore filter-set / sab employees ka combined total, unfiltered).
+  const summaryCards = [
+    {
+      label: "Total Hours",
+      value: monthlyOverallSummary?.totalHours ?? "00:00",
+      icon: Clock,
+      bg: "bg-orange-200",
+    },
+    {
+      label: "Present",
+      value: monthlyOverallSummary?.present ?? 0,
+      icon: CheckCircle,
+      bg: "bg-emerald-200",
+    },
+    {
+      label: "Absent",
+      value: monthlyOverallSummary?.absent ?? 0,
+      icon: XCircle,
+      bg: "bg-red-200",
+    },
+    {
+      label: "Late Marks",
+      value: monthlyOverallSummary?.lateMarks ?? 0,
+      icon: AlarmClock,
+      bg: "bg-pink-200",
+    },
+    {
+      label: "Total Half Day",
+      value: monthlyOverallSummary?.halfDay ?? 0,
+      icon: CalendarClock,
+      bg: "bg-orange-300",
+    },
+  ];
+
   return (
     <div className="">
-      {/* HEADER (filters) — stays fixed at top, never scrolls away */}
+      {/* HEADER (filters) */}
       <div className="sticky top-0 z-30 bg-white shadow-sm">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-center gap-5 w-full py-3">
           <div className="flex flex-col sm:flex-row sm:items-center gap-10 justify-center">
-            {/* Search employees */}
             <div className="relative max-w-xs w-full sm:w-[200px]">
               <Search
                 size={15}
@@ -455,7 +466,6 @@ const Monthlyattendancetable = () => {
               />
             </div>
 
-            {/* Branch / Department / Employee filters */}
             <BranchFilter value={branchFilter} onChange={setBranchFilter} />
             <DepartmentFilter
               value={departmentFilter}
@@ -493,11 +503,33 @@ const Monthlyattendancetable = () => {
             </Select>
           </div>
         </div>
+        {/* NEW — Summary Cards row (Total Hours / Present / Absent / Late Marks /
+        Total Half Day) */}
+        {/* <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 px-4 pb-4">
+          {summaryCards.map(({ label, value, icon: Icon, bg }) => (
+            <div
+              key={label}
+              className={`${bg} rounded-2xl p-4 flex items-center gap-3 shadow-md hover:shadow-xl transition-all`}
+            >
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-white/40">
+                <Icon size={22} className="text-gray-700" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold tracking-wide text-gray-700">
+                  {label}
+                </p>
+                <p className="text-lg font-extrabold text-gray-900 mt-0.5">
+                  {value}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div> */}
       </div>
 
       <div
         className="bg-white rounded-xl mt-2 shadow overflow-auto border border-slate-200"
-        style={{ maxHeight: "calc(100vh - 180px)" }}
+        style={{ maxHeight: "calc(100vh - 260px)" }}
       >
         {loading && employees.length === 0 ? (
           <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm py-16">
@@ -596,10 +628,6 @@ const Monthlyattendancetable = () => {
                               className={`sticky left-[40px] z-10 border w-[50px] min-w-[50px] p-1 text-center align-middle ${rowBg}`}
                             >
                               <div className="flex flex-col items-center justify-center gap-1 py-1.5">
-                                {/* <span
-                                  className={`h-2 w-2 rounded-full ${employee.avatarColor}`}
-                                  aria-hidden="true"
-                                /> */}
                                 <div className="flex flex-col items-center justify-center py-2">
                                   <span
                                     className="text-blue-700 font-semibold text-center leading-4"
@@ -622,7 +650,6 @@ const Monthlyattendancetable = () => {
                           </>
                         )}
 
-                        {/* row-type label ("Days" sticky column) */}
                         <td
                           className={`sticky left-[76px] z-10 border p-1 font-semibold text-center ${
                             rowType === "OT"
@@ -645,9 +672,9 @@ const Monthlyattendancetable = () => {
                                 className="border text-center p-1"
                               >
                                 <Badge
-                                  className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold border-none justify-center w-full hover:opacity-90 ${
+                                  className={`rounded-md px-2 py-1 text-[15px] font-extrabold tracking-wide border-none justify-center w-full ${
                                     CODE_STYLE[d.code] ??
-                                    "bg-slate-100 text-slate-600"
+                                    "bg-slate-100 text-slate-700"
                                   }`}
                                 >
                                   {d.code}
@@ -682,7 +709,6 @@ const Monthlyattendancetable = () => {
                           );
                         })}
 
-                        {/* summary columns - only rendered once, on the first row, spanning all rows */}
                         {rowIdx === 0 && (
                           <>
                             <td

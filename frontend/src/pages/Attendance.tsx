@@ -39,8 +39,6 @@ import { useAccessControl } from "@/utils/Accesscontrol";
 import Monthlyattendancetable from "@/components/Attendance/Monthlyattendancetable";
 import AttendanceStatusModal from "@/components/Attendance/Halfdaymodal";
 
-// Tab-wise header content — title/subtitle badalte rahenge jab tab change ho.
-// "calendar" isn't included because that tab navigates away instead of rendering here.
 const TAB_CONTENT: Record<string, { title: string; subtitle: string }> = {
   attendance: {
     title: "Attendance Management",
@@ -60,7 +58,8 @@ export default function Attendance() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  const { list, loading, error } = useAppSelector((s) => s.attendance);
+  // CHANGED: summary bhi nikal liya redux se
+  const { list, summary, loading, error } = useAppSelector((s) => s.attendance);
   const currentEmployeeId = useAppSelector((s) => s.user.currentEmployee.id);
 
   const { can } = useAccessControl();
@@ -72,16 +71,15 @@ export default function Attendance() {
   const [employeeFilter, setEmployeeFilter] = useState<string>("all");
   const [overrides, setOverrides] = useState<Record<string, Override>>({});
   const [modal, setModal] = useState<ModalState>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const [activeTab, setActiveTab] = useState("attendance");
 
-  // Current tab ke hisaab se header title/subtitle — fallback attendance tab pe.
   const headerContent = TAB_CONTENT[activeTab] ?? TAB_CONTENT.attendance;
 
   const todayISO = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const currentMonthStr = useMemo(() => todayISO.slice(0, 7), [todayISO]);
 
-  // Single date filter — controlled via the calendar input next to Department
   const [selectedDate, setSelectedDate] = useState<string>(todayISO);
 
   const selectedDateLabel = useMemo(
@@ -94,8 +92,6 @@ export default function Attendance() {
     [selectedDate],
   );
 
-  // ---- Selected employee (drill-down) state ----
-  // When set, the SAME table switches to showing this employee's current-month records.
   const [selectedEmployee, setSelectedEmployee] = useState<{
     id: string;
     name: string;
@@ -113,12 +109,16 @@ export default function Attendance() {
     );
   }, [list, currentEmployeeId]);
 
-  // Fetch attendance whenever the calendar date changes (only relevant in list view).
   useEffect(() => {
     if (!selectedEmployee) {
-      dispatch(fetchAttendance({ date: selectedDate }));
+      dispatch(
+        fetchAttendance({
+          date: selectedDate,
+          status: statusFilter === "all" ? undefined : statusFilter,
+        }),
+      );
     }
-  }, [dispatch, selectedDate, selectedEmployee]);
+  }, [dispatch, selectedDate, statusFilter, selectedEmployee]);
 
   const handleTabChange = (value: string) => {
     if (value === "calendar") {
@@ -127,9 +127,16 @@ export default function Attendance() {
     }
 
     setActiveTab(value);
+
+    if (value === "attendance") {
+      setSelectedEmployee(null);
+      setEmployeeMonthRecords([]);
+      setEmployeeMonthError(null);
+
+      dispatch(fetchAttendance({ date: selectedDate }));
+    }
   };
 
-  // ---- List view rows (all employees, selected date) ----
   const attendanceData = useMemo(() => {
     return list
       .filter((r) => {
@@ -159,7 +166,6 @@ export default function Attendance() {
       .map((r) => toDisplayRow(r, overrides[String(r.employee_id)]));
   }, [list, search, branchFilter, departmentFilter, employeeFilter, overrides]);
 
-  // ---- Drill-down view rows (one employee, current month, every date) ----
   const employeeMonthData = useMemo(() => {
     return employeeMonthRecords
       .slice()
@@ -174,14 +180,12 @@ export default function Attendance() {
 
   const totalOvertimeMinutes = rowsToRender.reduce((total, emp) => {
     if (!emp.workingMinutes) return total;
-
     const overtime = emp.workingMinutes - 510;
     return total + (overtime > 0 ? overtime : 0);
   }, 0);
 
   const totalShortMinutes = rowsToRender.reduce((total, emp) => {
     if (!emp.workingMinutes) return total;
-
     const shortTime = 510 - emp.workingMinutes;
     return total + (shortTime > 0 ? shortTime : 0);
   }, 0);
@@ -189,7 +193,6 @@ export default function Attendance() {
   const formatDuration = (minutes: number) => {
     const hrs = Math.floor(minutes / 60);
     const mins = minutes % 60;
-
     if (hrs && mins) return `${hrs}h ${mins}m`;
     if (hrs) return `${hrs}h`;
     return `${mins}m`;
@@ -198,7 +201,6 @@ export default function Attendance() {
   const totalOvertime = formatDuration(totalOvertimeMinutes);
   const totalShortTime = formatDuration(totalShortMinutes);
 
-  // Opens the generic status-update modal (replaces the old Half Day-only quick action)
   const openStatusModal = (empId: string, empName: string) => {
     setModal({ type: "status", empId, empName });
   };
@@ -220,7 +222,8 @@ export default function Attendance() {
         employeeId: empId,
         month: currentMonthStr,
       });
-      setEmployeeMonthRecords(records ?? []);
+      // CHANGED: getAttendance ab { data, summary } return karta hai, sirf data list chahiye yaha
+      setEmployeeMonthRecords(records?.data ?? []);
     } catch (err: any) {
       setEmployeeMonthError(err?.message || "Failed to load attendance");
     } finally {
@@ -228,7 +231,6 @@ export default function Attendance() {
     }
   };
 
-  // Employee ki row pe click -> same table employee-drilldown mode me switch
   const openEmployeeMonth = (empId: string, empName: string) => {
     setSelectedEmployee({ id: empId, name: empName });
     loadEmployeeMonth(empId);
@@ -248,7 +250,6 @@ export default function Attendance() {
     }
   };
 
-  // Generic status update — replaces confirmHalfDay
   const confirmStatusUpdate = async (status: string) => {
     if (!modal || modal.type !== "status") return;
     const empId = modal.empId;
@@ -270,7 +271,6 @@ export default function Attendance() {
       refetchCurrentView();
     } catch {
       // request failed — local override still reflects the intended change;
-      // consider surfacing a toast here.
     }
   };
 
@@ -297,7 +297,6 @@ export default function Attendance() {
       refetchCurrentView();
     } catch {
       // request failed — local override still reflects the intended change;
-      // consider surfacing a toast here.
     }
   };
 
@@ -373,7 +372,6 @@ export default function Attendance() {
             </div>
           )}
 
-          {/* Drill-down header — shown only when an employee is selected */}
           {isDrillDown && (
             <div
               className="flex items-center justify-between rounded-xl p-4 border-l-4"
@@ -404,14 +402,17 @@ export default function Attendance() {
             </div>
           )}
 
+          {/* CHANGED: summary prop pass kiya — backend-calculated counts.
+              Drill-down mode me summary nahi bhejenge, wahan cards ka behaviour
+              alag hona chahiye (single-employee month view), isliye undefined pass kiya. */}
           <AttendanceStatsCards
             rows={rowsToRender}
+            summary={isDrillDown ? undefined : summary}
             isDrillDown={isDrillDown}
             currentMonthStr={currentMonthStr}
             selectedDateLabel={selectedDateLabel}
           />
 
-          {/* Search + Filters (Branch, Department, Employee, Calendar) — hidden in drill-down */}
           {!isDrillDown && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="relative max-w-xs w-full">
@@ -435,8 +436,6 @@ export default function Attendance() {
                 />
               </div>
 
-              {/* Branch / Department / Employee filters — only Super Admin
-                  or HR Department Manager can see these */}
               {canSeeFilters && (
                 <>
                   <BranchFilter
@@ -454,10 +453,25 @@ export default function Attendance() {
                     onChange={setEmployeeFilter}
                     branchId={branchFilter}
                   />
+                  <div className="w-[170px]">
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="Present">Present</option>
+                      <option value="Absent">Absent</option>
+                      <option value="Leave">Leave</option>
+                      <option value="Half Day">Half Day</option>
+                      <option value="LWP">LWP</option>
+                      <option value="Holiday">Holiday</option>
+                      <option value="Week Off">Week Off</option>
+                    </select>
+                  </div>
                 </>
               )}
 
-              {/* Calendar filter — department ke bagal me, isi se date filter hota hai */}
               <div className="relative w-full sm:w-[170px]">
                 <CalendarDays
                   size={15}
@@ -503,8 +517,7 @@ export default function Attendance() {
                 </div>
               </div>
 
-              {/* Punch In / Punch Out — pushed to the right side of the filters row */}
-              <div className="sm:ml-auto">
+              <div className="hidden sm:ml-auto">
                 <PunchButton
                   attendanceId={myAttendance?.attendance_id}
                   attendanceDate={selectedDate}

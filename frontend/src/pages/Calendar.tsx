@@ -253,8 +253,6 @@ export default function AttendanceCalendar() {
     );
   };
 
-
-
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -373,7 +371,6 @@ export default function AttendanceCalendar() {
           </div>
         </TabsContent>
 
-      
         <TabsContent value="holidays" className="space-y-6 mt-6">
           <HolidayManager
             branch={branch}

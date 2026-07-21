@@ -13,6 +13,6 @@ router
   .route("/")
   .post(createShiftAssignmentHandler)
   .get(verifyJWT, getShiftAssignmentsHandler);
-router.route("/update").put(updateShiftAssignmentHandler);
+router.route("/update/:id").put(updateShiftAssignmentHandler);
 
 export default router;

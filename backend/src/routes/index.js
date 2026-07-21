@@ -20,6 +20,7 @@ import backgroundRouter from "../module/BackgroundVerification/BackgroundVerific
 import attendanceRouter from "../module/Attendance/attendance.route.js";
 import shiftassignmentsRouter from "../module/Shiftassignment/shiftassignment.route.js";
 import holidaysRouter from "../module/Calendar/calendar.route.js";
+import dutyrosterRouter from "../module/Dutyroster/dutyroster.route.js";
 
 const registerRoutes = (app) => {
   app.use("/api/v1/link", linkRouter);
@@ -43,6 +44,7 @@ const registerRoutes = (app) => {
   app.use("/api/v1/attendance", attendanceRouter);
   app.use("/api/v1/shift-assignments", shiftassignmentsRouter);
   app.use("/api/v1/holidays", holidaysRouter);
+  app.use("/api/v1/duty-roster", dutyrosterRouter);
 };
 
 export default registerRoutes;

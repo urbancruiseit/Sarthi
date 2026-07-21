@@ -15,7 +15,7 @@ router
   .post(verifyJWT, markAttendanceController)
   .get(verifyJWT, getAttendanceController);
 router.route("/monthly").get(getMonthlyAttendanceController);
-router.route("/update").put(verifyJWT, updatePunchOutController);
+router.route("/update").put(updatePunchOutController);
 router.route("/status").patch(updateStatusController);
 
 export default router;

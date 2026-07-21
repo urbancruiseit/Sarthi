@@ -125,6 +125,8 @@ export default function AttendanceTable({
               };
               const hasPunchIn = emp.inTime !== "—";
               const hasPunchOut = emp.outTime !== "—";
+              const rowBg = idx % 2 === 0 ? "#FFFFFF" : "#F9FAFB";
+
               return (
                 <tr
                   key={
@@ -133,9 +135,12 @@ export default function AttendanceTable({
                       : emp.id
                   }
                   className={
-                    "border-b border-border/50 hover:bg-muted/30" +
+                    "hover:bg-muted/30 transition-colors" +
                     (isDrillDown ? "" : " cursor-pointer")
                   }
+                  style={{
+                    background: rowBg,
+                  }}
                   onClick={
                     isDrillDown
                       ? undefined
@@ -166,7 +171,7 @@ export default function AttendanceTable({
 
                       {/* Temporary Shift */}
                       {emp.temporaryShiftTiming && (
-                        <span className="text-[13 px] font-medium text-orange-600">
+                        <span className="text-[13px] font-medium text-orange-600">
                           {emp.temporaryShiftTiming}
                         </span>
                       )}
@@ -280,7 +285,18 @@ export default function AttendanceTable({
                   <td className="px-4 py-3">
                     <span
                       className="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-                      style={{ background: sc.bg, color: sc.color }}
+                      style={{
+                        background:
+                          emp.status === "Absent"
+                            ? "#DC2626"
+                            : emp.status === "Present"
+                              ? "#16A34A"
+                              : sc.bg,
+                        color:
+                          emp.status === "Absent" || emp.status === "Present"
+                            ? "#FFFFFF"
+                            : sc.color,
+                      }}
                     >
                       {emp.status}
                       {emp.status === "Leave" && emp.leaveType

@@ -38,15 +38,12 @@ export interface AttendanceRecord {
   punch_in: string | null;
   punch_out: string | null;
 
-  // Final Shift (COALESCE)
   shift_type: string | null;
   shift_timing: string | null;
 
-  // Permanent Shift
   permanent_shift_type?: string | null;
   permanent_shift_timing?: string | null;
 
-  // Temporary Shift
   temporary_shift_type?: string | null;
   temporary_shift_timing?: string | null;
 
@@ -54,47 +51,73 @@ export interface AttendanceRecord {
   from_date?: string | null;
   to_date?: string | null;
 
-  // Shift Source
   shift_source?: "Permanent" | "Temporary";
 
   leave_type: string | null;
   remarks: string | null;
 }
 
+// ---- NEW: summary shape jo backend ab return karta hai ----
+export interface AttendanceSummary {
+  month: string;
+  totalEmployee: number;
+  present: number;
+  absent: number;
+  leave: number;
+  compOff: number;
+  lwp: number;
+}
+
+// ---- NEW: backend ka actual response shape ----
+export interface AttendanceResponse {
+  data: AttendanceRecord[];
+  summary: AttendanceSummary;
+}
+
 export interface AttendanceFilters {
-  date?: string; // "2026-07-06"
-  month?: string; // "2026-07"
-  startDate?: string; // "2026-06-01"
-  endDate?: string; // "2026-06-30"
+  date?: string;
+  month?: string;
+  startDate?: string;
+  endDate?: string;
   employeeId?: string | number;
   branchId?: string | number;
   departmentId?: string | number;
+  status?: string;
 }
 
 interface AttendanceState {
   list: AttendanceRecord[];
-  myAttendance: AttendanceRecord[];
+  summary: AttendanceSummary | null; // NEW
+  monthlyList: AttendanceRecord[];
 
+  monthlyOverallSummary: {
+    // NEW
+    totalMinutes: number;
+    totalHours: string;
+    present: number;
+    absent: number;
+    lateMarks: number;
+    halfDay: number;
+  } | null;
+  myAttendance: AttendanceRecord[];
   loading: boolean;
   marking: boolean;
-
   error: string | null;
 }
 
 const initialState: AttendanceState = {
   list: [],
+  summary: null,
+  monthlyList: [],
+  monthlyOverallSummary: null, // NEW
   myAttendance: [],
   loading: false,
   marking: false,
   error: null,
 };
 
-// =======================
-// Fetch All Attendance
-// =======================
-
 export const fetchAttendance = createAsyncThunk<
-  AttendanceRecord[],
+  AttendanceResponse, // CHANGED: pehle AttendanceRecord[] tha
   AttendanceFilters
 >("attendance/fetchAttendance", async (filters = {}, { rejectWithValue }) => {
   try {
@@ -190,6 +213,7 @@ const attendanceSlice = createSlice({
 
     clearAttendance(state) {
       state.list = [];
+      state.summary = null; // NEW
     },
   },
 
@@ -203,9 +227,11 @@ const attendanceSlice = createSlice({
 
       .addCase(
         fetchAttendance.fulfilled,
-        (state, action: PayloadAction<AttendanceRecord[]>) => {
+        (state, action: PayloadAction<AttendanceResponse>) => {
           state.loading = false;
-          state.list = action.payload;
+          // CHANGED: backend { data, summary } bhejta hai — dono alag-alag store karo
+          state.list = action.payload?.data ?? [];
+          state.summary = action.payload?.summary ?? null;
         },
       )
 
@@ -240,7 +266,6 @@ const attendanceSlice = createSlice({
       // Mark Attendance
       // =======================
 
-      // Mark Attendance
       .addCase(markEmployeeAttendance.pending, (state) => {
         state.marking = true;
         state.error = null;
@@ -255,7 +280,6 @@ const attendanceSlice = createSlice({
         state.error = action.payload as string;
       })
 
-      // Update Attendance
       .addCase(updateEmployeeAttendance.pending, (state) => {
         state.marking = true;
         state.error = null;
@@ -274,13 +298,11 @@ const attendanceSlice = createSlice({
         state.error = null;
       })
 
-      .addCase(
-        fetchMonthlyAttendance.fulfilled,
-        (state, action: PayloadAction<AttendanceRecord[]>) => {
-          state.loading = false;
-          state.list = action.payload;
-        },
-      )
+      .addCase(fetchMonthlyAttendance.fulfilled, (state, action) => {
+        state.loading = false;
+        state.monthlyList = action.payload?.data ?? [];
+        state.monthlyOverallSummary = action.payload?.overallSummary ?? null;
+      })
 
       .addCase(fetchMonthlyAttendance.rejected, (state, action) => {
         state.loading = false;

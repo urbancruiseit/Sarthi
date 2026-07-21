@@ -1,11 +1,12 @@
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 dotenv.config();
-
+const IST_TIMEZONE = "+05:30";
 const poolConfig = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  timezone: IST_TIMEZONE,
   waitForConnections: true,
   connectionLimit: 20,
   queueLimit: 0,

@@ -1171,7 +1171,7 @@ export const getEmployeeList = async (branchId = null) => {
   let sql = `
     SELECT
       id,
-      CONCAT(firstName, ' ', lastName) AS full_name
+      TRIM(CONCAT_WS(' ', firstName, NULLIF(lastName, ''))) AS full_name
     FROM users
     WHERE is_active = 1
   `;
@@ -1186,5 +1186,6 @@ export const getEmployeeList = async (branchId = null) => {
   sql += ` ORDER BY firstName ASC`;
 
   const [rows] = await pool.query(sql, params);
+
   return rows;
 };

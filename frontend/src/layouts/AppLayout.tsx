@@ -27,8 +27,10 @@ export function AppLayout() {
       />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Desktop */}
-        <div className="hidden md:flex">
+        {/* Desktop — is wrapper ki width FIXED rehti hai (collapsed width),
+            isliye main content kabhi shift nahi hota. Sidebar khud hover
+            pe overlay ki tarah expand hoga (position: absolute/fixed) */}
+        <div className="hidden md:block relative w-16 shrink-0">
           <Sidebar
             collapsed={collapsed}
             onToggle={() => setCollapsed((c) => !c)}
