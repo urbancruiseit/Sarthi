@@ -7,7 +7,7 @@ const SYNC_CRON_EXPRESSION_SLOT2 = "0 14 * * *";
 const SYNC_CRON_EXPRESSION_SLOT3 = "21 18 * * *";
 const SYNC_CRON_EXPRESSION_SLOT4 = "0 22 * * *";
 
-const AUTO_ATTENDANCE_CRON_EXPRESSION = "24 18 * * *";
+const AUTO_ATTENDANCE_CRON_EXPRESSION = "15 13 * * *";
 
 let tasks = [];
 
