@@ -13,7 +13,7 @@ interface AttendanceStatsCardsProps {
   isDrillDown: boolean;
   currentMonthStr: string;
   selectedDateLabel: string;
-  summary?: AttendanceSummary | null; // NEW — backend se calculated counts
+  summary?: AttendanceSummary | null;
 }
 
 export default function AttendanceStatsCards({
@@ -23,8 +23,6 @@ export default function AttendanceStatsCards({
   selectedDateLabel,
   summary,
 }: AttendanceStatsCardsProps) {
-  // Agar backend summary available hai (list view), wahi use karo.
-  // Warna (drill-down / summary missing) rows se hi calculate kar lo — fallback.
   const totalEmployee = summary ? summary.totalEmployee : rows.length;
   const presentCount = summary
     ? summary.present
@@ -40,7 +38,7 @@ export default function AttendanceStatsCards({
 
   const cards = [
     {
-      label: isDrillDown ? "This Month" : "Selected Date",
+      label: isDrillDown ? "This Month" : "Date",
       value: isDrillDown ? currentMonthStr : selectedDateLabel,
       icon: CalendarDays,
       bg: "bg-orange-200",
@@ -88,9 +86,9 @@ export default function AttendanceStatsCards({
       {cards.map(({ label, value, icon: Icon, bg }) => (
         <div
           key={label}
-          className={`${bg} rounded-2xl p-5 flex items-center gap-4 shadow-md hover:shadow-xl transition-all`}
+          className={`${bg} rounded-2xl p-3 flex items-center gap-4 shadow-md hover:shadow-xl transition-all`}
         >
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/40">
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-white/40">
             <Icon size={28} className="text-gray-700" />
           </div>
 

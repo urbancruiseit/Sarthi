@@ -23,6 +23,7 @@ import ShiftAssignment from "@/components/addFromModels/Shiftassignment";
 import BranchFilter from "@/components/FilterComponent/BranchFilter";
 import DepartmentFilter from "@/components/FilterComponent/DepartmentFilter";
 import EmployeeFilter from "@/components/FilterComponent/EmployeeFilter";
+// CHANGED: naya multi-select status filter import kiya
 
 import {
   ModalState,
@@ -38,6 +39,7 @@ import PunchButton from "@/components/Attendance/Punchbutton";
 import { useAccessControl } from "@/utils/Accesscontrol";
 import Monthlyattendancetable from "@/components/Attendance/Monthlyattendancetable";
 import AttendanceStatusModal from "@/components/Attendance/Halfdaymodal";
+import StatusMultiSelect from "@/components/FilterComponent/StatusMultiSelect";
 
 const TAB_CONTENT: Record<string, { title: string; subtitle: string }> = {
   attendance: {
@@ -58,7 +60,6 @@ export default function Attendance() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  // CHANGED: summary bhi nikal liya redux se
   const { list, summary, loading, error } = useAppSelector((s) => s.attendance);
   const currentEmployeeId = useAppSelector((s) => s.user.currentEmployee.id);
 
@@ -71,7 +72,8 @@ export default function Attendance() {
   const [employeeFilter, setEmployeeFilter] = useState<string>("all");
   const [overrides, setOverrides] = useState<Record<string, Override>>({});
   const [modal, setModal] = useState<ModalState>(null);
-  const [statusFilter, setStatusFilter] = useState("all");
+  // CHANGED: statusFilter ab string[] hai — empty array = "All Status"
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
   const [activeTab, setActiveTab] = useState("attendance");
 
@@ -109,16 +111,13 @@ export default function Attendance() {
     );
   }, [list, currentEmployeeId]);
 
+  // CHANGED: status filter ab client-side hoga (multi-select), isliye API call
+  // sirf date pe depend karti hai, statusFilter ko dependency se hata diya
   useEffect(() => {
     if (!selectedEmployee) {
-      dispatch(
-        fetchAttendance({
-          date: selectedDate,
-          status: statusFilter === "all" ? undefined : statusFilter,
-        }),
-      );
+      dispatch(fetchAttendance({ date: selectedDate }));
     }
-  }, [dispatch, selectedDate, statusFilter, selectedEmployee]);
+  }, [dispatch, selectedDate, selectedEmployee]);
 
   const handleTabChange = (value: string) => {
     if (value === "calendar") {
@@ -159,12 +158,32 @@ export default function Attendance() {
           employeeFilter === "all" ||
           String(r.employee_id ?? "") === employeeFilter;
 
+        // CHANGED: statusFilter ab array hai — empty array = sab dikhao,
+        // warna sirf un statuses ko dikhao jo checklist me selected hain.
+        // NOTE: agar record ka field naam "status" na ho (jaise attendance_status),
+        // to yahan r.status ko us actual field name se replace karna.
+        const matchesStatus =
+          statusFilter.length === 0 ||
+          statusFilter.includes((r as any).status ?? "");
+
         return (
-          matchesSearch && matchesBranch && matchesDepartment && matchesEmployee
+          matchesSearch &&
+          matchesBranch &&
+          matchesDepartment &&
+          matchesEmployee &&
+          matchesStatus
         );
       })
       .map((r) => toDisplayRow(r, overrides[String(r.employee_id)]));
-  }, [list, search, branchFilter, departmentFilter, employeeFilter, overrides]);
+  }, [
+    list,
+    search,
+    branchFilter,
+    departmentFilter,
+    employeeFilter,
+    statusFilter,
+    overrides,
+  ]);
 
   const employeeMonthData = useMemo(() => {
     return employeeMonthRecords
@@ -222,7 +241,6 @@ export default function Attendance() {
         employeeId: empId,
         month: currentMonthStr,
       });
-      // CHANGED: getAttendance ab { data, summary } return karta hai, sirf data list chahiye yaha
       setEmployeeMonthRecords(records?.data ?? []);
     } catch (err: any) {
       setEmployeeMonthError(err?.message || "Failed to load attendance");
@@ -402,9 +420,6 @@ export default function Attendance() {
             </div>
           )}
 
-          {/* CHANGED: summary prop pass kiya — backend-calculated counts.
-              Drill-down mode me summary nahi bhejenge, wahan cards ka behaviour
-              alag hona chahiye (single-employee month view), isliye undefined pass kiya. */}
           <AttendanceStatsCards
             rows={rowsToRender}
             summary={isDrillDown ? undefined : summary}
@@ -415,27 +430,6 @@ export default function Attendance() {
 
           {!isDrillDown && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="relative max-w-xs w-full">
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="m21 21-4.3-4.3" />
-                </svg>
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search employees…"
-                  className="w-full pl-9 pr-4 h-9 rounded-lg border border-input bg-background text-sm"
-                />
-              </div>
-
               {canSeeFilters && (
                 <>
                   <BranchFilter
@@ -453,22 +447,12 @@ export default function Attendance() {
                     onChange={setEmployeeFilter}
                     branchId={branchFilter}
                   />
-                  <div className="w-[170px]">
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm"
-                    >
-                      <option value="all">All Status</option>
-                      <option value="Present">Present</option>
-                      <option value="Absent">Absent</option>
-                      <option value="Leave">Leave</option>
-                      <option value="Half Day">Half Day</option>
-                      <option value="LWP">LWP</option>
-                      <option value="Holiday">Holiday</option>
-                      <option value="Week Off">Week Off</option>
-                    </select>
-                  </div>
+
+                  {/* CHANGED: single-select <select> ki jagah checklist-style multi-select */}
+                  <StatusMultiSelect
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                  />
                 </>
               )}
 
@@ -539,6 +523,7 @@ export default function Attendance() {
             onUpdateStatus={openStatusModal}
           />
         </TabsContent>
+
         <TabsContent value="weekoff" className="mt-6">
           <Monthlyattendancetable />
         </TabsContent>

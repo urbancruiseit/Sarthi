@@ -154,7 +154,7 @@ export const syncAttendance = async () => {
           await markAttendance({
             employeeId,
             attendanceDate,
-            status: "Pending",
+            status: "Present",
             punchIn: time,
           });
         } else {

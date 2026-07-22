@@ -23,8 +23,6 @@ export default function AttendanceTable({
   onRowClick,
   onUpdateStatus,
 }: AttendanceTableProps) {
-  // Column count kept in sync with the <th> list below so colSpan/colgroup never drift.
-
   const { can } = useAccessControl();
   const canSeeFilters = can("ATTENDANCE_FILTERS");
   const columnCount = isDrillDown
@@ -35,12 +33,25 @@ export default function AttendanceTable({
       ? 9
       : 8;
 
+  const headers = [
+    "Employee",
+    "Department",
+    "Branch Office",
+    "Shift",
+    ...(isDrillDown ? ["Date"] : []),
+    "Punch-In",
+    "Punch-Out",
+    "Working Hrs",
+    "Status",
+    ...(canSeeFilters ? ["Actions"] : []),
+  ];
+
   return (
     <div
-      className="rounded-xl border-2 bg-card overflow-hidden"
+      className="rounded-xl border-2 bg-card"
       style={{ borderColor: "#BBF7D0" }}
     >
-      <div className="overflow-x-auto">
+      <div className="overflow-auto max-h-[65vh] rounded-xl">
         <table className="w-full text-sm table-fixed">
           <colgroup>
             {isDrillDown ? (
@@ -70,23 +81,17 @@ export default function AttendanceTable({
               </>
             )}
           </colgroup>
-          <thead>
+          <thead className="sticky top-0 z-20">
             <tr style={{ background: "#166534" }}>
-              {[
-                "Employee",
-                "Department",
-                "Branch Office",
-                "Shift",
-                ...(isDrillDown ? ["Date"] : []),
-                "Punch-In",
-                "Punch-Out",
-                "Working Hours",
-                "Status",
-                ...(canSeeFilters ? ["Actions"] : []),
-              ].map((h) => (
+              {headers.map((h, i) => (
                 <th
                   key={h}
-                  className="text-left px-4 py-3 text-xs font-semibold text-white uppercase"
+                  className={
+                    "text-left px-3 py-2 text-xs font-semibold text-white uppercase" +
+                    (i === 0 ? " rounded-tl-xl" : "") +
+                    (i === headers.length - 1 ? " rounded-tr-xl" : "")
+                  }
+                  style={{ background: "#166534" }}
                 >
                   {h}
                 </th>
@@ -96,7 +101,7 @@ export default function AttendanceTable({
           <tbody>
             {loading && rows.length === 0 && (
               <tr>
-                <td colSpan={columnCount} className="px-4 py-8 text-center">
+                <td colSpan={columnCount} className="px-3 py-8 text-center">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
                     <Loader2 size={16} className="animate-spin" />
                     Loading attendance…
@@ -109,7 +114,7 @@ export default function AttendanceTable({
               <tr>
                 <td
                   colSpan={columnCount}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
+                  className="px-3 py-8 text-center text-sm text-muted-foreground"
                 >
                   {isDrillDown
                     ? "No attendance records found for this month."
@@ -154,22 +159,20 @@ export default function AttendanceTable({
                 >
                   <td
                     className={
-                      "px-4 py-3 truncate" +
+                      "px-3 py-2 truncate text-blue-800" +
                       (isDrillDown ? "" : " font-medium hover:underline")
                     }
                   >
                     {emp.fullName}
                   </td>
-                  <td className="px-4 py-3 truncate">{emp.department}</td>
-                  <td className="px-4 py-3 truncate">{emp.branchName}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 truncate">{emp.department}</td>
+                  <td className="px-3 py-2 truncate">{emp.branchName}</td>
+                  <td className="px-3 py-2">
                     <div className="flex flex-col leading-tight">
-                      {/* Permanent Shift */}
                       <span className="font-medium">
                         {emp.permanentShiftTiming}
                       </span>
 
-                      {/* Temporary Shift */}
                       {emp.temporaryShiftTiming && (
                         <span className="text-[13px] font-medium text-orange-600">
                           {emp.temporaryShiftTiming}
@@ -179,7 +182,7 @@ export default function AttendanceTable({
                   </td>
 
                   {isDrillDown && (
-                    <td className="px-4 py-3 truncate">
+                    <td className="px-3 py-2 truncate">
                       {emp.attendanceDate
                         ? new Date(emp.attendanceDate).toLocaleDateString(
                             "en-IN",
@@ -192,7 +195,7 @@ export default function AttendanceTable({
                     </td>
                   )}
 
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     {hasPunchIn ? (
                       <div className="flex flex-col leading-tight">
                         <span
@@ -221,7 +224,7 @@ export default function AttendanceTable({
                     )}
                   </td>
 
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     {hasPunchOut ? (
                       <div className="flex flex-col leading-tight">
                         <span
@@ -250,7 +253,7 @@ export default function AttendanceTable({
                     )}
                   </td>
 
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     {emp.workingHours ? (
                       <div className="flex flex-col">
                         <span
@@ -282,7 +285,7 @@ export default function AttendanceTable({
                     )}
                   </td>
 
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     <span
                       className="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
                       style={{
@@ -305,7 +308,7 @@ export default function AttendanceTable({
                     </span>
                   </td>
                   {canSeeFilters && (
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <div
                         className="flex items-center"
                         onClick={(e) => e.stopPropagation()}

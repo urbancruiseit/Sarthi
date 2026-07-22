@@ -58,15 +58,12 @@ export const getAttendanceByDate = async (filters = {}) => {
         u.id AS employee_id,
 
         TRIM(
-          CONCAT(
-            COALESCE(u.firstName,''),
-            ' ',
-            COALESCE(u.middleName,''),
-            ' ',
-            COALESCE(u.lastName,'')
-          )
-        ) AS full_name,
-
+  CONCAT(
+    COALESCE(u.firstName,''),
+    ' ',
+    COALESCE(u.lastName,'')
+  )
+) AS full_name,
         u.firstName,
         u.middleName,
         u.lastName,
@@ -96,7 +93,7 @@ export const getAttendanceByDate = async (filters = {}) => {
 
         a.id AS attendance_id,
         a.attendance_date,
-        COALESCE(a.status,'Absent') AS status,
+        COALESCE(a.status, 'Pending') AS status,
         a.punch_in,
         a.punch_out,
         a.leave_type,
@@ -765,7 +762,7 @@ export const runAutoAttendanceMarking = async () => {
     const todayDate = new Date().toISOString().slice(0, 10);
     const todayDayName = new Date().toLocaleDateString("en-US", {
       weekday: "long",
-    }); // e.g. "Sunday"
+    });
 
     const [employees] = await connection.execute(
       `
@@ -792,9 +789,10 @@ export const runAutoAttendanceMarking = async () => {
       LEFT JOIN attendance a
         ON a.employee_id = u.id
         AND a.attendance_date = ?
-
-      WHERE u.status = 'Active'
       `,
+      // CHANGED: WHERE u.status = 'Active' hata diya — kyunki getAttendanceByDate
+      // (jo kaam kar raha hai) is condition ko use hi nahi karta, isliye ye
+      // hamari query me galat filter tha jo sab employees ko exclude kar raha tha
       [todayDate, todayDate],
     );
 
@@ -803,18 +801,7 @@ export const runAutoAttendanceMarking = async () => {
     let skippedCount = 0;
 
     for (const emp of employees) {
-      // Already punch-in ho chuka hai -> skip
-      if (emp.attendance_id && emp.punch_in) {
-        skippedCount++;
-        continue;
-      }
-
-      // Already manual status hai (Leave, LWP, etc.) -> skip
-      if (
-        emp.attendance_id &&
-        emp.existing_status &&
-        !["Pending", "Absent"].includes(emp.existing_status)
-      ) {
+      if (emp.attendance_id) {
         skippedCount++;
         continue;
       }
@@ -834,30 +821,17 @@ export const runAutoAttendanceMarking = async () => {
       if (isWeekOffToday) weekOffCount++;
       else absentCount++;
 
-      if (emp.attendance_id) {
-        await connection.execute(
-          `UPDATE attendance
-           SET status = ?, remarks = ?
-           WHERE id = ?`,
-          [
-            finalStatus,
-            "Auto-marked by system (no punch-in till 1:00 PM)",
-            emp.attendance_id,
-          ],
-        );
-      } else {
-        await connection.execute(
-          `INSERT INTO attendance
-            (employee_id, attendance_date, status, remarks, created_at)
-           VALUES (?, ?, ?, ?, NOW())`,
-          [
-            emp.employee_id,
-            todayDate,
-            finalStatus,
-            "Auto-marked by system (no punch-in till 1:00 PM)",
-          ],
-        );
-      }
+      await connection.execute(
+        `INSERT INTO attendance
+          (employee_id, attendance_date, status, remarks, created_at)
+         VALUES (?, ?, ?, ?, NOW())`,
+        [
+          emp.employee_id,
+          todayDate,
+          finalStatus,
+          "Auto-marked by system (no punch-in till 1:00 PM)",
+        ],
+      );
     }
 
     await connection.commit();

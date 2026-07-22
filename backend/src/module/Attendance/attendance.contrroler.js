@@ -147,7 +147,7 @@ const markAttendanceController = asyncHandler(async (req, res) => {
   const result = await markAttendance({
     employeeId,
     attendanceDate,
-    status: "P",
+    status: "Present",
     punchIn,
   });
 
