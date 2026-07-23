@@ -44,10 +44,6 @@ export const createShiftAssignment = async ({
   }
 };
 
-/**
- * Update an existing shift assignment by id.
- * Only fields passed in `fields` are updated (partial update).
- */
 export const updateShiftAssignment = async (id, fields = {}) => {
   try {
     const allowed = [
@@ -102,10 +98,6 @@ export const updateShiftAssignment = async (id, fields = {}) => {
   }
 };
 
-/**
- * Soft-delete (deactivate) a shift assignment instead of hard-deleting it,
- * so history is preserved. Pass hardDelete=true to actually remove the row.
- */
 export const deleteShiftAssignment = async (id, hardDelete = false) => {
   try {
     if (hardDelete) {
@@ -129,9 +121,6 @@ export const deleteShiftAssignment = async (id, hardDelete = false) => {
   }
 };
 
-/**
- * Fetch a single shift assignment by id, joined with employee name.
- */
 export const getShiftAssignmentById = async (id) => {
   try {
     const sql = `
@@ -153,6 +142,9 @@ export const getShiftAssignmentById = async (id) => {
 
 export const getShiftAssignments = async (filters = {}) => {
   try {
+    // Pehle expired shifts (to_date nikal chuki) ko automatically inactive kar do
+    
+
     const { employeeId, isActive, fromDate, toDate } = filters;
 
     const where = [];
@@ -181,14 +173,14 @@ export const getShiftAssignments = async (filters = {}) => {
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
     const sql = `
-  SELECT
-    es.*,
-    CONCAT(u.firstName, ' ', u.lastName) AS full_name
-  FROM employee_shift_override es
-  LEFT JOIN users u ON u.id = es.employee_id
-  ${whereSql}
-  ORDER BY es.from_date DESC, es.id DESC
-`;
+      SELECT
+        es.*,
+        CONCAT(u.firstName, ' ', u.lastName) AS full_name
+      FROM employee_shift_override es
+      LEFT JOIN users u ON u.id = es.employee_id
+      ${whereSql}
+      ORDER BY es.from_date DESC, es.id DESC
+    `;
 
     const [rows] = await pool.execute(sql, params);
     return rows;
@@ -198,9 +190,6 @@ export const getShiftAssignments = async (filters = {}) => {
   }
 };
 
-/**
- * Fetch all shift assignments for one employee (history view).
- */
 export const getShiftAssignmentsByEmployee = async (employeeId) => {
   try {
     const sql = `
@@ -213,6 +202,24 @@ export const getShiftAssignmentsByEmployee = async (employeeId) => {
     return rows;
   } catch (error) {
     console.error("getShiftAssignmentsByEmployee error:", error);
+    throw error;
+  }
+};
+
+export const deactivateExpiredShiftOverrides = async () => {
+  try {
+    const sql = `
+      UPDATE employee_shift_override
+      SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+      WHERE is_active = 1
+        AND to_date IS NOT NULL
+        AND to_date < CURDATE()
+    `;
+
+    const [result] = await pool.execute(sql);
+    return result;
+  } catch (error) {
+    console.error("deactivateExpiredShiftOverrides error:", error);
     throw error;
   }
 };

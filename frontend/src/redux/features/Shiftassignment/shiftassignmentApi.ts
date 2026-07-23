@@ -79,7 +79,7 @@ export const getShiftAssignments = async (
     const response = await axiosInstance.get("/shift-assignments", {
       params,
     });
-
+    console.log(" get all sift ", response.data.data);
     if (response.data && response.data.success) {
       return response.data.data;
     } else {

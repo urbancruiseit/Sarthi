@@ -119,10 +119,6 @@ export default function ShiftAssignment({
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const [deleteTarget, setDeleteTarget] =
-    useState<ShiftAssignmentRecord | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
   const isEditing = form.id !== null;
 
   useEffect(() => {
@@ -132,10 +128,6 @@ export default function ShiftAssignment({
       ),
     );
   }, [dispatch, statusFilter]);
-
-  useEffect(() => {
-    dispatch(fetchEmployeeListThunk());
-  }, [dispatch]);
 
   const filteredRows = useMemo(() => {
     const keyword = search.toLowerCase();
@@ -236,21 +228,6 @@ export default function ShiftAssignment({
       );
     } finally {
       setSaving(false);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      await dispatch(
-        deleteShiftAssignmentThunk({ id: deleteTarget.id }),
-      ).unwrap();
-      setDeleteTarget(null);
-    } catch {
-      // error already captured in redux state via `error`
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -389,12 +366,12 @@ export default function ShiftAssignment({
                       style={
                         Number(row.is_active) === 1
                           ? {
-                              background: "hsl(var(--success) / 0.12)",
-                              color: "hsl(var(--success))",
+                              background: "hsl(var(--success) / 50)",
+                              color: "#FFFFFF",
                             }
                           : {
-                              background: "#F3F4F6",
-                              color: "#6B7280",
+                              background: "#EF4444", // Red background
+                              color: "#FFFFFF", // White text
                             }
                       }
                     >
@@ -412,17 +389,6 @@ export default function ShiftAssignment({
                       >
                         <Pencil size={13} />
                         Edit
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        className="h-8 gap-1.5 text-white border-none hover:opacity-90"
-                        style={{ background: "#DC2626" }}
-                        onClick={() => setDeleteTarget(row)}
-                        disabled={!row.is_active}
-                      >
-                        <Trash2 size={13} />
-                        Deactivate
                       </Button>
                     </div>
                   </td>
@@ -621,75 +587,6 @@ export default function ShiftAssignment({
       </Dialog>
 
       {/* Deactivate Confirmation Modal */}
-      <Dialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl border-none shadow-2xl bg-white">
-          <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background hover:opacity-100 z-10">
-            <X className="h-4 w-4 text-red-500 hover:text-red-700 transition-colors" />
-            <span className="sr-only">Close</span>
-          </DialogClose>
-
-          <div
-            className="h-20 w-full relative"
-            style={{ background: "#DC2626" }}
-          >
-            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-16 h-16 rounded-2xl bg-white border-2 border-border shadow-lg flex items-center justify-center">
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center"
-                style={{ background: "#FEE2E2" }}
-              >
-                <Trash2 size={20} style={{ color: "#DC2626" }} />
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-12 px-6 pb-6 space-y-6">
-            <DialogHeader className="space-y-2">
-              <DialogTitle className="text-center text-xl font-bold">
-                Deactivate Assignment
-              </DialogTitle>
-              <DialogDescription className="text-center text-sm text-muted-foreground">
-                {deleteTarget && (
-                  <>
-                    This will mark the shift assignment for{" "}
-                    <span className="font-semibold text-foreground">
-                      {deleteTarget.employee_name ??
-                        `#${deleteTarget.employee_id}`}
-                    </span>{" "}
-                    as inactive. You can still view it in history.
-                  </>
-                )}
-              </DialogDescription>
-            </DialogHeader>
-
-            <DialogFooter className="flex-row justify-center gap-3 sm:justify-center">
-              <Button
-                variant="outline"
-                className="flex-1 h-11 rounded-xl"
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleting}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1 h-11 rounded-xl gap-2 text-white border-none"
-                style={{ background: "#DC2626" }}
-                onClick={confirmDelete}
-                disabled={deleting}
-              >
-                {deleting ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Trash2 size={16} />
-                )}
-                Deactivate
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

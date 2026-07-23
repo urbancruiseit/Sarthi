@@ -759,10 +759,42 @@ export const runAutoAttendanceMarking = async () => {
   try {
     await connection.beginTransaction();
 
-    const todayDate = new Date().toISOString().slice(0, 10);
-    const todayDayName = new Date().toLocaleDateString("en-US", {
+    const now = new Date();
+
+    const todayDate = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+    }).format(now); // YYYY-MM-DD
+
+    const todayDayName = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
       weekday: "long",
-    });
+    }).format(now); // e.g. "Thursday"
+
+    // Short-form aur full-form dono handle karne ke liye normalize helper
+    const dayAliases = {
+      sun: "sunday",
+      sunday: "sunday",
+      mon: "monday",
+      monday: "monday",
+      tue: "tuesday",
+      tues: "tuesday",
+      tuesday: "tuesday",
+      wed: "wednesday",
+      wednesday: "wednesday",
+      thu: "thursday",
+      thur: "thursday",
+      thurs: "thursday",
+      thursday: "thursday",
+      fri: "friday",
+      friday: "friday",
+      sat: "saturday",
+      saturday: "saturday",
+    };
+    const normalizeDay = (d) =>
+      dayAliases[String(d).trim().toLowerCase()] ||
+      String(d).trim().toLowerCase();
+
+    const todayNormalized = normalizeDay(todayDayName);
 
     const [employees] = await connection.execute(
       `
@@ -770,6 +802,7 @@ export const runAutoAttendanceMarking = async () => {
         u.id AS employee_id,
         u.weeklyOff AS permanent_week_off,
 
+        eso.id AS eso_id,
         eso.week_off AS temp_week_off,
         eso.is_active AS eso_active,
         eso.from_date,
@@ -789,10 +822,9 @@ export const runAutoAttendanceMarking = async () => {
       LEFT JOIN attendance a
         ON a.employee_id = u.id
         AND a.attendance_date = ?
+
+      WHERE u.branchOffice_id = 1
       `,
-      // CHANGED: WHERE u.status = 'Active' hata diya — kyunki getAttendanceByDate
-      // (jo kaam kar raha hai) is condition ko use hi nahi karta, isliye ye
-      // hamari query me galat filter tha jo sab employees ko exclude kar raha tha
       [todayDate, todayDate],
     );
 
@@ -806,20 +838,35 @@ export const runAutoAttendanceMarking = async () => {
         continue;
       }
 
-      const effectiveWeekOff =
-        emp.temp_week_off || emp.permanent_week_off || "";
+     
+      const hasOverrideWeekOff =
+        emp.eso_id != null &&
+        emp.temp_week_off != null &&
+        String(emp.temp_week_off).trim() !== "";
 
-      const weekOffDays = effectiveWeekOff
+    
+      const sourceWeekOffRaw = hasOverrideWeekOff
+        ? emp.temp_week_off
+        : emp.permanent_week_off || "";
+
+      const source = hasOverrideWeekOff ? "shift_override" : "users_table";
+
+      const weekOffDays = String(sourceWeekOffRaw)
         .split(",")
-        .map((d) => d.trim().toLowerCase())
+        .map((d) => normalizeDay(d))
         .filter(Boolean);
 
-      const isWeekOffToday = weekOffDays.includes(todayDayName.toLowerCase());
+      const isWeekOffToday = weekOffDays.includes(todayNormalized);
 
-      const finalStatus = isWeekOffToday ? "Week Off" : "Absent";
+      const finalStatus = isWeekOffToday ? "WeekOff" : "Absent";
 
       if (isWeekOffToday) weekOffCount++;
       else absentCount++;
+
+      // Debug: kis source se decide hua, aur final result kya raha
+      console.log(
+        `Emp ${emp.employee_id}: source=${source}, weekOffRaw="${sourceWeekOffRaw}" -> [${weekOffDays}], today="${todayNormalized}", result=${finalStatus}`,
+      );
 
       await connection.execute(
         `INSERT INTO attendance
@@ -829,7 +876,9 @@ export const runAutoAttendanceMarking = async () => {
           emp.employee_id,
           todayDate,
           finalStatus,
-          "Auto-marked by system (no punch-in till 1:00 PM)",
+          finalStatus === "Week Off"
+            ? `Auto-marked Week Off (source: ${source})`
+            : "Auto-marked by system (no punch-in till 1:00 PM)",
         ],
       );
     }

@@ -5,6 +5,7 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import {
   createShiftAssignment,
+  deactivateExpiredShiftOverrides,
   getShiftAssignmentById,
   getShiftAssignments,
   updateShiftAssignment,
@@ -47,12 +48,10 @@ export const createShiftAssignmentHandler = asyncHandler(async (req, res) => {
     );
 });
 
-/**
- * GET /api/shift-assignments
- * Query: ?employeeId=&isActive=&fromDate=&toDate=
- */
 export const getShiftAssignmentsHandler = asyncHandler(async (req, res) => {
   const { employeeId, isActive, fromDate, toDate } = req.query;
+
+  const deactivateResult = await deactivateExpiredShiftOverrides();
 
   const rows = await getShiftAssignments({
     employeeId,
@@ -66,9 +65,6 @@ export const getShiftAssignmentsHandler = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, rows, "Shift assignments fetched"));
 });
 
-/**
- * GET /api/shift-assignments/:id
- */
 export const getShiftAssignmentByIdHandler = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const row = await getShiftAssignmentById(id);
@@ -82,9 +78,6 @@ export const getShiftAssignmentByIdHandler = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, row, "Shift assignment fetched"));
 });
 
-/**
- * GET /api/shift-assignments/employee/:employeeId
- */
 export const getShiftAssignmentsByEmployeeHandler = asyncHandler(
   async (req, res) => {
     const { employeeId } = req.params;
@@ -96,10 +89,6 @@ export const getShiftAssignmentsByEmployeeHandler = asyncHandler(
   },
 );
 
-/**
- * PUT /api/shift-assignments/:id
- * Body: any subset of { employeeId, fromDate, toDate, shiftType, shiftTiming, weekOff, reason, isActive }
- */
 export const updateShiftAssignmentHandler = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -121,10 +110,6 @@ export const updateShiftAssignmentHandler = asyncHandler(async (req, res) => {
     );
 });
 
-/**
- * DELETE /api/shift-assignments/:id
- * Query: ?hard=true to permanently delete, otherwise soft-deletes (is_active = 0)
- */
 export const deleteShiftAssignmentHandler = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const hardDelete = req.query.hard === "true";

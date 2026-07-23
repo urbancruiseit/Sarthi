@@ -1,14 +1,14 @@
 import axiosInstance from "@/utils/axiosInstance"; // apna actual path daalna
 
 interface AttendanceFilters {
-  date?: string; 
-  month?: string; 
-  startDate?: string; 
-  endDate?: string; 
+  date?: string;
+  month?: string;
+  startDate?: string;
+  endDate?: string;
   employeeId?: string | number;
   branchId?: string | number;
   departmentId?: string | number;
-  status?:string
+  status?: string;
 }
 
 interface MarkAttendancePayload {
@@ -149,7 +149,7 @@ export const getMyMonthlyAttendance = async (
     const response = await axiosInstance.get("/attendance/my-monthly", {
       params: filters,
     });
-
+    console.log("monthlu aatendance ", response.data.data);
     if (response.data?.success) {
       return response.data.data;
     }

@@ -53,6 +53,7 @@ const STATUS_TO_CODE: Record<string, string> = {
   "Half Day": "HD",
   Leave: "L",
   "Week Off": "WO",
+  WeekOff: "WO", // <-- naya alias add kiya
   "Comp Off": "COF",
   Holiday: "HOL",
 };
@@ -288,9 +289,6 @@ function processRecords(
         ot = minutesToHHMM(rec.overtime_minutes);
       }
 
-      // CHANGED: Late Mark ab backend ke "is_late" flag se count hota hai
-      // (shift start time + 10 min grace ke baad punch-in hua ho tabhi true).
-      // Pehle ye short_minutes se count ho raha tha, jo galat signal tha.
       if (rec.is_late) {
         lateCount += 1;
       }
@@ -341,8 +339,7 @@ function processRecords(
 const Monthlyattendancetable = () => {
   const dispatch = useAppDispatch();
 
-  // CHANGED: monthlyOverallSummary bhi nikala redux se (top-level cards ke liye)
-  const { monthlyList, monthlyOverallSummary, loading } = useAppSelector(
+  const { monthlyList, loading } = useAppSelector(
     (state: RootState) => state.attendance,
   );
 
@@ -412,41 +409,6 @@ const Monthlyattendancetable = () => {
   const isSundayCol = (day: number) =>
     new Date(yearNum, monthNum - 1, day).getDay() === 0;
 
-  // NEW — Top-level summary cards data. Backend se overall summary aata hai
-  // (poore filter-set / sab employees ka combined total, unfiltered).
-  const summaryCards = [
-    {
-      label: "Total Hours",
-      value: monthlyOverallSummary?.totalHours ?? "00:00",
-      icon: Clock,
-      bg: "bg-orange-200",
-    },
-    {
-      label: "Present",
-      value: monthlyOverallSummary?.present ?? 0,
-      icon: CheckCircle,
-      bg: "bg-emerald-200",
-    },
-    {
-      label: "Absent",
-      value: monthlyOverallSummary?.absent ?? 0,
-      icon: XCircle,
-      bg: "bg-red-200",
-    },
-    {
-      label: "Late Marks",
-      value: monthlyOverallSummary?.lateMarks ?? 0,
-      icon: AlarmClock,
-      bg: "bg-pink-200",
-    },
-    {
-      label: "Total Half Day",
-      value: monthlyOverallSummary?.halfDay ?? 0,
-      icon: CalendarClock,
-      bg: "bg-orange-300",
-    },
-  ];
-
   return (
     <div className="">
       {/* HEADER (filters) */}
@@ -503,28 +465,6 @@ const Monthlyattendancetable = () => {
             </Select>
           </div>
         </div>
-        {/* NEW — Summary Cards row (Total Hours / Present / Absent / Late Marks /
-        Total Half Day) */}
-        {/* <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 px-4 pb-4">
-          {summaryCards.map(({ label, value, icon: Icon, bg }) => (
-            <div
-              key={label}
-              className={`${bg} rounded-2xl p-4 flex items-center gap-3 shadow-md hover:shadow-xl transition-all`}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-white/40">
-                <Icon size={22} className="text-gray-700" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold tracking-wide text-gray-700">
-                  {label}
-                </p>
-                <p className="text-lg font-extrabold text-gray-900 mt-0.5">
-                  {value}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div> */}
       </div>
 
       <div
