@@ -192,6 +192,15 @@ type ProcessedEmployee = {
   totalHalfDay: number;
 };
 
+const EMPTY_DAY_CELL_BASE = {
+  code: "-",
+  in: "-",
+  out: "-",
+  wh: "-",
+  ot: "-",
+  f: "-",
+};
+
 function processRecords(
   records: ApiAttendanceRecord[],
   monthNum: number,
@@ -199,6 +208,12 @@ function processRecords(
   daysInMonth: number,
 ): ProcessedEmployee[] {
   const byEmployee = new Map<number, ApiAttendanceRecord[]>();
+
+  // Backend se jitne din tak ka actual data (attendance_date) aa raha hai,
+  // us sabse aakhri (latest) din ka number yaha track karenge.
+  // Isse aage ke saare din, sabhi employees ke liye "-" force honge.
+  let maxDataDay = 0;
+
   for (const r of records) {
     if (!r.attendance_date) {
       if (!byEmployee.has(r.employee_id)) {
@@ -207,9 +222,13 @@ function processRecords(
       continue;
     }
 
-    const { year, month } = toISTParts(r.attendance_date);
+    const { year, month, day } = toISTParts(r.attendance_date);
 
     if (year !== yearNum || month !== monthNum) continue;
+
+    if (day > maxDataDay) {
+      maxDataDay = day;
+    }
 
     const list = byEmployee.get(r.employee_id) ?? [];
     list.push(r);
@@ -235,22 +254,20 @@ function processRecords(
 
     const days: DayCell[] = Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1;
+
+      // Backend se data jitne din tak aaya hai, uske baad ke sabhi din
+      // har employee ke liye "-" hi rahenge (record me kuch bhi ho, ignore karo).
+      if (maxDataDay > 0 && day > maxDataDay) {
+        return { day, ...EMPTY_DAY_CELL_BASE };
+      }
+
       const rec = byDay.get(day);
 
-      if (
-        !rec ||
-        !rec.attendance_date ||
-        (rec.punch_in == null && rec.punch_out == null)
-      ) {
-        return {
-          day,
-          code: "-",
-          in: "-",
-          out: "-",
-          wh: "-",
-          ot: "-",
-          f: "-",
-        };
+      // Sirf tab poora dash dikhao jab is din ke liye koi record hi na ho.
+      // Agar record hai (chahe punch_in/punch_out dono null ho — jaise
+      // Absent / Week Off / Holiday), to uska status code zaroor dikhna chahiye.
+      if (!rec || !rec.attendance_date) {
+        return { day, ...EMPTY_DAY_CELL_BASE };
       }
       const code =
         STATUS_TO_CODE[rec.status] ??
@@ -264,11 +281,16 @@ function processRecords(
       const inMin = timeToMinutes(rec.punch_in);
       const outMin = timeToMinutes(rec.punch_out);
 
-      let wh = "-";
-      let ot = "";
+      // "00:00:00" jaisi zero-duration string ko bhi "no data" maano —
+      // isse WH/OT/F columns me khali/zero time pe "00:00" ki jagah "-" dikhega.
+      const isZeroTime = (t: string | null | undefined) =>
+        !t || t.slice(0, 5) === "00:00";
 
-      if (rec.worked_time) {
-        wh = rec.worked_time.slice(0, 5);
+      let wh = "-";
+      let ot = "-";
+
+      if (!isZeroTime(rec.worked_time)) {
+        wh = (rec.worked_time as string).slice(0, 5);
       } else if (
         typeof rec.worked_minutes === "number" &&
         rec.worked_minutes > 0
@@ -280,8 +302,8 @@ function processRecords(
         totalWorkMinutes += rec.worked_minutes;
       }
 
-      if (rec.overtime_time) {
-        ot = rec.overtime_time.slice(0, 5);
+      if (!isZeroTime(rec.overtime_time)) {
+        ot = (rec.overtime_time as string).slice(0, 5);
       } else if (
         typeof rec.overtime_minutes === "number" &&
         rec.overtime_minutes > 0
@@ -295,8 +317,8 @@ function processRecords(
 
       let f = "-";
 
-      if (rec.short_time) {
-        f = rec.short_time.slice(0, 5);
+      if (!isZeroTime(rec.short_time)) {
+        f = (rec.short_time as string).slice(0, 5);
       } else if (
         typeof rec.short_minutes === "number" &&
         rec.short_minutes > 0
