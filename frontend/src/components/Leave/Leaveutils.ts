@@ -1,31 +1,56 @@
 export type LeaveStatus = "Pending" | "Approved" | "Rejected";
 
 export interface LeaveRequest {
-  id: string;
+  id: number;
+  uuid: string;
+  employee_id: number;
   employeeName: string;
+  leave_type: string;
   department: string;
+  from_date: string;
+  to_date: string;
+  total_days: number;
+  reason: string | null;
+  status: "Pending" | "Approved" | "Rejected";
+  applied_at: string;
+  approved_by: number | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface LeaveFilters {
+  employeeId?: number;
+  status?: "Pending" | "Approved" | "Rejected";
+  leaveType?: string;
+  fromDate?: string;
+  toDate?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface ApplyLeavePayload {
   leaveType: string;
-  fromDate: string; // YYYY-MM-DD
-  toDate: string; // YYYY-MM-DD
-  days: number;
-  reason: string;
-  status: LeaveStatus;
-  appliedOn: string; // YYYY-MM-DD
+  fromDate: string;
+  toDate: string;
+  totalDays: number;
+  reason?: string;
+}
+
+export interface UpdateLeaveStatusPayload {
+  leaveId: number;
+  status: "Approved" | "Rejected";
+  rejectionReason?: string;
 }
 
 export interface Holiday {
   id: string;
   branchId: string;
   name: string;
-  date: string; // YYYY-MM-DD
+  date: string;
 }
 
-export const LEAVE_TYPES = [
-  "Casual Leave",
-  "Sick Leave",
-  "Earned Leave",
-  "Unpaid Leave",
-];
+export const LEAVE_TYPES = ["Short PL", "Long PL", "Comp Off", "Unpaid Leave"];
 
 export const STATUS_STYLES: Record<LeaveStatus, { bg: string; color: string }> =
   {

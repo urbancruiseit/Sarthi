@@ -19,6 +19,7 @@ import atendanceReducer from "../redux/features/Attendance/attendanceSlice";
 import shiftAssignmentReducer from "../redux/features/Shiftassignment/shiftassignmentSlice";
 import holidayReducer from "../redux/features/Calendar/calendarSlice";
 import dutyrosterReducer from "../redux/features/Calendar/calendarSlice";
+import leaveReducer from "../redux/features/Leave/leaveSlice";
 
 export const store = configureStore({
   reducer: {
@@ -42,6 +43,7 @@ export const store = configureStore({
     shiftAssignment: shiftAssignmentReducer,
     holiday: holidayReducer,
     dutyRoster: dutyrosterReducer,
+    leave: leaveReducer,
   },
 });
 

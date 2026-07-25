@@ -214,23 +214,304 @@ export const getAttendanceByDate = async (filters = {}) => {
   }
 };
 
+// export const getAttendanceByMonth = async (filters = {}) => {
+//   try {
+//     const { month, employeeId, branchId, departmentId, managerId } = filters;
+
+//     if (!month) {
+//       throw new Error("Month is required. Format: YYYY-MM");
+//     }
+
+//     const [year, monthNum] = month.split("-").map(Number);
+
+//     if (!year || !monthNum) {
+//       throw new Error(`Invalid month format: ${month}`);
+//     }
+
+//     const startDate = `${month}-01`;
+//     const lastDay = new Date(year, monthNum, 0).getDate();
+//     const endDate = `${month}-${String(lastDay).padStart(2, "0")}`;
+
+//     const conditions = [];
+//     const params = [startDate, endDate];
+
+//     if (employeeId) {
+//       conditions.push("u.id = ?");
+//       params.push(employeeId);
+//     }
+
+//     if (branchId) {
+//       conditions.push("u.branchOffice_id = ?");
+//       params.push(branchId);
+//     }
+
+//     if (departmentId) {
+//       conditions.push("u.department_id = ?");
+//       params.push(departmentId);
+//     }
+
+//     if (managerId) {
+//       conditions.push("(u.manager_id = ? OR u.id = ?)");
+//       params.push(managerId, managerId);
+//     }
+
+//     const whereClause =
+//       conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+//     const sql = `
+//       WITH RECURSIVE calendar AS (
+//         SELECT CAST(? AS DATE) AS dt
+//         UNION ALL
+//         SELECT DATE_ADD(dt, INTERVAL 1 DAY)
+//         FROM calendar
+//         WHERE dt < CAST(? AS DATE)
+//       )
+
+//       SELECT
+//         u.id AS employee_id,
+
+//         TRIM(
+//           CONCAT(
+//             COALESCE(u.firstName,''),
+//             ' ',
+//             COALESCE(u.middleName,''),
+//             ' ',
+//             COALESCE(u.lastName,'')
+//           )
+//         ) AS full_name,
+
+//         u.firstName,
+//         u.middleName,
+//         u.lastName,
+
+//         u.department_id,
+//         d.department_name,
+
+//         u.branchOffice_id,
+//         b.branch_name,
+
+//         /* Permanent Shift */
+//         u.workShift AS permanent_shift_type,
+//         u.shiftTiming AS permanent_shift_timing,
+
+//         /* Temporary Shift */
+//         eso.shift_type AS temporary_shift_type,
+//         eso.shift_timing AS temporary_shift_timing,
+//         eso.week_off,
+//         eso.from_date,
+//         eso.to_date,
+
+//         /* Final Shift */
+//         COALESCE(eso.shift_type, u.workShift) AS shift_type,
+//         COALESCE(eso.shift_timing, u.shiftTiming) AS shift_timing,
+
+//         CASE
+//           WHEN eso.id IS NOT NULL THEN 'Temporary'
+//           ELSE 'Permanent'
+//         END AS shift_source,
+
+//         a.id AS attendance_id,
+//         calendar.dt AS attendance_date,
+
+//         COALESCE(a.status,'Absent') AS status,
+//         a.punch_in,
+//         a.punch_out,
+//         a.leave_type,
+//         a.remarks,
+
+//         /* Attendance Calculation */
+//         COALESCE(a.late_minutes,0) AS late_minutes,
+//         COALESCE(a.early_exit_minutes,0) AS early_exit_minutes,
+//         COALESCE(a.worked_minutes,0) AS worked_minutes,
+//         COALESCE(a.overtime_minutes,0) AS overtime_minutes,
+//         COALESCE(a.short_minutes,0) AS short_minutes
+
+//       FROM calendar
+
+//       CROSS JOIN users u
+
+//       LEFT JOIN attendance a
+//         ON a.employee_id = u.id
+//        AND a.attendance_date = calendar.dt
+
+//       LEFT JOIN departments d
+//         ON d.id = u.department_id
+
+//       LEFT JOIN branches b
+//         ON b.id = u.branchOffice_id
+
+//       /* Temporary Shift Override */
+//       LEFT JOIN employee_shift_override eso
+//         ON eso.employee_id = u.id
+//        AND eso.is_active = 1
+//        AND calendar.dt BETWEEN eso.from_date AND eso.to_date
+
+//       ${whereClause}
+
+//       ORDER BY
+//         u.firstName ASC,
+//         calendar.dt ASC;
+//     `;
+
+//     const [rows] = await pool.execute(sql, params);
+
+//     const formatMinutes = (minutes) => {
+//       if (minutes == null) return "00:00";
+
+//       const hours = Math.floor(minutes / 60);
+//       const mins = minutes % 60;
+
+//       return `${String(hours).padStart(2, "0")}:${String(mins).padStart(
+//         2,
+//         "0",
+//       )}`;
+//     };
+
+//     // ---------- Helper: shift_timing string se start time (minutes) nikalo ----------
+//     const getShiftStartMinutes = (shiftTiming) => {
+//       if (!shiftTiming) return null;
+
+//       const startPart = shiftTiming.split("-")[0]?.trim();
+//       if (!startPart) return null;
+
+//       const match = startPart.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+//       if (!match) return null;
+
+//       let [, hh, mm, meridian] = match;
+//       hh = parseInt(hh, 10);
+//       mm = parseInt(mm, 10);
+
+//       if (meridian) {
+//         meridian = meridian.toUpperCase();
+//         if (meridian === "PM" && hh !== 12) hh += 12;
+//         if (meridian === "AM" && hh === 12) hh = 0;
+//       }
+
+//       return hh * 60 + mm;
+//     };
+
+//     // ---------- Helper: punch_in (HH:MM:SS ya HH:MM) se minutes nikalo ----------
+//     const getPunchInMinutes = (punchIn) => {
+//       if (!punchIn) return null;
+
+//       const parts = String(punchIn).split(":");
+//       const hh = parseInt(parts[0], 10);
+//       const mm = parseInt(parts[1], 10);
+
+//       if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+//       return hh * 60 + mm;
+//     };
+
+//     const LATE_GRACE_MINUTES = 10; // 10 minute grace period
+
+//     // ---------- Row-level: isLate flag add karo ----------
+//     const enrichedRows = rows.map((row) => {
+//       const shiftStartMinutes = getShiftStartMinutes(row.shift_timing);
+//       const punchInMinutes = getPunchInMinutes(row.punch_in);
+
+//       let isLate = false;
+
+//       if (
+//         row.status === "Present" &&
+//         shiftStartMinutes != null &&
+//         punchInMinutes != null
+//       ) {
+//         const diff = punchInMinutes - shiftStartMinutes;
+//         isLate = diff > LATE_GRACE_MINUTES;
+//       }
+
+//       return {
+//         ...row,
+//         late_time: formatMinutes(row.late_minutes),
+//         early_exit_time: formatMinutes(row.early_exit_minutes),
+//         worked_time: formatMinutes(row.worked_minutes),
+//         overtime_time: formatMinutes(row.overtime_minutes),
+//         short_time: formatMinutes(row.short_minutes),
+//         is_late: isLate,
+//       };
+//     });
+
+//     // ---------- Employee-wise Month Summary ----------
+//     const summaryMap = new Map();
+
+//     for (const row of enrichedRows) {
+//       if (!summaryMap.has(row.employee_id)) {
+//         summaryMap.set(row.employee_id, {
+//           employeeId: row.employee_id,
+//           fullName: row.full_name,
+//           totalMinutes: 0, // NEW — worked_minutes accumulate karne ke liye
+//           present: 0,
+//           absent: 0,
+//           lateMarks: 0,
+//           halfDay: 0,
+//         });
+//       }
+
+//       const emp = summaryMap.get(row.employee_id);
+
+//       // NEW — Total Hours ke liye worked_minutes sab dino ka sum
+//       emp.totalMinutes += row.worked_minutes || 0;
+
+//       if (row.status === "Present") {
+//         emp.present++;
+//         if (row.is_late) emp.lateMarks++;
+//       } else if (row.status === "Absent") {
+//         emp.absent++;
+//       } else if (row.status === "Half Day") {
+//         emp.halfDay++;
+//       }
+//     }
+
+//     // totalMinutes ko totalHours (HH:MM string) me convert karke summary banao
+//     const summary = Array.from(summaryMap.values()).map((emp) => ({
+//       ...emp,
+//       totalHours: formatMinutes(emp.totalMinutes), // NEW
+//     }));
+
+//     // ---------- Overall totals (poore filter-set ke liye) ----------
+//     const overallSummary = summary.reduce(
+//       (acc, emp) => {
+//         acc.totalMinutes += emp.totalMinutes; // NEW
+//         acc.present += emp.present;
+//         acc.absent += emp.absent;
+//         acc.lateMarks += emp.lateMarks;
+//         acc.halfDay += emp.halfDay;
+//         return acc;
+//       },
+//       { totalMinutes: 0, present: 0, absent: 0, lateMarks: 0, halfDay: 0 },
+//     );
+
+//     // NEW — overall totalMinutes ko bhi HH:MM string me convert karo
+//     overallSummary.totalHours = formatMinutes(overallSummary.totalMinutes);
+
+//     return {
+//       data: enrichedRows,
+//       summary, // per-employee breakdown (totalHours included)
+//       overallSummary, // total across all employees (totalHours included)
+//     };
+//   } catch (error) {
+//     console.error("getAttendanceByMonth error:", error);
+//     throw error;
+//   }
+// };
+
+
 export const getAttendanceByMonth = async (filters = {}) => {
   try {
-    const { month, employeeId, branchId, departmentId, managerId } = filters;
+    const {
+      startDate,
+      endDate,
+      employeeId,
+      branchId,
+      departmentId,
+      managerId,
+      hodId,
+      zonalHeadId,
+    } = filters;
 
-    if (!month) {
-      throw new Error("Month is required. Format: YYYY-MM");
+    if (!startDate || !endDate) {
+      throw new Error("startDate and endDate are required");
     }
-
-    const [year, monthNum] = month.split("-").map(Number);
-
-    if (!year || !monthNum) {
-      throw new Error(`Invalid month format: ${month}`);
-    }
-
-    const startDate = `${month}-01`;
-    const lastDay = new Date(year, monthNum, 0).getDate();
-    const endDate = `${month}-${String(lastDay).padStart(2, "0")}`;
 
     const conditions = [];
     const params = [startDate, endDate];
@@ -253,6 +534,16 @@ export const getAttendanceByMonth = async (filters = {}) => {
     if (managerId) {
       conditions.push("(u.manager_id = ? OR u.id = ?)");
       params.push(managerId, managerId);
+    }
+
+    if (hodId) {
+      conditions.push("(u.hod_id = ? OR u.id = ?)");
+      params.push(hodId, hodId);
+    }
+
+    if (zonalHeadId) {
+      conditions.push("(u.zonal_head_id = ? OR u.id = ?)");
+      params.push(zonalHeadId, zonalHeadId);
     }
 
     const whereClause =
@@ -439,7 +730,7 @@ export const getAttendanceByMonth = async (filters = {}) => {
         summaryMap.set(row.employee_id, {
           employeeId: row.employee_id,
           fullName: row.full_name,
-          totalMinutes: 0, // NEW — worked_minutes accumulate karne ke liye
+          totalMinutes: 0,
           present: 0,
           absent: 0,
           lateMarks: 0,
@@ -449,7 +740,6 @@ export const getAttendanceByMonth = async (filters = {}) => {
 
       const emp = summaryMap.get(row.employee_id);
 
-      // NEW — Total Hours ke liye worked_minutes sab dino ka sum
       emp.totalMinutes += row.worked_minutes || 0;
 
       if (row.status === "Present") {
@@ -462,16 +752,15 @@ export const getAttendanceByMonth = async (filters = {}) => {
       }
     }
 
-    // totalMinutes ko totalHours (HH:MM string) me convert karke summary banao
     const summary = Array.from(summaryMap.values()).map((emp) => ({
       ...emp,
-      totalHours: formatMinutes(emp.totalMinutes), // NEW
+      totalHours: formatMinutes(emp.totalMinutes),
     }));
 
     // ---------- Overall totals (poore filter-set ke liye) ----------
     const overallSummary = summary.reduce(
       (acc, emp) => {
-        acc.totalMinutes += emp.totalMinutes; // NEW
+        acc.totalMinutes += emp.totalMinutes;
         acc.present += emp.present;
         acc.absent += emp.absent;
         acc.lateMarks += emp.lateMarks;
@@ -481,20 +770,18 @@ export const getAttendanceByMonth = async (filters = {}) => {
       { totalMinutes: 0, present: 0, absent: 0, lateMarks: 0, halfDay: 0 },
     );
 
-    // NEW — overall totalMinutes ko bhi HH:MM string me convert karo
     overallSummary.totalHours = formatMinutes(overallSummary.totalMinutes);
 
     return {
       data: enrichedRows,
-      summary, // per-employee breakdown (totalHours included)
-      overallSummary, // total across all employees (totalHours included)
+      summary,
+      overallSummary,
     };
   } catch (error) {
     console.error("getAttendanceByMonth error:", error);
     throw error;
   }
 };
-
 export const markAttendance = async ({
   employeeId,
   attendanceDate,

@@ -1,6 +1,7 @@
 // apna actual path daalna
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
+import { applyRoleBasedFilters } from "../../utils/applyRoleBasedFilters.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { createCompOffIfEligible } from "../CompOff/compOff.model.js";
 import {
@@ -22,9 +23,6 @@ const getAttendanceController = asyncHandler(async (req, res) => {
     departmentId,
     status,
   } = req.query;
-
-  const role = req.user.access_role;
-  const userId = req.user.id;
 
   const filters = {
     branchId,
@@ -48,9 +46,6 @@ const getAttendanceController = asyncHandler(async (req, res) => {
     filters.startDate = firstDay;
     filters.endDate = lastDay;
   } else {
-    /**
-     * Other Filters
-     */
     if (startDate && endDate) {
       filters.startDate = startDate;
       filters.endDate = endDate;
@@ -68,40 +63,13 @@ const getAttendanceController = asyncHandler(async (req, res) => {
   }
 
   /**
-   * Role Based Restriction
+   * Role Based Restriction (shared function)
    */
-
-  switch (role) {
-    case "EMPLOYEE":
-      filters.employeeId = userId;
-
-      filters.startDate = firstDay;
-      filters.endDate = lastDay;
-      delete filters.attendanceDate;
-      break;
-
-    case "TEAM_LEAD":
-    case "MANAGER":
-      filters.managerId = userId;
-      break;
-
-    case "HOD":
-      filters.hodId = userId;
-      break;
-
-    case "ZONAL_HEAD":
-      filters.zonalHeadId = userId;
-      break;
-
-    case "SUPER_ADMIN":
-      break;
-
-    default:
-      filters.employeeId = userId;
-      filters.startDate = firstDay;
-      filters.endDate = lastDay;
-      break;
-  }
+  applyRoleBasedFilters(filters, req, {
+    firstDay,
+    lastDay,
+    clearAttendanceDate: true,
+  });
 
   const attendance = await getAttendanceByDate(filters);
 
@@ -109,17 +77,49 @@ const getAttendanceController = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, attendance, "Attendance fetched successfully"));
 });
-
 const getMonthlyAttendanceController = asyncHandler(async (req, res) => {
-  const { month, employeeId, branchId, departmentId, managerId } = req.query;
+  const { month, employeeId, branchId, departmentId } = req.query;
 
-  const attendance = await getAttendanceByMonth({
-    month,
-    employeeId,
+  const filters = {
     branchId,
     departmentId,
-    managerId,
-  });
+  };
+
+  // Current Month Helper (fallback jab month query param na aaye)
+  const today = new Date();
+
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10);
+
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    .toISOString()
+    .slice(0, 10);
+
+  // Resolve month -> startDate/endDate
+  if (month) {
+    const [year, mon] = month.split("-").map(Number);
+
+    const first = new Date(year, mon - 1, 1);
+    const last = new Date(year, mon, 0);
+
+    filters.startDate = first.toISOString().slice(0, 10);
+    filters.endDate = last.toISOString().slice(0, 10);
+  } else {
+    filters.startDate = firstDay;
+    filters.endDate = lastDay;
+  }
+
+  if (employeeId) {
+    filters.employeeId = employeeId;
+  }
+
+  /**
+   * Role Based Restriction (shared function)
+   */
+  applyRoleBasedFilters(filters, req);
+
+  const attendance = await getAttendanceByMonth(filters);
 
   return res
     .status(200)
@@ -131,7 +131,6 @@ const getMonthlyAttendanceController = asyncHandler(async (req, res) => {
       ),
     );
 });
-
 const markAttendanceController = asyncHandler(async (req, res) => {
   const employeeId = req.user?.id;
   const { attendanceDate, punchIn } = req.body;

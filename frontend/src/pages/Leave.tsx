@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
 import { RootState } from "@/redux/store";
 
-import { daysBetween } from "@/utils/leaveUtils"; // ya jahan utility rakhi ho
+import { daysBetween } from "@/utils/leaveUtils";
 import ApplyLeaveModal from "@/components/Leave/ApplyLeaveModal";
 import BranchFilter from "@/components/FilterComponent/BranchFilter";
 
@@ -15,17 +15,17 @@ import {
   deleteHolidayThunk,
 } from "@/redux/features/Calendar/calendarSlice";
 
-import {
-  LeaveRequest,
-  INITIAL_REQUESTS,
-  TAB_CONTENT,
-} from "@/components/Leave/Leaveutils";
+import { LeaveRequest, TAB_CONTENT } from "@/components/Leave/Leaveutils";
 import LeaveRequestsTab from "@/components/Leave/LeaveRequestsTab";
 import AssignLeaveTab, {
   AssignLeaveFormData,
 } from "@/components/Leave/AssignLeaveTab";
 import HolidayManager from "@/components/Callender/Holidaymanager";
 import DutyRoster from "@/components/Leave/Dutyroster";
+import {
+  applyLeaveThunk,
+  getMyLeavesThunk,
+} from "@/redux/features/Leave/leaveSlice";
 
 function Leave() {
   const dispatch = useAppDispatch();
@@ -33,52 +33,65 @@ function Leave() {
   const [activeTab, setActiveTab] = useState("leave");
   const headerContent = TAB_CONTENT[activeTab] ?? TAB_CONTENT.leave;
 
-  /* ---------------- Leave requests state ---------------- */
-  const [requests, setRequests] = useState<LeaveRequest[]>(INITIAL_REQUESTS);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  // In a real integration this would come from the logged-in employee /
-  // current user in redux, same pattern as Attendance's currentEmployeeId.
   const currentEmployeeName = "You";
   const currentEmployeeDept = "—";
 
-  const handleApply = (req: {
+  const { myLeaves, loading: leavesLoading } = useAppSelector(
+    (s: RootState) => s.leave,
+  );
+
+  useEffect(() => {
+    if (activeTab === "leave") {
+      dispatch(getMyLeavesThunk());
+    }
+  }, [dispatch, activeTab]);
+
+  const requests: LeaveRequest[] = useMemo(
+    () =>
+      myLeaves.map((l) => ({
+        id: l.uuid,
+        employeeName: currentEmployeeName,
+        department: currentEmployeeDept,
+        leaveType: l.leave_type,
+        fromDate: l.from_date,
+        toDate: l.to_date,
+        days: l.total_days,
+        reason: l.reason ?? "",
+        status: l.status,
+        appliedOn: l.applied_at?.slice(0, 10) ?? "",
+      })),
+    [myLeaves],
+  );
+
+  const handleApply = async (data: {
     leaveType: string;
     fromDate: string;
     toDate: string;
     reason: string;
   }) => {
-    const newRequest: LeaveRequest = {
-      id: `LR-${Math.floor(1000 + Math.random() * 9000)}`,
-      employeeName: currentEmployeeName,
-      department: currentEmployeeDept,
-      leaveType: req.leaveType,
-      fromDate: req.fromDate,
-      toDate: req.toDate,
-      days: daysBetween(req.fromDate, req.toDate),
-      reason: req.reason,
-      status: "Pending",
-      appliedOn: new Date().toISOString().slice(0, 10),
-    };
-    setRequests((prev) => [newRequest, ...prev]);
-    setModalOpen(false);
+    try {
+      await dispatch(
+        applyLeaveThunk({
+          leaveType: data.leaveType,
+          fromDate: data.fromDate,
+          toDate: data.toDate,
+          totalDays: daysBetween(data.fromDate, data.toDate),
+          reason: data.reason,
+        }),
+      ).unwrap();
+
+      setModalOpen(false);
+      dispatch(getMyLeavesThunk());
+    } catch (err) {
+      console.error("Failed to apply leave:", err);
+    }
   };
 
   const handleAssign = (data: AssignLeaveFormData) => {
-    const assigned: LeaveRequest = {
-      id: `LR-${Math.floor(1000 + Math.random() * 9000)}`,
-      employeeName: data.employeeName.trim(),
-      department: data.department.trim() || "—",
-      leaveType: data.leaveType,
-      fromDate: data.fromDate,
-      toDate: data.toDate,
-      days: daysBetween(data.fromDate, data.toDate),
-      reason: data.reason.trim() || "Assigned by admin",
-      status: "Approved", // direct assign = pre-approved
-      appliedOn: new Date().toISOString().slice(0, 10),
-    };
-    setRequests((prev) => [assigned, ...prev]);
+    console.log("Assign leave (not yet wired to API):", data);
   };
 
   const filteredRequests = useMemo(() => {
@@ -96,7 +109,6 @@ function Leave() {
     [requests],
   );
 
-  /* ---------------- Company Holiday state (moved in from AttendanceCalendar) ---------------- */
   const branches = useAppSelector((s: RootState) => s.branch.branches) ?? [];
   const {
     list: holidays,
@@ -111,7 +123,6 @@ function Leave() {
   const [branch, setBranch] = useState<string>("");
   const [holidayYear, setHolidayYear] = useState<number>(currentYear);
 
-  // Default to the first available branch once branches have loaded.
   useEffect(() => {
     if (!branch && branches.length > 0) {
       setBranch(String(branches[0].id));
@@ -123,8 +134,6 @@ function Leave() {
     branches.find((b: any) => String(b.id) === branch)?.name ??
     "Branch";
 
-  // Fetch holidays only when the Company Holiday tab is active — avoids an
-  // unnecessary dispatch on first load when the user is on the Leave tab.
   useEffect(() => {
     if (activeTab !== "holiday" || !branch) return;
     dispatch(fetchHolidays({ branchId: branch, year: holidayYear }));
@@ -184,7 +193,6 @@ function Leave() {
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {/* ---------- Header (same visual language as Attendance) ---------- */}
         <div
           className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl p-4 border-l-4"
           style={{ background: "#FFF7ED", borderColor: "#F97316" }}
@@ -237,6 +245,7 @@ function Leave() {
             search={search}
             onSearchChange={setSearch}
             onApplyClick={() => setModalOpen(true)}
+            loading={leavesLoading}
           />
         </TabsContent>
 
@@ -250,7 +259,6 @@ function Leave() {
 
         {/* ---------- Company Holiday Tab ---------- */}
         <TabsContent value="holiday" className="space-y-4 mt-6">
-          {/* Branch filter — Attendance.tsx jaisa hi plain usage */}
           <div className="flex items-center gap-2">
             <Building2 size={16} className="text-muted-foreground" />
             <BranchFilter value={branch} onChange={setBranch} />

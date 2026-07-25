@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   XCircle,
   HourglassIcon,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LeaveRequest, LeaveStatus, STATUS_STYLES } from "./Leaveutils";
@@ -20,6 +21,7 @@ interface LeaveRequestsTabProps {
   search: string;
   onSearchChange: (value: string) => void;
   onApplyClick: () => void;
+  loading?: boolean;
 }
 
 export default function LeaveRequestsTab({
@@ -27,6 +29,7 @@ export default function LeaveRequestsTab({
   search,
   onSearchChange,
   onApplyClick,
+  loading = false,
 }: LeaveRequestsTabProps) {
   return (
     <div className="space-y-6">
@@ -82,7 +85,18 @@ export default function LeaveRequestsTab({
               </tr>
             </thead>
             <tbody>
-              {requests.length === 0 && (
+              {loading && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-10 text-center">
+                    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 size={16} className="animate-spin" />
+                      Loading leave requests…
+                    </span>
+                  </td>
+                </tr>
+              )}
+
+              {!loading && requests.length === 0 && (
                 <tr>
                   <td
                     colSpan={9}
@@ -93,57 +107,60 @@ export default function LeaveRequestsTab({
                 </tr>
               )}
 
-              {requests.map((r) => {
-                const sc = STATUS_STYLES[r.status];
-                const StatusIcon = STATUS_ICONS[r.status];
-                return (
-                  <tr
-                    key={r.id}
-                    className="border-b border-border/50 hover:bg-muted/30"
-                  >
-                    <td className="px-4 py-3 font-medium">{r.employeeName}</td>
-                    <td className="px-4 py-3">{r.department}</td>
-                    <td className="px-4 py-3">{r.leaveType}</td>
-                    <td className="px-4 py-3">
-                      {new Date(r.fromDate).toLocaleDateString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                      })}
-                    </td>
-                    <td className="px-4 py-3">
-                      {new Date(r.toDate).toLocaleDateString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                      })}
-                    </td>
-                    <td className="px-4 py-3">{r.days}</td>
-                    <td
-                      className="px-4 py-3 max-w-[220px] truncate"
-                      title={r.reason}
+              {!loading &&
+                requests.map((r) => {
+                  const sc = STATUS_STYLES[r.status];
+                  const StatusIcon = STATUS_ICONS[r.status];
+                  return (
+                    <tr
+                      key={r.id}
+                      className="border-b border-border/50 hover:bg-muted/30"
                     >
-                      {r.reason}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                        <CalendarDays size={13} />
-                        {new Date(r.appliedOn).toLocaleDateString("en-IN", {
+                      <td className="px-4 py-3 font-medium">
+                        {r.employeeName}
+                      </td>
+                      <td className="px-4 py-3">{r.department}</td>
+                      <td className="px-4 py-3">{r.leave_Type}</td>
+                      <td className="px-4 py-3">
+                        {new Date(r.fromDate).toLocaleDateString("en-IN", {
                           day: "2-digit",
                           month: "short",
                         })}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-                        style={{ background: sc.bg, color: sc.color }}
+                      </td>
+                      <td className="px-4 py-3">
+                        {new Date(r.toDate).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                        })}
+                      </td>
+                      <td className="px-4 py-3">{r.days}</td>
+                      <td
+                        className="px-4 py-3 max-w-[220px] truncate"
+                        title={r.reason}
                       >
-                        <StatusIcon size={12} />
-                        {r.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
+                        {r.reason}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                          <CalendarDays size={13} />
+                          {new Date(r.appliedOn).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                          })}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
+                          style={{ background: sc.bg, color: sc.color }}
+                        >
+                          <StatusIcon size={12} />
+                          {r.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

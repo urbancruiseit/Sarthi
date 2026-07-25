@@ -338,7 +338,7 @@ export default function Attendance() {
             </p>
           </div>
 
-          <TabsList className="grid grid-cols-4 w-fit bg-white border border-orange-200">
+          <TabsList className="inline-flex w-fit bg-white border border-orange-200 rounded-xl p-1 gap-1">
             <TabsTrigger
               value="attendance"
               className="gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
@@ -353,20 +353,25 @@ export default function Attendance() {
               <Users size={14} />
               Monthly Attendance
             </TabsTrigger>
-            <TabsTrigger
-              value="shift"
-              className="gap-1.5 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-            >
-              <Clock size={14} />
-              Shift Assignment
-            </TabsTrigger>
-            <TabsTrigger
-              value="calendar"
-              className="gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-            >
-              <CalendarDays size={14} />
-              Calendar
-            </TabsTrigger>
+
+            {canSeeFilters && (
+              <>
+                <TabsTrigger
+                  value="shift"
+                  className="gap-1.5 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                >
+                  <Clock size={14} />
+                  Shift Assignment
+                </TabsTrigger>
+                <TabsTrigger
+                  value="calendar"
+                  className="gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white"
+                >
+                  <CalendarDays size={14} />
+                  Calendar
+                </TabsTrigger>
+              </>
+            )}
           </TabsList>
         </div>
 

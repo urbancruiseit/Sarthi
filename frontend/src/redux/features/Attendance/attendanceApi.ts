@@ -149,7 +149,7 @@ export const getMyMonthlyAttendance = async (
     const response = await axiosInstance.get("/attendance/my-monthly", {
       params: filters,
     });
-    console.log("monthlu aatendance ", response.data.data);
+   
     if (response.data?.success) {
       return response.data.data;
     }
