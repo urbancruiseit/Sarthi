@@ -2,12 +2,12 @@ import cron from "node-cron";
 import { syncAttendance } from "./attendanceSync.service.js";
 import { runAutoAttendanceMarking } from "./attendance.model.js";
 
-const SYNC_CRON_EXPRESSION_SLOT1 = "17 14 * * *";
+const SYNC_CRON_EXPRESSION_SLOT1 = "0 11 * * *";
 const SYNC_CRON_EXPRESSION_SLOT2 = "0 14 * * *";
 const SYNC_CRON_EXPRESSION_SLOT3 = "21 18 * * *";
 const SYNC_CRON_EXPRESSION_SLOT4 = "0 22 * * *";
 
-const AUTO_ATTENDANCE_CRON_EXPRESSION = "30 18 * * *";
+const AUTO_ATTENDANCE_CRON_EXPRESSION = "0 15 * * *";
 
 let tasks = [];
 
