@@ -2,12 +2,12 @@ import cron from "node-cron";
 import { syncAttendance } from "./attendanceSync.service.js";
 import { runAutoAttendanceMarking } from "./attendance.model.js";
 
-const SYNC_CRON_EXPRESSION_SLOT1 = "30 11 * * *";
+const SYNC_CRON_EXPRESSION_SLOT1 = "17 14 * * *";
 const SYNC_CRON_EXPRESSION_SLOT2 = "0 14 * * *";
 const SYNC_CRON_EXPRESSION_SLOT3 = "21 18 * * *";
 const SYNC_CRON_EXPRESSION_SLOT4 = "0 22 * * *";
 
-const AUTO_ATTENDANCE_CRON_EXPRESSION = "30 14 * * *";
+const AUTO_ATTENDANCE_CRON_EXPRESSION = "30 18 * * *";
 
 let tasks = [];
 
@@ -32,7 +32,7 @@ const runAutoMarking = async () => {
   try {
     const result = await runAutoAttendanceMarking();
     console.log(
-      `[AutoAttendanceMarkingCron:1:00PM] done —`,
+      `[AutoAttendanceMarkingCron:2:30PM] done —`,
       JSON.stringify(result),
     );
   } catch (err) {

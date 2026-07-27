@@ -495,7 +495,6 @@ export const getAttendanceByDate = async (filters = {}) => {
 //   }
 // };
 
-
 export const getAttendanceByMonth = async (filters = {}) => {
   try {
     const {
@@ -806,11 +805,23 @@ export const markAttendance = async ({
 
     let lateMinutes = 0;
 
-    if (shiftRows.length && shiftRows[0].shift_timing && punchIn) {
-      const shiftTiming = shiftRows[0].shift_timing;
+    // Sunday check
+    const isSunday = new Date(attendanceDate).getDay() === 0; // 0 = Sunday
 
-      // Example: "10:00 AM - 06:30 PM"
-      const shiftStart = shiftTiming.split("-")[0].trim();
+    if (
+      punchIn &&
+      (isSunday || (shiftRows.length && shiftRows[0].shift_timing))
+    ) {
+      let shiftStart;
+
+      if (isSunday) {
+        // Sunday shift is fixed: 10:30 AM start, regardless of DB shift_timing
+        shiftStart = "10:30 AM";
+      } else {
+        // Example: "10:00 AM - 06:30 PM"
+        const shiftTiming = shiftRows[0].shift_timing;
+        shiftStart = shiftTiming.split("-")[0].trim();
+      }
 
       const shiftStartDate = new Date(`${attendanceDate} ${shiftStart}`);
       const punchInDate = new Date(`${attendanceDate}T${punchIn}`);
@@ -961,7 +972,15 @@ export const updatePunchOut = async ({
       shortMinutes = Math.max(0, REQUIRED_MINUTES - workedMinutes);
 
       // Early Exit
-      if (attendance.shift_timing) {
+      if (isSunday) {
+        // Sunday shift is fixed: 10:30 AM start, 8 hours duration -> 06:30 PM end
+        const shiftEndTime = new Date(`${attendanceDate} 06:30 PM`);
+
+        earlyExitMinutes = Math.max(
+          0,
+          Math.floor((shiftEndTime - punchOut) / 60000),
+        );
+      } else if (attendance.shift_timing) {
         // Format: 09:00 AM - 05:30 PM
         const [, shiftEnd] = attendance.shift_timing
           .split("-")
@@ -980,7 +999,9 @@ export const updatePunchOut = async ({
         isSunday,
         isBranchHoliday,
         requiredMinutes: REQUIRED_MINUTES,
-        shiftTiming: attendance.shift_timing,
+        shiftTiming: isSunday
+          ? "10:30 AM - 06:30 PM (fixed)"
+          : attendance.shift_timing,
         punchIn,
         punchOut,
         workedMinutes,
@@ -1050,12 +1071,12 @@ export const runAutoAttendanceMarking = async () => {
 
     const todayDate = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Kolkata",
-    }).format(now); // YYYY-MM-DD
+    }).format(now); 
 
     const todayDayName = new Intl.DateTimeFormat("en-US", {
       timeZone: "Asia/Kolkata",
       weekday: "long",
-    }).format(now); // e.g. "Thursday"
+    }).format(now); 
 
     // Short-form aur full-form dono handle karne ke liye normalize helper
     const dayAliases = {
@@ -1110,7 +1131,7 @@ export const runAutoAttendanceMarking = async () => {
         ON a.employee_id = u.id
         AND a.attendance_date = ?
 
-      WHERE u.branchOffice_id = 1
+      
       `,
       [todayDate, todayDate],
     );
@@ -1125,13 +1146,11 @@ export const runAutoAttendanceMarking = async () => {
         continue;
       }
 
-     
       const hasOverrideWeekOff =
         emp.eso_id != null &&
         emp.temp_week_off != null &&
         String(emp.temp_week_off).trim() !== "";
 
-    
       const sourceWeekOffRaw = hasOverrideWeekOff
         ? emp.temp_week_off
         : emp.permanent_week_off || "";

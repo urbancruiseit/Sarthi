@@ -158,10 +158,7 @@ export default function Attendance() {
           employeeFilter === "all" ||
           String(r.employee_id ?? "") === employeeFilter;
 
-        // CHANGED: statusFilter ab array hai — empty array = sab dikhao,
-        // warna sirf un statuses ko dikhao jo checklist me selected hain.
-        // NOTE: agar record ka field naam "status" na ho (jaise attendance_status),
-        // to yahan r.status ko us actual field name se replace karna.
+       
         const matchesStatus =
           statusFilter.length === 0 ||
           statusFilter.includes((r as any).status ?? "");
