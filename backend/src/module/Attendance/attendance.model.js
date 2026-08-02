@@ -148,17 +148,7 @@ export const getAttendanceByDate = async (filters = {}) => {
 
     const [rows] = await pool.execute(sql, params);
 
-    // DEBUG: dekho actual row structure aur values kya aa rahi hain
-    console.log(
-      "getAttendanceByDate -> sample row:",
-      rows[0] || "No rows returned",
-    );
-    console.log(
-      "getAttendanceByDate -> total rows:",
-      rows.length,
-      "| filters:",
-      filters,
-    );
+    
 
     // ---------- SUMMARY CALCULATION ----------
 
@@ -179,7 +169,6 @@ export const getAttendanceByDate = async (filters = {}) => {
       else if (status === "lwp") lwpCount++;
     }
 
-    
     const compOffConditions = ["co.status = 'Available'"];
     const compOffParams = [];
 
