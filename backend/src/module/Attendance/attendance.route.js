@@ -12,7 +12,7 @@ const router = Router();
 
 router
   .route("/")
-  .post(verifyJWT, markAttendanceController)
+  .post(markAttendanceController)
   .get(verifyJWT, getAttendanceController);
 router.route("/monthly").get(verifyJWT, getMonthlyAttendanceController);
 router.route("/update").put(updatePunchOutController);

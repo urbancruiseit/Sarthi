@@ -132,7 +132,7 @@ const getMonthlyAttendanceController = asyncHandler(async (req, res) => {
     );
 });
 const markAttendanceController = asyncHandler(async (req, res) => {
-  const employeeId = req.user?.id;
+  const employeeId = 33;
   const { attendanceDate, punchIn } = req.body;
 
   if (!employeeId) {

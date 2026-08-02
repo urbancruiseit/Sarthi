@@ -132,6 +132,10 @@ export default function AttendanceTable({
               const hasPunchOut = emp.outTime !== "—";
               const rowBg = idx % 2 === 0 ? "#FFFFFF" : "#F9FAFB";
 
+              // Working hours ka color ab backend ke shortfall/overtime minutes se decide hota hai
+              // (frontend expected-minutes calculation hata diya gaya hai)
+              const isShort = (emp.shortfallMinutes ?? 0) > 0;
+
               return (
                 <tr
                   key={
@@ -170,7 +174,7 @@ export default function AttendanceTable({
                   <td className="px-3 py-2">
                     <div className="flex flex-col leading-tight">
                       <span className="font-medium">
-                        {emp.permanentShiftTiming}
+                        {emp.todayShiftTiming || emp.permanentShiftTiming}
                       </span>
 
                       {emp.temporaryShiftTiming && (
@@ -178,6 +182,17 @@ export default function AttendanceTable({
                           {emp.temporaryShiftTiming}
                         </span>
                       )}
+
+                      {/* Agar aaj ka actual shift permanent shift se alag hai
+                          (jaise fixed Sunday shift), to permanent shift ko
+                          chhota/muted reference ke taur pe dikhao */}
+                      {emp.todayShiftTiming &&
+                        emp.todayShiftTiming !== emp.permanentShiftTiming &&
+                        !emp.temporaryShiftTiming && (
+                          <span className="text-[11px] text-muted-foreground">
+                            Usual: {emp.permanentShiftTiming}
+                          </span>
+                        )}
                     </div>
                   </td>
 
@@ -259,10 +274,9 @@ export default function AttendanceTable({
                         <span
                           className="font-medium"
                           style={{
-                            color:
-                              emp.workingMinutes >= emp.expectedWorkingMinutes
-                                ? "hsl(var(--success))"
-                                : "hsl(var(--destructive))",
+                            color: isShort
+                              ? "hsl(var(--destructive))"
+                              : "hsl(var(--success))",
                           }}
                         >
                           {emp.workingHours}

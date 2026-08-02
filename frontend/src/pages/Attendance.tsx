@@ -158,7 +158,6 @@ export default function Attendance() {
           employeeFilter === "all" ||
           String(r.employee_id ?? "") === employeeFilter;
 
-       
         const matchesStatus =
           statusFilter.length === 0 ||
           statusFilter.includes((r as any).status ?? "");
@@ -194,17 +193,17 @@ export default function Attendance() {
   const isDrillDown = !!selectedEmployee;
   const rowsToRender = isDrillDown ? employeeMonthData : attendanceData;
 
-  const totalOvertimeMinutes = rowsToRender.reduce((total, emp) => {
-    if (!emp.workingMinutes) return total;
-    const overtime = emp.workingMinutes - 510;
-    return total + (overtime > 0 ? overtime : 0);
-  }, 0);
+  // CHANGED: ab ye backend se aayi overtime_minutes/short_minutes ka sum hai,
+  // frontend pe koi hardcoded expected-minutes (510) calculation nahi ho raha
+  const totalOvertimeMinutes = rowsToRender.reduce(
+    (total, emp) => total + (emp.overtimeMinutes ?? 0),
+    0,
+  );
 
-  const totalShortMinutes = rowsToRender.reduce((total, emp) => {
-    if (!emp.workingMinutes) return total;
-    const shortTime = 510 - emp.workingMinutes;
-    return total + (shortTime > 0 ? shortTime : 0);
-  }, 0);
+  const totalShortMinutes = rowsToRender.reduce(
+    (total, emp) => total + (emp.shortfallMinutes ?? 0),
+    0,
+  );
 
   const formatDuration = (minutes: number) => {
     const hrs = Math.floor(minutes / 60);

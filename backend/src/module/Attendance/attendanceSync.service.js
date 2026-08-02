@@ -133,6 +133,28 @@ export const syncAttendance = async () => {
   }
 };
 
+// Helper: "DD/MM/YYYY HH:mm:ss" -> { attendanceDate: "YYYY-MM-DD", time: "HH:mm:ss", dateObj: Date }
+const parsePunch = (punchDateStr) => {
+  if (!punchDateStr || !punchDateStr.includes("/")) {
+    return null;
+  }
+
+  const [datePart, timePart] = punchDateStr.split(" ");
+  if (!datePart || !timePart) return null;
+
+  const [day, month, year] = datePart.split("/");
+  if (!day || !month || !year) return null;
+
+  const paddedDay = day.padStart(2, "0");
+  const paddedMonth = month.padStart(2, "0");
+  const attendanceDate = `${year}-${paddedMonth}-${paddedDay}`;
+
+  const dateObj = new Date(`${attendanceDate}T${timePart}`);
+  if (isNaN(dateObj.getTime())) return null;
+
+  return { attendanceDate, time: timePart, dateObj };
+};
+
 const syncOfficeAttendance = async (officeKey) => {
   const [syncRows] = await pool.query(
     "SELECT last_record FROM attendance_sync WHERE office_key=? LIMIT 1",
@@ -158,8 +180,22 @@ const syncOfficeAttendance = async (officeKey) => {
     return;
   }
 
-  for (const punch of response.PunchData) {
+
+  const punchesWithParsed = response.PunchData.map((punch) => ({
+    punch,
+    parsed: parsePunch(punch.PunchDate),
+  })).filter(({ parsed }) => parsed !== null);
+
+  punchesWithParsed.sort(
+    (a, b) => a.parsed.dateObj.getTime() - b.parsed.dateObj.getTime(),
+  );
+
+  let hadFailure = false;
+
+  for (const { punch, parsed } of punchesWithParsed) {
     try {
+      const { attendanceDate, time, dateObj: currentPunchTime } = parsed;
+
       // emp_code + branchOffice_id dono se match — cross-branch clash avoid karne ke liye
       const [users] = await pool.query(
         "SELECT id FROM users WHERE emp_code=? AND branchOffice_id=? LIMIT 1",
@@ -175,40 +211,58 @@ const syncOfficeAttendance = async (officeKey) => {
 
       const employeeId = users[0].id;
 
-      const [day, month, yearAndTime] = punch.PunchDate.split("/");
-      const [year, time] = yearAndTime.split(" ");
-      const attendanceDate = `${year}-${month}-${day}`;
-
       const [attendance] = await pool.query(
-        `SELECT id, punch_out FROM attendance WHERE employee_id=? AND attendance_date=?`,
+        `SELECT id, punch_in, punch_out FROM attendance WHERE employee_id=? AND attendance_date=?`,
         [employeeId, attendanceDate],
       );
 
       if (!attendance.length) {
+        
         await markAttendance({
           employeeId,
           attendanceDate,
           status: "Present",
           punchIn: time,
         });
-      } else if (!attendance[0].punch_out) {
-        await updatePunchOut({
-          employeeId,
-          attendanceDate,
-          punch_out: time,
-          status: "Present",
-        });
-        await createCompOffIfEligible(employeeId, attendanceDate);
       } else {
-        console.log(`Extra Punch Ignored: ${employeeId} on ${attendanceDate}`);
+      
+        const punchInTime = new Date(
+          `${attendanceDate}T${attendance[0].punch_in}`,
+        );
+
+        if (currentPunchTime > punchInTime) {
+          await updatePunchOut({
+            employeeId,
+            attendanceDate,
+            punch_out: time,
+            status: "Present",
+          });
+          await createCompOffIfEligible(employeeId, attendanceDate);
+        } else {
+          console.log(
+            `Punch ignored (not later than punch_in): emp ${employeeId} on ${attendanceDate}`,
+          );
+        }
       }
     } catch (punchErr) {
       console.error(
         `Failed to process punch for emp_code ${punch.Empcode} (${officeKey}):`,
         punchErr,
       );
+      // Stop advancing last_record past this point so the failed punch
+      // gets retried on the next sync run instead of being lost forever.
+      hadFailure = true;
+      break;
     }
-  }  
+  }
+
+  if (hadFailure) {
+    console.warn(
+      `Sync for ${officeKey} stopped early due to a failure. last_record NOT advanced to MaxRecord; will retry from previous point next run.`,
+    );
+    // last_record intentionally left untouched here.
+    return;
+  }
 
   await pool.query(
     "UPDATE attendance_sync SET last_record=? WHERE office_key=?",

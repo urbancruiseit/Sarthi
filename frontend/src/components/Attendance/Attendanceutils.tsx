@@ -57,7 +57,7 @@ export type ModalState =
   | { type: "leave"; empId: string; empName: string; leaveType: string }
   | null;
 
-// ---------- Time helpers ----------
+// ---------- Time helpers (sirf DISPLAY ke liye — calculation ab backend se aata hai) ----------
 
 export function parseTimeToMinutes(time?: string | null): number | null {
   if (!time) return null;
@@ -92,33 +92,8 @@ export function formatTime12h(time?: string | null): string {
   return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
 }
 
-export function getShiftStartMinutes(shiftTiming?: string | null): number {
-  if (!shiftTiming) return 9 * 60;
-
-  const parts = shiftTiming.split(/-|to/i);
-
-  if (parts.length >= 1) {
-    const start = parseTimeToMinutes(parts[0].trim());
-    if (start !== null) return start;
-  }
-
-  return 9 * 60;
-}
-
-export function getShiftEndMinutes(shiftTiming?: string | null): number {
-  if (!shiftTiming) return 18 * 60;
-
-  const parts = shiftTiming.split(/-|to/i);
-
-  if (parts.length >= 2) {
-    const end = parseTimeToMinutes(parts[1].trim());
-    if (end !== null) return end;
-  }
-
-  return 18 * 60;
-}
-
-export function formatDuration(totalMinutes: number): string {
+export function formatDuration(totalMinutes?: number | null): string {
+  if (totalMinutes === null || totalMinutes === undefined) return "—";
   const h = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
   if (h <= 0) return `${m}m`;
@@ -139,54 +114,29 @@ export function toDisplayRow(r: AttendanceRecord, override?: Override) {
   const inTime = formatTime12h(r.punch_in);
   const outTime = formatTime12h(r.punch_out);
 
-  const effectiveShift = r.shift_timing || "09:00 AM - 05:30 PM";
+  const effectiveShift = r.shift_timing || "—";
 
-  const shiftStartMinutes = getShiftStartMinutes(effectiveShift);
-  const shiftEndMinutes = getShiftEndMinutes(effectiveShift);
+  // Aaj ke attendance record me actually jo shift_timing save hui thi
+  // (attendance table ka apna column — permanent/temporary shift se alag,
+  // ye wahi value hai jo us din ke liye final/locked-in thi)
+  const todayShiftTiming = r.attendance_shift_timing || null;
 
-  const inMinutes = parseTimeToMinutes(r.punch_in);
-  const outMinutes = parseTimeToMinutes(r.punch_out);
+  // ---- Backend se aa rahi values seedhi use karo, dobara calculate mat karo ----
+  const workingMinutes = r.worked_minutes ?? null;
+  const overtimeMinutes = r.overtime_minutes ?? 0;
+  const shortfallMinutes = r.short_minutes ?? 0;
+  const lateMinutes = r.late_minutes ?? 0;
+  const earlyMinutes = r.early_exit_minutes ?? 0;
 
-  const isLate = inMinutes !== null && inMinutes > shiftStartMinutes;
-
-  const lateMinutes =
-    isLate && inMinutes !== null ? inMinutes - shiftStartMinutes : 0;
-
-  const isEarlyOut = outMinutes !== null && outMinutes < shiftEndMinutes;
-
-  const earlyMinutes =
-    isEarlyOut && outMinutes !== null ? shiftEndMinutes - outMinutes : 0;
-
-  const workingMinutes =
-    inMinutes !== null && outMinutes !== null
-      ? outMinutes >= inMinutes
-        ? outMinutes - inMinutes
-        : 24 * 60 - inMinutes + outMinutes
-      : null;
+  const isLate = lateMinutes > 0;
+  const isEarlyOut = earlyMinutes > 0;
 
   const workingHours =
     workingMinutes !== null ? formatDuration(workingMinutes) : null;
 
-  const expectedWorkingMinutes =
-    shiftEndMinutes >= shiftStartMinutes
-      ? shiftEndMinutes - shiftStartMinutes
-      : 24 * 60 - shiftStartMinutes + shiftEndMinutes;
-
-  const shortfallMinutes =
-    workingMinutes !== null
-      ? Math.max(0, expectedWorkingMinutes - workingMinutes)
-      : null;
-
-  const overtimeMinutes =
-    workingMinutes !== null
-      ? Math.max(0, workingMinutes - expectedWorkingMinutes)
-      : null;
-
   const shortfall =
-    shortfallMinutes !== null ? formatDuration(shortfallMinutes) : null;
-
-  const overtime =
-    overtimeMinutes !== null ? formatDuration(overtimeMinutes) : null;
+    shortfallMinutes > 0 ? formatDuration(shortfallMinutes) : null;
+  const overtime = overtimeMinutes > 0 ? formatDuration(overtimeMinutes) : null;
 
   return {
     id: empId,
@@ -196,6 +146,7 @@ export function toDisplayRow(r: AttendanceRecord, override?: Override) {
     branchName: r.branch_name || "—",
 
     shiftTiming: effectiveShift,
+    todayShiftTiming,
 
     permanentShiftTiming: r.permanent_shift_timing,
     temporaryShiftTiming: r.temporary_shift_timing,
@@ -219,7 +170,6 @@ export function toDisplayRow(r: AttendanceRecord, override?: Override) {
     workingMinutes,
     workingHours,
 
-    expectedWorkingMinutes,
     shortfallMinutes,
     overtimeMinutes,
     shortfall,

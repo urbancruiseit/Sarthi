@@ -1,5 +1,7 @@
 import { pool } from "../../config/mySqlDB.js";
 
+import { randomUUID } from "crypto";
+
 export const createCompOffIfEligible = async (employeeId, attendanceDate) => {
   // Employee weekoff + holiday
   const [rows] = await pool.execute(
@@ -49,10 +51,13 @@ export const createCompOffIfEligible = async (employeeId, attendanceDate) => {
 
   if (exists.length) return;
 
+  const uuid = randomUUID();
+
   await pool.execute(
     `
     INSERT INTO comp_offs
     (
+      uuid,
       employee_id,
       earned_date,
       days,
@@ -63,12 +68,14 @@ export const createCompOffIfEligible = async (employeeId, attendanceDate) => {
     (
       ?,
       ?,
+      ?,
       1,
       'Available',
       ?
     )
     `,
     [
+      uuid,
       employeeId,
       attendanceDate,
       isHoliday ? "Worked on Holiday" : "Worked on Weekly Off",
