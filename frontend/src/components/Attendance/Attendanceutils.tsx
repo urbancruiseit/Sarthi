@@ -57,8 +57,6 @@ export type ModalState =
   | { type: "leave"; empId: string; empName: string; leaveType: string }
   | null;
 
-// ---------- Time helpers (sirf DISPLAY ke liye — calculation ab backend se aata hai) ----------
-
 export function parseTimeToMinutes(time?: string | null): number | null {
   if (!time) return null;
 
@@ -116,9 +114,6 @@ export function toDisplayRow(r: AttendanceRecord, override?: Override) {
 
   const effectiveShift = r.shift_timing || "—";
 
-  // Aaj ke attendance record me actually jo shift_timing save hui thi
-  // (attendance table ka apna column — permanent/temporary shift se alag,
-  // ye wahi value hai jo us din ke liye final/locked-in thi)
   const todayShiftTiming = r.attendance_shift_timing || null;
 
   // ---- Backend se aa rahi values seedhi use karo, dobara calculate mat karo ----

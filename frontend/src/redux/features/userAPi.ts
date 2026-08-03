@@ -77,7 +77,7 @@ export const createUser = async (
   formData: Partial<Employee>,
 ): Promise<Employee> => {
   try {
-    console.log("APi formDat", formData);
+   
     const response = await axiosInstance.post<ApiResponse<Employee>>(
       `/user`,
       formData,
