@@ -13,6 +13,7 @@ const app = express();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const frontendDist = path.resolve(__dirname, "../public");
+const frontendIndex = path.join(frontendDist, "index.html");
 
 app.use(
   cors({
@@ -43,10 +44,10 @@ app.get("/health", (req, res) => {
   res.send("🚀 Server started successfully");
 });
 
-if (fs.existsSync(frontendDist)) {
+if (fs.existsSync(frontendIndex)) {
   app.use(express.static(frontendDist));
   app.get(/^\/(?!api\/|socket\.io\/).*/, (req, res) => {
-    res.sendFile(path.join(frontendDist, "index.html"));
+    res.sendFile(frontendIndex);
   });
 } else {
   app.get(/^\/(?!api\/|socket\.io\/).*/, (req, res) => {
