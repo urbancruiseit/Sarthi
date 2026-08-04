@@ -8,6 +8,9 @@ jobs:
   # Build frontend and upload dist/ to Hostinger via FTP
   frontend:
     runs-on: ubuntu-latest
+    env:
+      VITE_API_URL: ${{ secrets.VITE_API_URL }}
+      VITE_SOCKET_URL: ${{ secrets.VITE_SOCKET_URL }}
     steps:
       - uses: actions/checkout@v4
 

@@ -65,7 +65,7 @@ const initialState: EmployeeState = {
 
 export const loginEmployeeThunk = createAsyncThunk<
   Employee,
-  { userName: string; password: string }
+  { username: string; password: string }
 >("Employee/login", async (loginData, { rejectWithValue }) => {
   try {
     const Employee = await loginUser(loginData);

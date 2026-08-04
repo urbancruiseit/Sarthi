@@ -2,7 +2,7 @@ import { Employee } from "@/types";
 import axiosInstance from "@/utils/axiosInstance";
 
 interface LoginData {
-  userName: string;
+  username: string;
   password: string;
 }
 
