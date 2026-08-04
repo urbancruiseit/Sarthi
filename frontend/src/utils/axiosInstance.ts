@@ -10,7 +10,13 @@ const fallbackApi =
     ? `${window.location.origin}/api/v1`
     : "/api/v1";
 
-export const baseApi = envApi ? `${envApi}/` : `${fallbackApi}/`;
+const normalizedApi = envApi?.endsWith("/api/v1")
+  ? envApi
+  : envApi
+    ? `${envApi}/api/v1`
+    : fallbackApi;
+
+export const baseApi = `${normalizedApi}/`;
 
 const axiosInstance = axios.create({
   baseURL: baseApi,
