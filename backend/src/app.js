@@ -49,7 +49,7 @@ if (fs.existsSync(frontendDist)) {
     res.sendFile(path.join(frontendDist, "index.html"));
   });
 } else {
-  app.get("/", (req, res) => {
+  app.get(/^\/(?!api\/|socket\.io\/).*/, (req, res) => {
     res.send("🚀 Server started successfully (frontend build not found)");
   });
 }

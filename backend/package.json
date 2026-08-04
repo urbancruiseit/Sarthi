@@ -12,9 +12,9 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node src/server.js",
-    "start:prod": "node --env-file=.env.production src/server.js",
-    "start:local": "node --env-file=.env.local src/server.js",
+    "start": "npm run build && node src/server.js",
+    "start:prod": "npm run build && node --env-file=.env.production src/server.js",
+    "start:local": "npm run build && node --env-file=.env.local src/server.js",
     "dev": "nodemon --exec \"node --env-file=.env.local\" src/server.js",
     "dev:prod": "nodemon --exec \"node --env-file=.env.production\" src/server.js",
     "build": "node scripts/build-frontend.js"
