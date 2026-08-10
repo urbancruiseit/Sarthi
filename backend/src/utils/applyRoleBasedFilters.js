@@ -20,13 +20,10 @@ export const applyRoleBasedFilters = (
   const userId = req.user.id;
   const subDepartment = req.user.subDepartment;
 
-  // Special case: MANAGER jiska subDepartment "Ops & Admin" hai
-  // -> Sab employees ka data dikhega (SUPER_ADMIN jaisa open access)
   const isOpsAdminManager =
     role === "MANAGER" && subDepartment === "Ops & Admin";
 
   if (isOpsAdminManager) {
-    // Koi employee/manager restriction nahi — sab data allowed
     return filters;
   }
 

@@ -483,7 +483,6 @@ export default function EmployeeManager() {
       // ✅ FIXED: Travel Advisor - Manager ke SAARE zone_ids se cities fetch karo
       // ============================
       if (isTravelAdvisor) {
-
         // CASE 1: Manager ke paas city_ids hain (Team Leader-Sales ka case)
         if (managerCityIds.length > 0) {
           console.log("=== Travel Advisor: Manager has direct city_ids ===");
@@ -506,10 +505,7 @@ export default function EmployeeManager() {
                   : Array.isArray(res?.data)
                     ? res.data
                     : [];
-                console.log(
-                  `Cities from zone ${zoneId}:`,
-                  fetched.length,
-                );
+                console.log(`Cities from zone ${zoneId}:`, fetched.length);
                 allCities.push(...fetched);
               } catch (err) {
                 console.error(
@@ -602,9 +598,7 @@ export default function EmployeeManager() {
 
           for (const zoneId of managerZoneIds) {
             try {
-              const res: any = await dispatch(
-                fetchZoneCities(zoneId),
-              ).unwrap();
+              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
               const fetched = Array.isArray(res)
                 ? res
                 : Array.isArray(res?.data)
@@ -613,12 +607,7 @@ export default function EmployeeManager() {
               console.log(`Cities for zone ${zoneId}:`, fetched.length);
               allCities.push(...fetched);
             } catch (err) {
-              console.error(
-                "Error fetching cities for zone",
-                zoneId,
-                ":",
-                err,
-              );
+              console.error("Error fetching cities for zone", zoneId, ":", err);
             }
           }
 
@@ -633,9 +622,7 @@ export default function EmployeeManager() {
 
         // CASE 3: Manager ke paas sirf region_ids hain (Regional Head ka case)
         if (managerRegionIds.length > 0) {
-          console.log(
-            "=== Travel Advisor: Loading from manager regions ===",
-          );
+          console.log("=== Travel Advisor: Loading from manager regions ===");
           const allZones: any[] = [];
 
           for (const regionId of managerRegionIds) {
@@ -658,9 +645,7 @@ export default function EmployeeManager() {
           const allCities: any[] = [];
           for (const zoneId of zoneIds) {
             try {
-              const res: any = await dispatch(
-                fetchZoneCities(zoneId),
-              ).unwrap();
+              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
               const fetched = Array.isArray(res)
                 ? res
                 : Array.isArray(res?.data)
@@ -668,12 +653,7 @@ export default function EmployeeManager() {
                   : [];
               allCities.push(...fetched);
             } catch (err) {
-              console.error(
-                "Error fetching cities for zone",
-                zoneId,
-                ":",
-                err,
-              );
+              console.error("Error fetching cities for zone", zoneId, ":", err);
             }
           }
 
@@ -738,9 +718,7 @@ export default function EmployeeManager() {
 
           for (const zoneId of managerZoneIds) {
             try {
-              const res: any = await dispatch(
-                fetchZoneCities(zoneId),
-              ).unwrap();
+              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
               const fetched = Array.isArray(res)
                 ? res
                 : Array.isArray(res?.data)
@@ -749,12 +727,7 @@ export default function EmployeeManager() {
               console.log("Cities for zone", zoneId, ":", fetched.length);
               allCities.push(...fetched);
             } catch (err) {
-              console.error(
-                "Error fetching cities for zone",
-                zoneId,
-                ":",
-                err,
-              );
+              console.error("Error fetching cities for zone", zoneId, ":", err);
             }
           }
 
@@ -797,9 +770,7 @@ export default function EmployeeManager() {
 
           for (const zoneId of zoneIds) {
             try {
-              const res: any = await dispatch(
-                fetchZoneCities(zoneId),
-              ).unwrap();
+              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
               const fetched = Array.isArray(res)
                 ? res
                 : Array.isArray(res?.data)
@@ -807,12 +778,7 @@ export default function EmployeeManager() {
                   : [];
               allCities.push(...fetched);
             } catch (err) {
-              console.error(
-                "Error fetching cities for zone",
-                zoneId,
-                ":",
-                err,
-              );
+              console.error("Error fetching cities for zone", zoneId, ":", err);
             }
           }
 
@@ -859,9 +825,7 @@ export default function EmployeeManager() {
 
           for (const zoneId of psZoneIds) {
             try {
-              const res: any = await dispatch(
-                fetchZoneCities(zoneId),
-              ).unwrap();
+              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
               const fetched = Array.isArray(res)
                 ? res
                 : Array.isArray(res?.data)
@@ -870,12 +834,7 @@ export default function EmployeeManager() {
               console.log(`Cities for zone ${zoneId}:`, fetched.length);
               allCities.push(...fetched);
             } catch (err) {
-              console.error(
-                "Error fetching cities for zone",
-                zoneId,
-                ":",
-                err,
-              );
+              console.error("Error fetching cities for zone", zoneId, ":", err);
             }
           }
 
@@ -920,9 +879,7 @@ export default function EmployeeManager() {
 
           for (const zoneId of zoneIds) {
             try {
-              const res: any = await dispatch(
-                fetchZoneCities(zoneId),
-              ).unwrap();
+              const res: any = await dispatch(fetchZoneCities(zoneId)).unwrap();
               const fetched = Array.isArray(res)
                 ? res
                 : Array.isArray(res?.data)
@@ -930,12 +887,7 @@ export default function EmployeeManager() {
                   : [];
               allCities.push(...fetched);
             } catch (err) {
-              console.error(
-                "Error fetching cities for zone",
-                zoneId,
-                ":",
-                err,
-              );
+              console.error("Error fetching cities for zone", zoneId, ":", err);
             }
           }
 
@@ -1274,6 +1226,7 @@ export default function EmployeeManager() {
           item.employee_name ||
           item.employeeName ||
           getEmployeeFullName(employee),
+        alias_name: item.alias_name,
         department_id: item.department_id,
         departmentName:
           item.department_name ||
@@ -1401,6 +1354,7 @@ export default function EmployeeManager() {
             <tr>
               {[
                 "Employee",
+                " Alias Name",
                 "Department",
                 "Sub Department",
                 "Role",
@@ -1442,6 +1396,7 @@ export default function EmployeeManager() {
               mappedAssignments.map((item) => (
                 <tr key={item.id} className="hover:bg-muted/30">
                   <td className="border-b px-4 py-3">{item.employeeName}</td>
+                  <td className="border-b px-4 py-3">{item.alias_name}</td>
                   <td className="border-b px-4 py-3">{item.departmentName}</td>
                   <td className="border-b px-4 py-3">
                     {item.subDepartmentName}

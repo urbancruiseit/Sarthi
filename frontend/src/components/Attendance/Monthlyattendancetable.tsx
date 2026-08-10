@@ -190,6 +190,8 @@ type ProcessedEmployee = {
   totalAbsent: number;
   totalLate: number;
   totalHalfDay: number;
+  totalOT: string;
+  totalShort: string;
 };
 
 const EMPTY_DAY_CELL_BASE = {
@@ -251,6 +253,8 @@ function processRecords(
     let lateCount = 0;
     let halfDayCount = 0;
     let totalWorkMinutes = 0;
+    let totalOTMinutes = 0;
+    let totalShortMinutes = 0;
 
     const days: DayCell[] = Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1;
@@ -263,9 +267,7 @@ function processRecords(
 
       const rec = byDay.get(day);
 
-      // Sirf tab poora dash dikhao jab is din ke liye koi record hi na ho.
-      // Agar record hai (chahe punch_in/punch_out dono null ho — jaise
-      // Absent / Week Off / Holiday), to uska status code zaroor dikhna chahiye.
+    
       if (!rec || !rec.attendance_date) {
         return { day, ...EMPTY_DAY_CELL_BASE };
       }
@@ -304,11 +306,14 @@ function processRecords(
 
       if (!isZeroTime(rec.overtime_time)) {
         ot = (rec.overtime_time as string).slice(0, 5);
+        const parsedOTMin = timeToMinutes(ot);
+        if (parsedOTMin) totalOTMinutes += parsedOTMin;
       } else if (
         typeof rec.overtime_minutes === "number" &&
         rec.overtime_minutes > 0
       ) {
         ot = minutesToHHMM(rec.overtime_minutes);
+        totalOTMinutes += rec.overtime_minutes;
       }
 
       if (rec.is_late) {
@@ -319,11 +324,14 @@ function processRecords(
 
       if (!isZeroTime(rec.short_time)) {
         f = (rec.short_time as string).slice(0, 5);
+        const parsedShortMin = timeToMinutes(f);
+        if (parsedShortMin) totalShortMinutes += parsedShortMin;
       } else if (
         typeof rec.short_minutes === "number" &&
         rec.short_minutes > 0
       ) {
         f = minutesToHHMM(rec.short_minutes);
+        totalShortMinutes += rec.short_minutes;
       }
 
       return {
@@ -351,6 +359,8 @@ function processRecords(
       totalAbsent: absentCount,
       totalLate: lateCount,
       totalHalfDay: halfDayCount,
+      totalOT: minutesToHHMM(totalOTMinutes),
+      totalShort: minutesToHHMM(totalShortMinutes),
     });
     colorIdx += 1;
   }
@@ -671,14 +681,42 @@ const Monthlyattendancetable = () => {
                           );
                         })}
 
+                        {(() => {
+                          // Total Hours column: Status/IN/OUT/WH rows merge
+                          // into a single cell showing the total worked
+                          // hours. OT row shows total OT, F row shows total
+                          // short — no extra "-" filler rows, sab ek hi
+                          // "Total Hours" column ke andar hai, koi naya
+                          // column add nahi kiya.
+                          if (rowType === "OT") {
+                            return (
+                              <td className="border text-center font-bold bg-green-50 text-green-700">
+                                {employee.totalOT}
+                              </td>
+                            );
+                          }
+                          if (rowType === "F") {
+                            return (
+                              <td className="border text-center font-bold bg-red-50 text-red-700">
+                                {employee.totalShort}
+                              </td>
+                            );
+                          }
+                          if (rowType === "Status") {
+                            return (
+                              <td
+                                rowSpan={4}
+                                className="border text-center align-middle font-bold bg-orange-50 text-orange-800"
+                              >
+                                {employee.totalHours}
+                              </td>
+                            );
+                          }
+                          return null;
+                        })()}
+
                         {rowIdx === 0 && (
                           <>
-                            <td
-                              rowSpan={ROW_TYPES.length}
-                              className="border text-center align-middle font-bold bg-orange-50 text-orange-800"
-                            >
-                              {employee.totalHours}
-                            </td>
                             <td
                               rowSpan={ROW_TYPES.length}
                               className="border text-center align-middle font-bold bg-emerald-50 text-emerald-800"

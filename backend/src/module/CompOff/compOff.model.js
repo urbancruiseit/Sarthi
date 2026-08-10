@@ -83,19 +83,76 @@ export const createCompOffIfEligible = async (employeeId, attendanceDate) => {
   );
 };
 
-export const getCompOffsByEmployee = async (employeeId) => {
-  const [rows] = await hrmsPool.execute(
+export const getCompOffs = async (filters = {}) => {
+  const {
+    employeeId,
+    managerId,
+    hodId,
+    zonalHeadId,
+    branchId,
+    departmentId,
+    status,
+    startDate,
+    endDate,
+  } = filters;
+
+  const conditions = [];
+  const values = [];
+  if (managerId) {
+    conditions.push("u.manager_id = ?");
+    values.push(managerId);
+  }
+
+  if (hodId) {
+    conditions.push("u.manager_id = ?");
+    values.push(hodId);
+  }
+
+  if (zonalHeadId) {
+    conditions.push("u.manager_id = ?");
+    values.push(zonalHeadId);
+  }
+
+  if (employeeId) {
+    conditions.push("c.employee_id = ?");
+    values.push(employeeId);
+  }
+
+  if (branchId) {
+    conditions.push("u.branchOffice_id = ?");
+    values.push(branchId);
+  }
+
+  if (departmentId) {
+    conditions.push("u.department_id = ?");
+    values.push(departmentId);
+  }
+
+  if (status) {
+    conditions.push("c.status = ?");
+    values.push(status);
+  }
+
+  if (startDate && endDate) {
+    conditions.push("c.earned_date BETWEEN ? AND ?");
+    values.push(startDate, endDate);
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const [rows] = await pool.execute(
     `
     SELECT
       c.*,
-      CONCAT(u.firstName,' ',u.lastName) AS employee_name
+      CONCAT(u.firstName, ' ', u.lastName) AS employee_name
     FROM comp_offs c
     JOIN users u
       ON u.id = c.employee_id
-    WHERE c.employee_id = ?
+    ${whereClause}
     ORDER BY c.earned_date DESC
     `,
-    [employeeId],
+    values,
   );
 
   return rows;
