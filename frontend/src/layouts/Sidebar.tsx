@@ -19,7 +19,6 @@ import {
 import { useAppSelector } from "@/hooks/useRedux";
 import { cn } from "@/lib/utils";
 
-// ─── Role Types ───────────────────────────────────────────────────────────────
 type AccessRole =
   | "EMPLOYEE"
   | "TEAM_LEAD"
@@ -111,189 +110,188 @@ type RouteAccessMap = Partial<Record<AccessRole, string[]>>;
 export const SUB_DEPT_ACCESS: Record<SubDepartment, RouteAccessMap> = {
   // ── Sales ───────────────────────────────────────────────────────────────────
   "Pre-Sales": {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   "Corp. Sales": {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   "Tele-Sales": {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   // ── Finance ─────────────────────────────────────────────────────────────────
   Statutory: {
-    EMPLOYEE: ["/attendance"],
-    MANAGER: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   Finance: {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   Accounting: {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   Audit: {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   // ── IT ──────────────────────────────────────────────────────────────────────
   Website: {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   "Web App": {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   "Mobile App": {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   "MIS & Analytics": {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
- 
   "Ops & Admin": {
-    EMPLOYEE: ["/attendance"],
-    MANAGER: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   Recruitment: {
-    EMPLOYEE: ["/attendance"],
-    MANAGER: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   // ── VEH OPS ─────────────────────────────────────────────────────────────────
   "Vendor REL": {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   "CUS Care": {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   "Veh. Design": {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   // ── Digital Marketing ───────────────────────────────────────────────────────
   SEO: {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   SMO: {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   Ads: {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   "GA/E": {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },
 
   General: {
-    EMPLOYEE: ["/attendance"],
-    TEAM_LEAD: ["/attendance"],
-    MANAGER: ["/attendance"],
-    ZONAL_HEAD: ["/attendance"],
+    EMPLOYEE: ["/attendance", "/leave"],
+    TEAM_LEAD: ["/attendance", "/leave"],
+    MANAGER: ["/attendance", "/leave"],
+    ZONAL_HEAD: ["/attendance", "/leave"],
     HOD: ALL_ROUTES,
     SUPER_ADMIN: ALL_ROUTES,
   },

@@ -3,7 +3,6 @@ import { pool } from "../../config/mySqlDB.js";
 import { randomUUID } from "crypto";
 
 export const createCompOffIfEligible = async (employeeId, attendanceDate) => {
-  // Employee weekoff + holiday
   const [rows] = await pool.execute(
     `
     SELECT
@@ -87,30 +86,21 @@ export const getCompOffs = async (filters = {}) => {
   const {
     employeeId,
     managerId,
-    hodId,
-    zonalHeadId,
     branchId,
     departmentId,
     status,
     startDate,
     endDate,
+    page = 1,
+    limit = 10,
   } = filters;
 
   const conditions = [];
   const values = [];
+
   if (managerId) {
     conditions.push("u.manager_id = ?");
     values.push(managerId);
-  }
-
-  if (hodId) {
-    conditions.push("u.manager_id = ?");
-    values.push(hodId);
-  }
-
-  if (zonalHeadId) {
-    conditions.push("u.manager_id = ?");
-    values.push(zonalHeadId);
   }
 
   if (employeeId) {
@@ -141,21 +131,60 @@ export const getCompOffs = async (filters = {}) => {
   const whereClause =
     conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const [rows] = await pool.execute(
+  // Total count for pagination (same WHERE, no LIMIT)
+  const [countRows] = await pool.execute(
     `
-    SELECT
-      c.*,
-      CONCAT(u.firstName, ' ', u.lastName) AS employee_name
+    SELECT COUNT(*) AS total
     FROM comp_offs c
     JOIN users u
       ON u.id = c.employee_id
     ${whereClause}
-    ORDER BY c.earned_date DESC
     `,
     values,
   );
+  const total = countRows[0]?.total ?? 0;
 
-  return rows;
+  const pageNum = Math.max(1, Number(page));
+  const limitNum = Math.max(1, Number(limit));
+  const offset = (pageNum - 1) * limitNum;
+
+  const [rows] = await pool.execute(
+    `
+    SELECT
+      c.*,
+      DATE_FORMAT(c.earned_date, '%Y-%m-%d') AS earned_date,
+      CONCAT(u.firstName, ' ', u.lastName) AS employee_name,
+      u.branchOffice_id AS branch_id,
+      b.branch_name AS branch_name,
+      u.department_id AS department_id,
+      d.department_name AS department_name
+    FROM comp_offs c
+    JOIN users u
+      ON u.id = c.employee_id
+    LEFT JOIN branches b
+      ON b.id = u.branchOffice_id
+    LEFT JOIN departments d
+      ON d.id = u.department_id
+    ${whereClause}
+    ORDER BY c.earned_date DESC
+    LIMIT ? OFFSET ?
+    `,
+    [...values, limitNum, offset],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(total / limitNum));
+
+  return {
+    rows,
+    pagination: {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages,
+      hasPrevPage: pageNum > 1,
+      hasNextPage: pageNum < totalPages,
+    },
+  };
 };
 
 export const getCompOffBalance = async (employeeId) => {

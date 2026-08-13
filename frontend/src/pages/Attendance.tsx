@@ -72,7 +72,7 @@ export default function Attendance() {
   const [employeeFilter, setEmployeeFilter] = useState<string>("all");
   const [overrides, setOverrides] = useState<Record<string, Override>>({});
   const [modal, setModal] = useState<ModalState>(null);
-  // CHANGED: statusFilter ab string[] hai — empty array = "All Status"
+  
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
   const [activeTab, setActiveTab] = useState("attendance");

@@ -22,6 +22,7 @@ import shiftassignmentsRouter from "../module/Shiftassignment/shiftassignment.ro
 import holidaysRouter from "../module/Calendar/calendar.route.js";
 import dutyrosterRouter from "../module/Dutyroster/dutyroster.route.js";
 import leaveRouter from "../module/Leave/leave.route.js";
+import compoffRouter from "../module/CompOff/compOff.route.js";
 
 const registerRoutes = (app) => {
   app.use("/api/v1/link", linkRouter);
@@ -47,6 +48,7 @@ const registerRoutes = (app) => {
   app.use("/api/v1/holidays", holidaysRouter);
   app.use("/api/v1/duty-roster", dutyrosterRouter);
   app.use("/api/v1/leaves", leaveRouter);
+  app.use("/api/v1/comp-offs", compoffRouter);
 };
 
 export default registerRoutes;

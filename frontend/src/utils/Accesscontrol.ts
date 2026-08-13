@@ -13,6 +13,7 @@ const HR_SUB_DEPARTMENT_NAME = "HR Department";
 
 const FEATURE_ACCESS: Record<string, Role[]> = {
   ATTENDANCE_FILTERS: [Role.SUPER_ADMIN, Role.MANAGER],
+  COMP_OFF_FILTERS: [Role.SUPER_ADMIN, Role.MANAGER],
 };
 
 export type FeatureKey = keyof typeof FEATURE_ACCESS;

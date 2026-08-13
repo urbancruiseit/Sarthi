@@ -154,9 +154,8 @@ const markAttendanceController = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, result, "Attendance marked successfully"));
 });
-
 const updatePunchOutController = asyncHandler(async (req, res) => {
-  const employeeId = 9;
+  const employeeId = 63;
 
   const { attendanceDate, punchOut, punch_out } = req.body;
 
@@ -186,7 +185,6 @@ const updatePunchOutController = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, result, "Punch-out updated successfully"));
 });
-
 const updateStatusController = asyncHandler(async (req, res) => {
   const { employeeId, attendanceDate, status } = req.body;
 
@@ -216,22 +214,19 @@ const updateStatusController = asyncHandler(async (req, res) => {
       new ApiResponse(200, result, "Attendance status updated successfully"),
     );
 });
+const triggerAutoAttendanceController = asyncHandler(async (req, res) => {
+  const role = req.user.access_role;
 
-export const triggerAutoAttendanceController = asyncHandler(
-  async (req, res) => {
-    const role = req.user.access_role;
+  if (role !== "SUPER_ADMIN") {
+    throw new ApiError(403, "You are not authorized to run this action");
+  }
 
-    if (role !== "SUPER_ADMIN") {
-      throw new ApiError(403, "You are not authorized to run this action");
-    }
+  const result = await runAutoAttendanceMarking();
 
-    const result = await runAutoAttendanceMarking();
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, result, "Auto attendance marking completed"));
-  },
-);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, result, "Auto attendance marking completed"));
+});
 
 export {
   getAttendanceController,
@@ -239,4 +234,5 @@ export {
   markAttendanceController,
   updatePunchOutController,
   updateStatusController,
+  triggerAutoAttendanceController,
 };

@@ -25,10 +25,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 const toKey = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
-// Backend dates can come back as "2026-07-10", "2026-07-10T00:00:00.000Z",
-// etc. Grabbing just the leading YYYY-MM-DD avoids any timezone shifting
-// that `new Date(...)` would otherwise introduce, so it always matches the
-// plain YYYY-MM-DD key used for each calendar cell.
+
 const normalizeDateKey = (dateStr: string) => {
   const match = dateStr?.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return match ? `${match[1]}-${match[2]}-${match[3]}` : dateStr;

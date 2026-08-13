@@ -20,6 +20,7 @@ import shiftAssignmentReducer from "../redux/features/Shiftassignment/shiftassig
 import holidayReducer from "../redux/features/Calendar/calendarSlice";
 import dutyrosterReducer from "../redux/features/Calendar/calendarSlice";
 import leaveReducer from "../redux/features/Leave/leaveSlice";
+import compOffsReducer from "../redux/features/Compoff/Compoffslice";
 
 export const store = configureStore({
   reducer: {
@@ -44,6 +45,7 @@ export const store = configureStore({
     holiday: holidayReducer,
     dutyRoster: dutyrosterReducer,
     leave: leaveReducer,
+    compOffs: compOffsReducer,
   },
 });
 

@@ -1,15 +1,19 @@
 import { ApiResponse } from "../../utils/ApiResponse.js";
+import { applyRoleBasedFilters } from "../../utils/applyRoleBasedFilters.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { getCompOffs } from "./compOff.model.js";
 
 const getCompOffController = asyncHandler(async (req, res) => {
-  const { month, employeeId, branchId, departmentId, status } = req.query;
+  const { month, employeeId, branchId, departmentId, status, page, limit } =
+    req.query;
 
   const filters = {
     employeeId,
     branchId,
     departmentId,
     status,
+    page,
+    limit,
   };
 
   // Month filter
@@ -24,10 +28,15 @@ const getCompOffController = asyncHandler(async (req, res) => {
   // Apply role-based filters
   applyRoleBasedFilters(filters, req);
 
-  const compOffs = await getCompOffs(filters);
+  // getCompOffs ab { rows, pagination } return karta hai (pehle sirf rows array tha)
+  const { rows, pagination } = await getCompOffs(filters);
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, compOffs, "Comp Off fetched successfully"));
+  const response = new ApiResponse(
+    200,
+    { rows, pagination },
+    "Comp Off fetched successfully",
+  );
+
+  return res.status(200).json(response);
 });
 export { getCompOffController };

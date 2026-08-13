@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Users, UserPlus, Gift, Building2, ClipboardList } from "lucide-react";
+import {
+  Users,
+  UserPlus,
+  Gift,
+  Building2,
+  ClipboardList,
+  CalendarClock,
+} from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
 import { RootState } from "@/redux/store";
+// apne actual path se update kar lena
 
 import { daysBetween } from "@/utils/leaveUtils";
 import ApplyLeaveModal from "@/components/Leave/ApplyLeaveModal";
@@ -22,15 +30,20 @@ import AssignLeaveTab, {
 } from "@/components/Leave/AssignLeaveTab";
 import HolidayManager from "@/components/Callender/Holidaymanager";
 import DutyRoster from "@/components/Leave/Dutyroster";
+
 import {
   applyLeaveThunk,
   getMyLeavesThunk,
 } from "@/redux/features/Leave/leaveSlice";
+import CompOffTable from "@/components/Leave/Compofftable";
+import { useAccessControl } from "@/utils/Accesscontrol";
 
 function Leave() {
   const dispatch = useAppDispatch();
+  const { isSuperAdmin } = useAccessControl();
 
-  const [activeTab, setActiveTab] = useState("leave");
+  // Non-super-admin ko sirf Comp Off tab dikhega, baaki sab hidden
+  const [activeTab, setActiveTab] = useState("compoff");
   const headerContent = TAB_CONTENT[activeTab] ?? TAB_CONTENT.leave;
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -42,6 +55,11 @@ function Leave() {
   const { myLeaves, loading: leavesLoading } = useAppSelector(
     (s: RootState) => s.leave,
   );
+
+  // Super admin ke liye default "leave" tab, baaki sab ke liye "compoff"
+  useEffect(() => {
+    setActiveTab(isSuperAdmin ? "leave" : "compoff");
+  }, [isSuperAdmin]);
 
   useEffect(() => {
     if (activeTab === "leave") {
@@ -206,81 +224,104 @@ function Leave() {
             </p>
           </div>
 
-          <TabsList className="grid grid-cols-4 w-fit bg-white border border-orange-200">
+          <TabsList
+            className={`grid w-fit bg-white border border-orange-200 ${
+              isSuperAdmin ? "grid-cols-5" : "grid-cols-1"
+            }`}
+          >
+            {/* Super admin ke alawa sabko sirf ye ek tab dikhega */}
             <TabsTrigger
-              value="leave"
-              className="gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+              value="compoff"
+              className="gap-1.5 data-[state=active]:bg-teal-600 data-[state=active]:text-white"
             >
-              <Users size={14} />
-              Leave
+              <CalendarClock size={14} />
+              Comp Off
             </TabsTrigger>
-            <TabsTrigger
-              value="assign"
-              className="gap-1.5 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-            >
-              <UserPlus size={14} />
-              Assign Leave
-            </TabsTrigger>
-            <TabsTrigger
-              value="holiday"
-              className="gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-            >
-              <Gift size={14} />
-              Company Holiday
-            </TabsTrigger>
-            <TabsTrigger
-              value="duty-roster"
-              className="gap-1.5 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
-            >
-              <ClipboardList size={14} />
-              Duty Roster
-            </TabsTrigger>
+
+            {isSuperAdmin && (
+              <>
+                <TabsTrigger
+                  value="leave"
+                  className="gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+                >
+                  <Users size={14} />
+                  Leave
+                </TabsTrigger>
+                <TabsTrigger
+                  value="assign"
+                  className="gap-1.5 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                >
+                  <UserPlus size={14} />
+                  Assign Leave
+                </TabsTrigger>
+                <TabsTrigger
+                  value="holiday"
+                  className="gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white"
+                >
+                  <Gift size={14} />
+                  Company Holiday
+                </TabsTrigger>
+                <TabsTrigger
+                  value="duty-roster"
+                  className="gap-1.5 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+                >
+                  <ClipboardList size={14} />
+                  Duty Roster
+                </TabsTrigger>
+              </>
+            )}
           </TabsList>
         </div>
 
-        {/* ---------- Leave Tab ---------- */}
-        <TabsContent value="leave" className="mt-6">
-          <LeaveRequestsTab
-            requests={filteredRequests}
-            search={search}
-            onSearchChange={setSearch}
-            onApplyClick={() => setModalOpen(true)}
-            loading={leavesLoading}
-          />
+        {/* ---------- Comp Off Tab — sabko dikhta hai ---------- */}
+        <TabsContent value="compoff" className="mt-6">
+          <CompOffTable />
         </TabsContent>
 
-        {/* ---------- Assign Leave Tab ---------- */}
-        <TabsContent value="assign" className="mt-6">
-          <AssignLeaveTab
-            onAssign={handleAssign}
-            recentlyAssigned={recentlyAssigned}
-          />
-        </TabsContent>
+        {/* ---------- Baaki sab tabs sirf Super Admin ke liye ---------- */}
+        {isSuperAdmin && (
+          <>
+            <TabsContent value="leave" className="mt-6">
+              <LeaveRequestsTab
+                requests={filteredRequests}
+                search={search}
+                onSearchChange={setSearch}
+                onApplyClick={() => setModalOpen(true)}
+                loading={leavesLoading}
+              />
+            </TabsContent>
 
-        {/* ---------- Company Holiday Tab ---------- */}
-        <TabsContent value="holiday" className="space-y-4 mt-6">
-          <div className="flex items-center gap-2">
-            <Building2 size={16} className="text-muted-foreground" />
-            <BranchFilter value={branch} onChange={setBranch} />
-          </div>
+            <TabsContent value="assign" className="mt-6">
+              <AssignLeaveTab
+                onAssign={handleAssign}
+                recentlyAssigned={recentlyAssigned}
+              />
+            </TabsContent>
 
-          <HolidayManager
-            branch={branch}
-            branchLabel={branchLabel}
-            holidays={branchHolidays}
-            loading={holidaysLoading}
-            creating={creating}
-            yearOptions={YEAR_OPTIONS}
-            onAddHoliday={handleAddHoliday}
-            onEditHoliday={handleEditHoliday}
-            onRemoveHoliday={handleRemoveHoliday}
-          />
-        </TabsContent>
+            <TabsContent value="holiday" className="space-y-4 mt-6">
+              <div className="flex items-center gap-2">
+                <Building2 size={16} className="text-muted-foreground" />
+                <BranchFilter value={branch} onChange={setBranch} />
+              </div>
 
-        {/* ---------- Duty Roster Tab ---------- */}
-        <TabsContent value="duty-roster" className="mt-6">
-          <DutyRoster />
-        </TabsContent>
+              <HolidayManager
+                branch={branch}
+                branchLabel={branchLabel}
+                holidays={branchHolidays}
+                loading={holidaysLoading}
+                creating={creating}
+                yearOptions={YEAR_OPTIONS}
+                onAddHoliday={handleAddHoliday}
+                onEditHoliday={handleEditHoliday}
+                onRemoveHoliday={handleRemoveHoliday}
+              />
+            </TabsContent>
+
+            <TabsContent value="duty-roster" className="mt-6">
+              <DutyRoster />
+            </TabsContent>
+          </>
+        )}
       </Tabs>
 
       <ApplyLeaveModal
