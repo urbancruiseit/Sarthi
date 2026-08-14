@@ -13,7 +13,7 @@ export const getAttendanceByDate = async (filters = {}) => {
       status,
     } = filters;
 
-    const conditions = [];
+    const conditions = ["u.is_active = 1"];
     const params = [];
 
     let attendanceJoin = `
@@ -148,8 +148,6 @@ export const getAttendanceByDate = async (filters = {}) => {
 
     const [rows] = await pool.execute(sql, params);
 
-    
-
     // ---------- SUMMARY CALCULATION ----------
 
     const uniqueEmployees = new Set();
@@ -236,7 +234,7 @@ export const getAttendanceByMonth = async (filters = {}) => {
       throw new Error("startDate and endDate are required");
     }
 
-    const conditions = [];
+    const conditions = ["u.is_active = 1"];
     const params = [startDate, endDate];
 
     if (employeeId) {
@@ -863,7 +861,7 @@ export const runAutoAttendanceMarking = async () => {
         ON a.employee_id = u.id
         AND a.attendance_date = ?
 
-      
+      WHERE u.is_active = 1
       `,
       [todayDate, todayDate],
     );

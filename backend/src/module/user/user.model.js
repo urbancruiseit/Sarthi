@@ -321,6 +321,7 @@ export const insertUser = async (userData) => {
     throw error;
   }
 };
+
 export const findUserByUserName = async (userName) => {
   try {
     const [rows] = await pool.execute(
@@ -780,6 +781,7 @@ export const updateEmployeeStatus = async (employeeId, status) => {
     throw error;
   }
 };
+
 export const getEmployeeByStatus = async (page = 1, status) => {
   try {
     const limit = 10;

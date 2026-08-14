@@ -155,7 +155,7 @@ const markAttendanceController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, result, "Attendance marked successfully"));
 });
 const updatePunchOutController = asyncHandler(async (req, res) => {
-  const employeeId = 63;
+  const employeeId = 12;
 
   const { attendanceDate, punchOut, punch_out } = req.body;
 
