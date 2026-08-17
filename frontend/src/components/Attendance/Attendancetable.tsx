@@ -303,16 +303,8 @@ export default function AttendanceTable({
                     <span
                       className="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
                       style={{
-                        background:
-                          emp.status === "Absent"
-                            ? "#DC2626"
-                            : emp.status === "Present"
-                              ? "#16A34A"
-                              : sc.bg,
-                        color:
-                          emp.status === "Absent" || emp.status === "Present"
-                            ? "#FFFFFF"
-                            : sc.color,
+                        background: sc.bg,
+                        color: sc.color,
                       }}
                     >
                       {emp.status}

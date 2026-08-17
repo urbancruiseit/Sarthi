@@ -8,6 +8,7 @@ import {
   getAttendanceByDate,
   getAttendanceByMonth,
   markAttendance,
+  runAutoAttendanceMarking,
   updatePunchOut,
   updateStatus,
 } from "./attendance.model.js";

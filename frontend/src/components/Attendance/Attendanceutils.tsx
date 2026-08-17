@@ -5,6 +5,7 @@ export type AttendanceStatus =
   | "Absent"
   | "Half Day"
   | "Leave"
+  | "WeekOff"
   | "Holiday"
   | "Pending";
 
@@ -13,32 +14,37 @@ export const STATUS_COLORS: Record<
   { bg: string; color: string }
 > = {
   Present: {
-    bg: "hsl(var(--success) / 0.12)",
-    color: "hsl(var(--success))",
+    bg: "#DCFCE7", // light green
+    color: "#16A34A",
   },
 
   Absent: {
-    bg: "hsl(var(--destructive) / 0.12)",
-    color: "hsl(var(--destructive))",
+    bg: "#FEE2E2", // light red
+    color: "#DC2626",
   },
 
   "Half Day": {
-    bg: "hsl(var(--warning) / 0.12)",
-    color: "hsl(var(--warning))",
+    bg: "#FEF3C7", // light amber
+    color: "#D97706",
   },
 
   Leave: {
-    bg: "hsl(var(--primary) / 0.12)",
-    color: "hsl(var(--primary))",
+    bg: "#FCE7F3", // light pink
+    color: "#DB2777",
+  },
+
+  WeekOff: {
+    bg: "#DBEAFE", // light blue
+    color: "#2563EB",
   },
 
   Holiday: {
-    bg: "hsl(var(--muted))",
-    color: "hsl(var(--muted-foreground))",
+    bg: "#EDE9FE", // light purple
+    color: "#7C3AED",
   },
 
   Pending: {
-    bg: "#FFF7ED",
+    bg: "#FFF7ED", // light orange
     color: "#EA580C",
   },
 };
