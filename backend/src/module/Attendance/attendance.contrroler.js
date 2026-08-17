@@ -188,7 +188,6 @@ const updatePunchOutController = asyncHandler(async (req, res) => {
 });
 const updateStatusController = asyncHandler(async (req, res) => {
   const { employeeId, attendanceDate, status } = req.body;
-
   if (!employeeId || !attendanceDate || !status) {
     throw new ApiError(
       400,

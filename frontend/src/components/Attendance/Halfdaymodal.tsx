@@ -81,7 +81,7 @@ export default function AttendanceStatusModal({
                   <SelectItem value="Half Day">Half Day</SelectItem>
                   <SelectItem value="Leave">Leave</SelectItem>
                   <SelectItem value="Week Off">Week Off</SelectItem>
-                  <SelectItem value="Comp Off">Comp Off</SelectItem>
+                  <SelectItem value="CompOff">Comp Off</SelectItem>
                   <SelectItem value="Holiday">Holiday</SelectItem>
                 </SelectContent>
               </Select>

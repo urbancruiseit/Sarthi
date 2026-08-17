@@ -7,45 +7,51 @@ export type AttendanceStatus =
   | "Leave"
   | "WeekOff"
   | "Holiday"
-  | "Pending";
+  | "Pending"
+  | "CompOff";
 
 export const STATUS_COLORS: Record<
   AttendanceStatus,
-  { bg: string; color: string }
+  { bg: string; text: string }
 > = {
   Present: {
-    bg: "#DCFCE7", // light green
-    color: "#16A34A",
+    bg: "bg-green-600",
+    text: "text-white",
   },
 
   Absent: {
-    bg: "#FEE2E2", // light red
-    color: "#DC2626",
+    bg: "bg-red-600",
+    text: "text-white",
   },
 
   "Half Day": {
-    bg: "#FEF3C7", // light amber
-    color: "#D97706",
+    bg: "bg-amber-600",
+    text: "text-white",
   },
 
   Leave: {
-    bg: "#FCE7F3", // light pink
-    color: "#DB2777",
+    bg: "bg-pink-600",
+    text: "text-white",
   },
 
   WeekOff: {
-    bg: "#DBEAFE", // light blue
-    color: "#2563EB",
+    bg: "bg-blue-600",
+    text: "text-white",
   },
 
   Holiday: {
-    bg: "#EDE9FE", // light purple
-    color: "#7C3AED",
+    bg: "bg-violet-600",
+    text: "text-white",
   },
 
   Pending: {
-    bg: "#FFF7ED", // light orange
-    color: "#EA580C",
+    bg: "bg-orange-500",
+    text: "text-white",
+  },
+
+  CompOff: {
+    bg: "bg-teal-600",
+    text: "text-white",
   },
 };
 

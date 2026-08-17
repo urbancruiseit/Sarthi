@@ -301,11 +301,7 @@ export default function AttendanceTable({
 
                   <td className="px-3 py-2">
                     <span
-                      className="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-                      style={{
-                        background: sc.bg,
-                        color: sc.color,
-                      }}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${sc.bg} ${sc.text}`}
                     >
                       {emp.status}
                       {emp.status === "Leave" && emp.leaveType
