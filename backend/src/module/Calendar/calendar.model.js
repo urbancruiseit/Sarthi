@@ -74,7 +74,9 @@ export const getEmployeeCalendar = async ({ employeeId, fromDate, toDate }) => {
 export const getHolidaysModel = async ({ branchId, year } = {}) => {
   try {
     let sql = `
-      SELECT h.id, h.branch_id, h.date, h.year, h.name, h.is_active,
+      SELECT h.id, h.branch_id, 
+             DATE_FORMAT(h.date, '%Y-%m-%d') AS date,
+             h.year, h.name, h.is_active,
              b.branch_name
       FROM holidays h
       LEFT JOIN branches b ON b.id = h.branch_id

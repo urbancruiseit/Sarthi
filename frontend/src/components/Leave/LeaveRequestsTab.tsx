@@ -116,9 +116,7 @@ export default function LeaveRequestsTab({
                       key={r.id}
                       className="border-b border-border/50 hover:bg-muted/30"
                     >
-                      <td className="px-4 py-3 font-medium">
-                        {r.employeeName}
-                      </td>
+                      <td className="px-4 py-3 font-medium">{r.full_name}</td>
                       <td className="px-4 py-3">{r.department}</td>
                       <td className="px-4 py-3">{r.leave_Type}</td>
                       <td className="px-4 py-3">

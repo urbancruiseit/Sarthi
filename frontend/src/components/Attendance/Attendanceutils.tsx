@@ -8,7 +8,8 @@ export type AttendanceStatus =
   | "WeekOff"
   | "Holiday"
   | "Pending"
-  | "CompOff";
+  | "CompOff"
+  | "Extra Work";
 
 export const STATUS_COLORS: Record<
   AttendanceStatus,
@@ -53,8 +54,12 @@ export const STATUS_COLORS: Record<
     bg: "bg-teal-600",
     text: "text-white",
   },
-};
 
+  "Extra Work": {
+    bg: "bg-green-600",
+    text: "text-white",
+  },
+};
 export const LEAVE_TYPES = [
   "Sick Leave",
   "Casual Leave",

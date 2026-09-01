@@ -13,6 +13,8 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
+  Clock,
+  Ban,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
 import {
@@ -21,7 +23,7 @@ import {
   updateShoPolicyStatus,
 } from "@/redux/features/policy/policySlice";
 
-import * as pdfjsLib from "pdfjs-dist";
+import * as pdfjsLib from "pdfjs-dist"; 
 import { Policy } from "@/types";
 // Vite-friendly worker setup
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -349,52 +351,108 @@ export default function HRPolicies() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">HR Policies</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+      {/* Header banner — peach gradient with green accent, matching Attendance Management */}
+      <div className="rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border-l-4 border-l-green-600 px-6 py-4 shadow-sm">
+        <h1 className="text-2xl font-bold text-green-700">HR Policies</h1>
+        <p className="text-sm text-orange-600/80 mt-1">
           Company policies, guidelines and compliance documents
         </p>
       </div>
 
-      {/* Stats */}
+      {/* Stats — colour-filled pill cards, same treatment as the attendance summary row */}
       {!isEmployee && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           {[
             {
               label: "Active Policies",
+              value: policies.filter((p) => p?.status).length,
+              icon: CheckCircle,
+              bg: "bg-sky-200",
+              iconBg: "bg-white/60",
+              iconColor: "text-sky-600",
+              ghost: "text-sky-200",
+              label_c: "text-gray-700",
+              value_c: "text-gray-700",
+            },
+            {
+              label: "Active Policies",
               value: policies.filter((p) => p?.status === "active").length,
-              color: "success",
+              icon: CheckCircle,
+              bg: "bg-green-200",
+              iconBg: "bg-white/60",
+              iconColor: "text-green-600",
+              ghost: "text-green-200",
+              label_c: "text-gray-700",
+              value_c: "text-gray-700",
             },
             {
               label: "Pending Policies",
               value: policies.filter((p) => p?.status === "pending").length,
-              color: "warning",
+              icon: Clock,
+              bg: "bg-yellow-200",
+              iconBg: "bg-white/60",
+              iconColor: "text-yellow-600",
+              ghost: "text-yellow-200",
+              label_c: "text-gray-700",
+              value_c: "text-gray-700",
             },
             {
               label: "Inactive",
               value: policies.filter((p) => p?.status === "inactive").length,
-              color: "muted-foreground",
+              icon: Ban,
+              bg: "bg-red-200",
+              iconBg: "bg-white/60",
+              iconColor: "text-red-600",
+              ghost: "text-red-200",
+              label_c: "text-gray-700",
+              value_c: "text-gray-700",
             },
-          ].map(({ label, value, color }) => (
-            <div
-              key={label}
-              className="rounded-xl border border-border bg-card p-4 text-center"
-            >
-              <p
-                className="text-2xl font-bold"
-                style={{ color: `hsl(var(--${color}))` }}
+          ].map(
+            ({
+              label,
+              value,
+              icon: Icon,
+              bg,
+              iconBg,
+              iconColor,
+              ghost,
+              label_c,
+              value_c,
+            }) => (
+              <div
+                key={label}
+                className={`relative overflow-hidden rounded-2xl ${bg} p-5 shadow-sm`}
               >
-                {value}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">{label}</p>
-            </div>
-          ))}
+                {/* large ghost icon for visual balance on the right */}
+                <Icon
+                  size={88}
+                  strokeWidth={1.5}
+                  className={`absolute -right-3 -bottom-3 ${ghost}`}
+                />
+
+                <div className="relative flex items-center gap-3">
+                  <div
+                    className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}
+                  >
+                    <Icon size={20} className={iconColor} />
+                  </div>
+                  <div>
+                    <p className={`text-xl font-bold ${label_c}`}>{label}</p>
+                    <p
+                      className={`text-3xl font-bold leading-tight ${value_c}`}
+                    >
+                      {value}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ),
+          )}
         </div>
       )}
 
-      {/* Search + Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
+      {/* Search + Filters — kept as its own white card, separate from the stats and the table below */}
+      <div className="rounded-2xl border border-border bg-card p-3 flex items-center gap-3 flex-wrap shadow-sm">
         <div className="relative flex-1 min-w-48">
           <Search
             size={15}
@@ -415,7 +473,7 @@ export default function HRPolicies() {
               onClick={() => setCategoryFilter(cat)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize border transition-colors ${
                 categoryFilter === cat
-                  ? "bg-primary text-primary-foreground border-primary"
+                  ? "bg-green-600 text-white border-green-600"
                   : "border-border bg-background hover:bg-muted"
               }`}
             >
@@ -425,115 +483,119 @@ export default function HRPolicies() {
         </div>
       </div>
 
-      {/* EMPLOYEE CARD VIEW */}
+      {/* EMPLOYEE CARD VIEW — own section, separated from stats/toolbar above */}
       {isEmployee ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredPolicies.map((policy) => {
-            const Icon = CATEGORY_ICONS[policy.category] || FileText;
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredPolicies.map((policy) => {
+              const Icon = CATEGORY_ICONS[policy.category] || FileText;
 
-            return (
-              <div
-                key={policy.id}
-                className="rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-all"
-              >
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                    <Icon size={18} className="text-primary" />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-semibold text-foreground line-clamp-2">
-                      {policy.title}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1 capitalize">
-                      {policy.category}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="text-xs text-muted-foreground line-clamp-3 mb-4 min-h-[48px]">
-                  {policy.description || "No description available"}
-                </p>
-
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Version</span>
-                    <span className="font-medium text-foreground">
-                      v{policy.version}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Last Updated</span>
-                    <span className="font-medium text-foreground">
-                      {new Date(policy.lastUpdated).toLocaleString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => openViewer(policy)}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 transition-colors"
+              return (
+                <div
+                  key={policy.id}
+                  className="rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-all"
                 >
-                  <Eye size={16} />
-                  View Policy
-                </button>
-              </div>
-            );
-          })}
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <Icon size={18} className="text-primary" />
+                    </div>
 
-          {filteredPolicies.length === 0 && (
-            <div className="col-span-full text-center py-12 rounded-xl border border-border bg-card">
-              <FileText
-                size={48}
-                className="mx-auto text-muted-foreground/50 mb-3"
-              />
-              <p className="text-muted-foreground">No policies found</p>
-            </div>
-          )}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-semibold text-foreground line-clamp-2">
+                        {policy.title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1 capitalize">
+                        {policy.category}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground line-clamp-3 mb-4 min-h-[48px]">
+                    {policy.description || "No description available"}
+                  </p>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Version</span>
+                      <span className="font-medium text-foreground">
+                        v{policy.version}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        Last Updated
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {new Date(policy.lastUpdated).toLocaleString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => openViewer(policy)}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 transition-colors"
+                  >
+                    <Eye size={16} />
+                    View Policy
+                  </button>
+                </div>
+              );
+            })}
+
+            {filteredPolicies.length === 0 && (
+              <div className="col-span-full text-center py-12 rounded-xl border border-border bg-card">
+                <FileText
+                  size={48}
+                  className="mx-auto text-muted-foreground/50 mb-3"
+                />
+                <p className="text-muted-foreground">No policies found</p>
+              </div>
+            )}
+          </div>
         </div>
       ) : (
-        /* OTHER ROLES TABLE VIEW (same as existing) */
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        /* OTHER ROLES TABLE VIEW — own card, separated from the stats/toolbar above */
+        <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-muted/50 border-b border-border">
+              <thead className="bg-green-800">
                 <tr>
-                  <th className="text-left p-4 text-sm font-semibold text-foreground">
+                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-white">
                     Title
                   </th>
-                  <th className="text-left p-4 text-sm font-semibold text-foreground">
+                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-white">
                     Category
                   </th>
-                  <th className="text-left p-4 text-sm font-semibold text-foreground">
+                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-white">
                     Description
                   </th>
-                  <th className="text-left p-4 text-sm font-semibold text-foreground">
+                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-white">
                     Version
                   </th>
-                  <th className="text-left p-4 text-sm font-semibold text-foreground">
+                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-white">
                     Last Updated
                   </th>
-                  <th className="text-left p-4 text-sm font-semibold text-foreground">
+                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-white">
                     Status
                   </th>
-                  <th className="text-left p-4 text-sm font-semibold text-foreground">
+                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-white">
                     HR Head Status
                   </th>
-                  <th className="text-left p-4 text-sm font-semibold text-foreground">
+                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-white">
                     HR Remark
                   </th>
-                  <th className="text-left p-4 text-sm font-semibold text-foreground">
+                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-white">
                     CEO Status
                   </th>
-                  <th className="text-left p-4 text-sm font-semibold text-foreground">
+                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-white">
                     CEO Remark
                   </th>
-                  <th className="text-left p-4 text-sm font-semibold text-foreground">
+                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wide text-white">
                     Actions
                   </th>
                 </tr>

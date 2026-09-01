@@ -503,6 +503,98 @@ export const getAttendanceByMonth = async (filters = {}) => {
     throw error;
   }
 };
+// export const markAttendance = async ({
+//   employeeId,
+//   attendanceDate,
+//   status,
+//   punchIn = null,
+// }) => {
+//   try {
+//     // Get Employee Shift (Temporary > Permanent)
+//     const [shiftRows] = await pool.execute(
+//       `
+//       SELECT
+//         COALESCE(eso.shift_timing, u.shiftTiming) AS shift_timing
+//       FROM users u
+//       LEFT JOIN employee_shift_override eso
+//         ON eso.employee_id = u.id
+//        AND eso.is_active = 1
+//        AND ? BETWEEN eso.from_date AND eso.to_date
+//       WHERE u.id = ?
+//       `,
+//       [attendanceDate, employeeId],
+//     );
+
+//     let lateMinutes = 0;
+//     let shiftTimingToSave = null; // <-- naya variable
+
+//     // Sunday check
+//     const isSunday = new Date(attendanceDate).getDay() === 0; // 0 = Sunday
+
+//     if (isSunday) {
+//       // Sunday shift fixed timing
+//       shiftTimingToSave = "10:30 AM - 06:30 PM"; // apna actual Sunday timing yaha likho
+//     } else if (shiftRows.length && shiftRows[0].shift_timing) {
+//       shiftTimingToSave = shiftRows[0].shift_timing;
+//     }
+
+//     if (punchIn && shiftTimingToSave) {
+//       let shiftStart;
+
+//       if (isSunday) {
+//         shiftStart = "10:30 AM";
+//       } else {
+//         shiftStart = shiftTimingToSave.split("-")[0].trim();
+//       }
+
+//       const shiftStartDate = new Date(`${attendanceDate} ${shiftStart}`);
+//       const punchInDate = new Date(`${attendanceDate}T${punchIn}`);
+
+//       lateMinutes = Math.max(
+//         0,
+//         Math.floor((punchInDate - shiftStartDate) / 60000),
+//       );
+//     }
+
+//     const sql = `
+//       INSERT INTO attendance
+//       (
+//         employee_id,
+//         attendance_date,
+//         status,
+//         punch_in,
+//         late_minutes,
+//         shift_timing
+//       )
+//       VALUES (?, ?, ?, ?, ?, ?)
+
+//       ON DUPLICATE KEY UPDATE
+//         status = VALUES(status),
+//         punch_in = VALUES(punch_in),
+//         late_minutes = VALUES(late_minutes),
+//         shift_timing = VALUES(shift_timing)
+//     `;
+
+//     const [result] = await pool.execute(sql, [
+//       employeeId,
+//       attendanceDate,
+//       status,
+//       punchIn,
+//       lateMinutes,
+//       shiftTimingToSave,
+//     ]);
+
+//     return {
+//       ...result,
+//       late_minutes: lateMinutes,
+//       shift_timing: shiftTimingToSave,
+//     };
+//   } catch (error) {
+//     console.error("markAttendance error:", error);
+//     throw error;
+//   }
+// };
+
 export const markAttendance = async ({
   employeeId,
   attendanceDate,
@@ -510,11 +602,15 @@ export const markAttendance = async ({
   punchIn = null,
 }) => {
   try {
-    // Get Employee Shift (Temporary > Permanent)
+    // Get Employee Shift (Temporary > Permanent) + branchOffice_id + employee's own weekly-off day
+    // users.weeklyoff stores the day name e.g. 'Sunday', 'Monday', 'Friday' ...
+    // Some employees have NULL — handled below (isWeekOff stays false for them).
     const [shiftRows] = await pool.execute(
       `
       SELECT
-        COALESCE(eso.shift_timing, u.shiftTiming) AS shift_timing
+        COALESCE(eso.shift_timing, u.shiftTiming) AS shift_timing,
+        u.branchOffice_id AS branch_id,
+        u.weeklyoff AS week_off_day
       FROM users u
       LEFT JOIN employee_shift_override eso
         ON eso.employee_id = u.id
@@ -527,13 +623,48 @@ export const markAttendance = async ({
 
     let lateMinutes = 0;
     let shiftTimingToSave = null; // <-- naya variable
+    let finalStatus = status;
 
-    // Sunday check
-    const isSunday = new Date(attendanceDate).getDay() === 0; // 0 = Sunday
+    const branchId = shiftRows.length ? shiftRows[0].branch_id : null;
+    const weekOffDay = shiftRows.length ? shiftRows[0].week_off_day : null; // e.g. "Sunday"
 
-    if (isSunday) {
-      // Sunday shift fixed timing
-      shiftTimingToSave = "10:30 AM - 06:30 PM"; // apna actual Sunday timing yaha likho
+    // Day name for attendanceDate, e.g. "Sunday", "Monday" ...
+    const dayNames = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const attendanceDayName = dayNames[new Date(attendanceDate).getDay()];
+
+    // Is this employee's own weekly-off day (dynamic, per-employee — not hardcoded Sunday)
+    const isWeekOff =
+      !!weekOffDay &&
+      weekOffDay.trim().toLowerCase() === attendanceDayName.toLowerCase();
+
+    // Branch-wise holiday check
+    let isHoliday = false;
+    if (branchId) {
+      const [holidayRows] = await pool.execute(
+        `
+        SELECT id
+        FROM holidays
+        WHERE branch_id = ?
+          AND date = ?
+          AND is_active = 1
+        LIMIT 1
+        `,
+        [branchId, attendanceDate],
+      );
+      isHoliday = holidayRows.length > 0;
+    }
+
+    if (isWeekOff) {
+      // Week-off shift fixed timing
+      shiftTimingToSave = "10:30 AM - 06:30 PM"; // apna actual week-off timing yaha likho
     } else if (shiftRows.length && shiftRows[0].shift_timing) {
       shiftTimingToSave = shiftRows[0].shift_timing;
     }
@@ -541,7 +672,7 @@ export const markAttendance = async ({
     if (punchIn && shiftTimingToSave) {
       let shiftStart;
 
-      if (isSunday) {
+      if (isWeekOff) {
         shiftStart = "10:30 AM";
       } else {
         shiftStart = shiftTimingToSave.split("-")[0].trim();
@@ -555,6 +686,15 @@ export const markAttendance = async ({
         Math.floor((punchInDate - shiftStartDate) / 60000),
       );
     }
+
+    // Extra Work logic: employee punches in on THEIR own weekly-off day OR branch holiday
+    if (punchIn && (isWeekOff || isHoliday)) {
+      finalStatus = "Extra Work";
+      // lateMinutes stays as calculated above (not zeroed)
+    }
+    // If it's their week-off/holiday and employee did NOT punch in,
+    // finalStatus stays as whatever was passed in (existing auto-attendance
+    // logic elsewhere in your codebase should already set Week Off / Holiday)
 
     const sql = `
       INSERT INTO attendance
@@ -578,7 +718,7 @@ export const markAttendance = async ({
     const [result] = await pool.execute(sql, [
       employeeId,
       attendanceDate,
-      status,
+      finalStatus,
       punchIn,
       lateMinutes,
       shiftTimingToSave,
@@ -586,8 +726,12 @@ export const markAttendance = async ({
 
     return {
       ...result,
+      status: finalStatus,
       late_minutes: lateMinutes,
       shift_timing: shiftTimingToSave,
+      is_holiday: isHoliday,
+      is_week_off: isWeekOff,
+      week_off_day: weekOffDay,
     };
   } catch (error) {
     console.error("markAttendance error:", error);
@@ -832,12 +976,28 @@ export const runAutoAttendanceMarking = async () => {
     const todayNormalized = normalizeDay(todayDayName);
     const isSundayToday = todayNormalized === "sunday";
 
+    // Get all branches that have an active holiday today (single query,
+    // avoids N+1 queries inside the loop below)
+    const [holidayRows] = await connection.execute(
+      `
+      SELECT branch_id
+      FROM holidays
+      WHERE date = ?
+        AND is_active = 1
+      `,
+      [todayDate],
+    );
+    const holidayBranchIds = new Set(
+      holidayRows.map((row) => String(row.branch_id)),
+    );
+
     const [employees] = await connection.execute(
       `
       SELECT
         u.id AS employee_id,
         u.weeklyOff AS permanent_week_off,
         u.shiftTiming AS permanent_shift_timing,
+        u.branchOffice_id AS branch_id,
 
         eso.id AS eso_id,
         eso.week_off AS temp_week_off,
@@ -867,6 +1027,7 @@ export const runAutoAttendanceMarking = async () => {
     );
 
     let weekOffCount = 0;
+    let holidayCount = 0;
     let absentCount = 0;
     let skippedCount = 0;
 
@@ -894,9 +1055,21 @@ export const runAutoAttendanceMarking = async () => {
 
       const isWeekOffToday = weekOffDays.includes(todayNormalized);
 
-      const finalStatus = isWeekOffToday ? "WeekOff" : "Absent";
+      const isHolidayToday =
+        emp.branch_id != null && holidayBranchIds.has(String(emp.branch_id));
 
-      if (isWeekOffToday) weekOffCount++;
+      // Priority: WeekOff > Holiday > Absent
+      let finalStatus;
+      if (isWeekOffToday) {
+        finalStatus = "WeekOff";
+      } else if (isHolidayToday) {
+        finalStatus = "Holiday";
+      } else {
+        finalStatus = "Absent";
+      }
+
+      if (finalStatus === "WeekOff") weekOffCount++;
+      else if (finalStatus === "Holiday") holidayCount++;
       else absentCount++;
 
       let shiftTimingToSave;
@@ -907,23 +1080,24 @@ export const runAutoAttendanceMarking = async () => {
           emp.temp_shift_timing || emp.permanent_shift_timing || null;
       }
 
+      let remarks;
+      if (finalStatus === "WeekOff") {
+        remarks = `Auto-marked Week Off (source: ${source})`;
+      } else if (finalStatus === "Holiday") {
+        remarks = `Auto-marked Holiday (branch_id: ${emp.branch_id})`;
+      } else {
+        remarks = "Auto-marked by system (no punch-in till 1:00 PM)";
+      }
+
       console.log(
-        `Emp ${emp.employee_id}: source=${source}, weekOffRaw="${sourceWeekOffRaw}" -> [${weekOffDays}], today="${todayNormalized}", result=${finalStatus}, shiftTiming=${shiftTimingToSave}`,
+        `Emp ${emp.employee_id}: source=${source}, weekOffRaw="${sourceWeekOffRaw}" -> [${weekOffDays}], today="${todayNormalized}", branch_id=${emp.branch_id}, isHoliday=${isHolidayToday}, result=${finalStatus}, shiftTiming=${shiftTimingToSave}`,
       );
 
       await connection.execute(
         `INSERT INTO attendance
           (employee_id, attendance_date, status, remarks, shift_timing, created_at)
          VALUES (?, ?, ?, ?, ?, NOW())`,
-        [
-          emp.employee_id,
-          todayDate,
-          finalStatus,
-          finalStatus === "WeekOff"
-            ? `Auto-marked Week Off (source: ${source})`
-            : "Auto-marked by system (no punch-in till 1:00 PM)",
-          shiftTimingToSave,
-        ],
+        [emp.employee_id, todayDate, finalStatus, remarks, shiftTimingToSave],
       );
     }
 
@@ -935,6 +1109,7 @@ export const runAutoAttendanceMarking = async () => {
       totalChecked: employees.length,
       markedAbsent: absentCount,
       markedWeekOff: weekOffCount,
+      markedHoliday: holidayCount,
       skipped: skippedCount,
     };
   } catch (error) {

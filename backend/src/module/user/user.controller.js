@@ -227,6 +227,9 @@ const loginUser = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(404, "User does not exist");
   }
+  if (Number(user.is_active) !== 1) {
+    throw new ApiError(403, "Your account is inactive. Please contact admin.");
+  }
 
   const validPassword = await isPasswordCorrect(password, user.password);
   if (!validPassword) {

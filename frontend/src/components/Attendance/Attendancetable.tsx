@@ -132,8 +132,6 @@ export default function AttendanceTable({
               const hasPunchOut = emp.outTime !== "—";
               const rowBg = idx % 2 === 0 ? "#FFFFFF" : "#F9FAFB";
 
-              // Working hours ka color ab backend ke shortfall/overtime minutes se decide hota hai
-              // (frontend expected-minutes calculation hata diya gaya hai)
               const isShort = (emp.shortfallMinutes ?? 0) > 0;
 
               return (

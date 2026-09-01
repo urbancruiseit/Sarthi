@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 export const createCompOffIfEligible = async (employeeId, attendanceDate) => {
   const [rows] = await pool.execute(
     `
-    SELECT
+    SELECT 
       COALESCE(eso.week_off, u.weeklyOff) AS week_off,
       h.id AS holiday_id
     FROM users u
@@ -27,31 +27,24 @@ export const createCompOffIfEligible = async (employeeId, attendanceDate) => {
 
   if (!rows.length) return;
 
-  const dayName = new Date(attendanceDate).toLocaleDateString("en-US", {
-    weekday: "long",
-  });
+  const dayName = new Date(`${attendanceDate}T00:00:00`).toLocaleDateString(
+    "en-US",
+    {
+      weekday: "long",
+    },
+  );
 
   const isWeekOff = rows[0].week_off === dayName;
   const isHoliday = !!rows[0].holiday_id;
 
+  // Neither holiday nor weekly off
   if (!isWeekOff && !isHoliday) return;
 
-  // Duplicate Check
-  const [exists] = await pool.execute(
-    `
-    SELECT id
-    FROM comp_offs
-    WHERE employee_id = ?
-    AND earned_date = ?
-    LIMIT 1
-    `,
-    [employeeId, attendanceDate],
-  );
-
-  if (exists.length) return;
+  const remarks = isHoliday ? "Worked on Holiday" : "Worked on Weekly Off";
 
   const uuid = randomUUID();
 
+  // One employee + one date = only one CompOff
   await pool.execute(
     `
     INSERT INTO comp_offs
@@ -72,13 +65,10 @@ export const createCompOffIfEligible = async (employeeId, attendanceDate) => {
       'Available',
       ?
     )
+    ON DUPLICATE KEY UPDATE
+      employee_id = employee_id
     `,
-    [
-      uuid,
-      employeeId,
-      attendanceDate,
-      isHoliday ? "Worked on Holiday" : "Worked on Weekly Off",
-    ],
+    [uuid, employeeId, attendanceDate, remarks],
   );
 };
 
@@ -153,7 +143,7 @@ export const getCompOffs = async (filters = {}) => {
     SELECT
       c.*,
       DATE_FORMAT(c.earned_date, '%Y-%m-%d') AS earned_date,
-      CONCAT(u.firstName, ' ', u.lastName) AS employee_name,
+     CONCAT_WS(' ', u.firstName, NULLIF(u.lastName, '')) AS employee_name,
       u.branchOffice_id AS branch_id,
       b.branch_name AS branch_name,
       u.department_id AS department_id,

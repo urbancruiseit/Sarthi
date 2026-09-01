@@ -2,9 +2,23 @@ import { pool } from "../../config/mySqlDB.js";
 
 export const insertPolicy = async (data) => {
   const query = `
-    INSERT INTO policies 
-    (title, category, description, fileUrl, version, lastUpdated, status, hr_head_status, hr_head_remark, sho_status, sho_remark)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO policies
+    (
+      title,
+      category,
+      description,
+      fileUrl,
+      version,
+      lastUpdated,
+      status,
+      hr_head_status,
+      hr_head_remark,
+      sho_status,
+      sho_remark,
+      policy1
+      
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
@@ -15,18 +29,24 @@ export const insertPolicy = async (data) => {
     data.version || "1.0",
     data.lastUpdated || new Date(),
     data.status || "pending",
+
+    // HR Head
     "pending",
     null,
+
+    // SHO
     "pending",
     null,
+
+    // Policy fields
+    data.policy1 || null,
   ];
 
   const [result] = await pool.execute(query, values);
 
   return result.insertId;
 };
-
-export const updateShoApproval = async ({ id, sho_status, sho_remark }) => { 
+export const updateShoApproval = async ({ id, sho_status, sho_remark }) => {
   const query = `
     UPDATE policies 
     SET sho_status = ?, sho_remark = ?

@@ -48,7 +48,6 @@ export const applyLeave = async ({
   }
 };
 
-// ---------- Approve / Reject Leave ----------
 export const updateLeaveStatus = async ({
   leaveId,
   status, // 'Approved' | 'Rejected'
@@ -80,7 +79,6 @@ export const updateLeaveStatus = async ({
   }
 };
 
-// ---------- Get Leaves (by employee) ----------
 export const getLeavesByEmployee = async (employeeId) => {
   try {
     const [rows] = await pool.execute(
@@ -94,7 +92,6 @@ export const getLeavesByEmployee = async (employeeId) => {
   }
 };
 
-// ---------- Get Single Leave ----------
 export const getLeaveById = async (leaveId) => {
   try {
     const [rows] = await pool.execute(`SELECT * FROM leaves WHERE id = ?`, [
@@ -148,7 +145,6 @@ export const getAllLeaves = async ({
       params.push(departmentId);
     }
 
-    // Overlap with given range: leave.from_date <= toDate AND leave.to_date >= fromDate
     if (fromDate) {
       conditions.push("l.to_date >= ?");
       params.push(fromDate);
@@ -160,8 +156,11 @@ export const getAllLeaves = async ({
     }
 
     if (search) {
-      conditions.push("(u.name LIKE ? OR u.employee_code LIKE ?)");
-      params.push(`%${search}%`, `%${search}%`);
+      // ab branch name se bhi search hoga
+      conditions.push(
+        "(u.name LIKE ? OR u.employee_code LIKE ? OR b.name LIKE ?)",
+      );
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     const whereClause = conditions.length
@@ -176,6 +175,7 @@ export const getAllLeaves = async ({
       SELECT COUNT(*) AS total
       FROM leaves l
       LEFT JOIN users u ON u.id = l.employee_id
+      LEFT JOIN branches b ON b.id = u.branch_id
       ${whereClause}
       `,
       params,
@@ -188,13 +188,21 @@ export const getAllLeaves = async ({
       `
       SELECT
         l.*,
-        u.name AS employee_name,
+        TRIM(
+          CONCAT(
+            COALESCE(u.firstName,''),
+            ' ',
+            COALESCE(u.lastName,'')
+          )
+        ) AS full_name,
         u.employee_code,
         u.department_id,
         u.branch_id,
+        b.name AS branch_name,
         approver.name AS approved_by_name
       FROM leaves l
       LEFT JOIN users u ON u.id = l.employee_id
+      LEFT JOIN branches b ON b.id = u.branch_id
       LEFT JOIN users approver ON approver.id = l.approved_by
       ${whereClause}
       ORDER BY l.applied_at DESC

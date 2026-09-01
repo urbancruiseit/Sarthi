@@ -25,7 +25,6 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 const toKey = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
-
 const normalizeDateKey = (dateStr: string) => {
   const match = dateStr?.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return match ? `${match[1]}-${match[2]}-${match[3]}` : dateStr;
@@ -49,6 +48,7 @@ export default function AttendanceCalendar() {
   const dispatch = useAppDispatch();
 
   const branches = useAppSelector((s: RootState) => s.branch.branches) ?? [];
+  console.log("------branches----------", branches);
   const {
     list: holidays,
     loading: holidaysLoading,
@@ -96,9 +96,6 @@ export default function AttendanceCalendar() {
     return m;
   }, [branchHolidays]);
 
-  // Two months are shown together: the "anchor" month (calendarMonth) and
-  // the one right after it. Prev/Next slide this two-month window by one
-  // month at a time.
   const secondMonth = useMemo(
     () =>
       new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1),
@@ -115,8 +112,6 @@ export default function AttendanceCalendar() {
     setBranch(b);
   };
 
-  // Handlers passed down to HolidayManager — it owns the form/table UI,
-  // this component still owns the redux dispatch + refetch logic.
   const handleAddHoliday = async (data: {
     branchId: string;
     date: string;
@@ -169,9 +164,6 @@ export default function AttendanceCalendar() {
     dispatch(deleteHolidayThunk(id));
   };
 
-  /* ------------------------------------------------------------------ */
-  /* Renders a single month grid (used twice, side by side)              */
-  /* ------------------------------------------------------------------ */
   const renderMonth = (monthDate: Date) => {
     const grid = buildMonthGrid(monthDate);
     const label = monthDate.toLocaleDateString("en-IN", {
@@ -204,28 +196,23 @@ export default function AttendanceCalendar() {
 
             const key = toKey(date);
             const holidayName = holidayMap.get(key);
-            const weekday = date.getDay();
-            const isWeekend = weekday === 0 || weekday === 6; // Sun or Sat
             const isToday = toKey(date) === toKey(today);
 
-            // Background priority: Holiday > Weekend > Normal
+            // Background priority: Holiday > Normal
             let bg = "transparent";
             if (holidayName) {
-              bg = "hsl(var(--muted-foreground) / 0.15)";
-            } else if (isWeekend) {
-              bg = "#F1F5F9"; // subtle slate tint for weekends
+              bg = "#FFEDD5"; // light orange tint — company holiday
             }
 
-            // Border color priority: Today > Holiday > Weekend > Normal
+            // Border color priority: Today > Holiday > Normal
             let borderColor = "#86efac"; // light green — normal working day
-            if (isWeekend) borderColor = "#CBD5E1"; // slate — weekend
             if (holidayName) borderColor = "#f97316"; // orange — company holiday
             if (isToday) borderColor = "#15803d"; // dark green — current day
 
             return (
               <div
                 key={idx}
-                title={holidayName || (isWeekend ? "Weekend" : undefined)}
+                title={holidayName || undefined}
                 className="h-12 sm:h-20 rounded-md border flex flex-col items-center justify-center gap-0.5 relative shadow-sm hover:shadow transition-shadow"
                 style={{ background: bg, borderColor }}
               >
@@ -235,11 +222,6 @@ export default function AttendanceCalendar() {
                 {holidayName && (
                   <span className="text-[8px] leading-tight text-muted-foreground text-center px-0.5 truncate w-full">
                     {holidayName}
-                  </span>
-                )}
-                {!holidayName && isWeekend && (
-                  <span className="text-[8px] leading-tight text-center px-0.5 text-slate-400">
-                    Weekend
                   </span>
                 )}
               </div>
@@ -304,16 +286,9 @@ export default function AttendanceCalendar() {
             <div className="flex items-center gap-1.5">
               <span
                 className="w-3 h-3 rounded-sm border-2"
-                style={{ borderColor: "#f97316" }}
+                style={{ borderColor: "#f97316", background: "#FFEDD5" }}
               />
               {branchLabel} Holiday
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span
-                className="w-3 h-3 rounded-sm border-2"
-                style={{ borderColor: "#CBD5E1", background: "#F1F5F9" }}
-              />
-              Weekend
             </div>
             <div className="flex items-center gap-1.5">
               <span

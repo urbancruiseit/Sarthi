@@ -33,14 +33,15 @@ interface Props {
 }
 
 const allowedCategories = [
-  "Organisation Structure",
-  "Leave & Attendance Policy",
-  "Workplace Policy",
-  "Probation, Incentive & Retention Policy",
-  "IT Policy",
-  "Travel Policy",
-  "POSH Policy",
-  "Holiday Calendar",
+  "1. Organisation Structure",
+  "2. Work Place Policy",
+  "3. Leave & Attendance Policy",
+  "4. Joining & Probation Policy",
+  "4. Salary, Incentive, Promotion & Retention Policy",
+  "4. Separation Policy",
+  "5. IT Policy",
+  "6. Travel Policy",
+  "7. POSH Policy",
 ];
 
 export default function UploadPolicyForm({ onClose }: Props) {
@@ -49,6 +50,8 @@ export default function UploadPolicyForm({ onClose }: Props) {
   const [title, setTitle] = useState("");
   const [version, setVersion] = useState("1.0");
   const [category, setCategory] = useState(allowedCategories[0]);
+  const [policy1, setPolicy1] = useState("");
+
   const [description, setDescription] = useState("");
 
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -100,10 +103,12 @@ export default function UploadPolicyForm({ onClose }: Props) {
           title,
           version,
           category: category as any,
+          policy1,
+
           description,
           fileUrl,
           status: "pending",
-        }),
+        } as any),
       ).unwrap();
 
       toast.success("Policy uploaded successfully");
@@ -163,6 +168,18 @@ export default function UploadPolicyForm({ onClose }: Props) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          {/* Policy 1 + Policy 2 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Policy 1</Label>
+              <Input
+                placeholder="Enter policy 1"
+                value={policy1}
+                onChange={(e) => setPolicy1(e.target.value)}
+              />
             </div>
           </div>
 

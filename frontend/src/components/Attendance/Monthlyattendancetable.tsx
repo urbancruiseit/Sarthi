@@ -56,6 +56,7 @@ const STATUS_TO_CODE: Record<string, string> = {
   WeekOff: "WO", // <-- naya alias add kiya
   "Comp Off": "COF",
   Holiday: "HOL",
+  "Extra Work": "XW",
 };
 
 const CODE_STYLE: Record<string, string> = {
@@ -67,6 +68,7 @@ const CODE_STYLE: Record<string, string> = {
   WO: "bg-sky-100 text-sky-700",
   COF: "bg-[#5b3a22] text-white",
   HOL: "bg-purple-100 text-purple-700",
+  XW: "bg-green-100 text-green-700",
 };
 
 const AVATAR_COLORS = [
@@ -267,7 +269,6 @@ function processRecords(
 
       const rec = byDay.get(day);
 
-    
       if (!rec || !rec.attendance_date) {
         return { day, ...EMPTY_DAY_CELL_BASE };
       }

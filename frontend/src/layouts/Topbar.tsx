@@ -27,6 +27,7 @@ import { ChangePasswordModal } from "@/components/Changepasswordmodal";
 import AsetDropdown from "@/components/dropdown/asetsDropdown";
 import DocumentDropdown from "@/components/dropdown/documentDropdown";
 import axios from "axios";
+import { useAccessControl } from "@/utils/Accesscontrol";
 
 interface TopbarProps {
   onMenuClick?: () => void;
@@ -37,7 +38,8 @@ interface TopbarProps {
 export function Topbar({ onMenuClick }: TopbarProps) {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-
+  const { can } = useAccessControl();
+  const canSeeFilters = can("POLICY_FILTERS");
   const currentEmployee = useAppSelector((s) => s.user.currentEmployee);
   const notifications = useAppSelector((s) => s.notifications.notifications);
   const unread = notifications.filter((n) => !n.read);
@@ -66,7 +68,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
     } catch (error) {
       console.error(error);
       toast.error("Failed to generate link");
-    } 
+    }
   };
 
   const handleLogout = async () => {
@@ -115,12 +117,17 @@ export function Topbar({ onMenuClick }: TopbarProps) {
         </div>
 
         {/* CENTER — Dropdowns */}
+
         <div className="flex-1 flex items-center justify-center gap-2">
-          <EmployeeDropdown generateLink={generateLink} />
-          <OpsDropdown />
-          <PolicieDropdown />
-          <AsetDropdown />
-          <DocumentDropdown />
+          {canSeeFilters && (
+            <>
+              <EmployeeDropdown generateLink={generateLink} />
+              <OpsDropdown />
+              <PolicieDropdown />
+              <AsetDropdown />
+              <DocumentDropdown />
+            </>
+          )}
         </div>
 
         {/* RIGHT — Notifications + Profile */}

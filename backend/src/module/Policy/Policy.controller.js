@@ -14,7 +14,7 @@ import {
 } from "./policy.model.js";
 
 export const createPolicy = asyncHandler(async (req, res) => {
-  const { title, category, description, fileUrl, version } = req.body;
+  const { title, category, description, fileUrl, version, policy1 } = req.body;
 
   if (!title || !category || !description || !fileUrl) {
     throw new ApiError(400, "All fields including fileUrl are required");
@@ -22,14 +22,15 @@ export const createPolicy = asyncHandler(async (req, res) => {
 
   // Policy.controller.js
   const allowedCategories = [
-    "Organisation Structure",
-    "Leave & Attendance Policy",
-    "Workplace Policy",
-    "Probation, Incentive & Retention Policy",
-    "IT Policy",
-    "Travel Policy",
-    "POSH Policy",
-    "Holiday Calendar",
+    "1. Organisation Structure",
+    "2. Work Place Policy",
+    "3. Leave & Attendance Policy",
+    "4. Joining & Probation Policy",
+    "4. Salary, Incentive, Promotion & Retention Policy",
+    "4. Separation Policy",
+    "5. IT Policy",
+    "6. Travel Policy",
+    "7. POSH Policy",
   ];
 
   if (!allowedCategories.includes(category)) {
@@ -49,7 +50,8 @@ export const createPolicy = asyncHandler(async (req, res) => {
     fileUrl,
     version,
     lastUpdated: new Date(),
-    status: "pending", // hamesha pending se start hoga
+    status: "pending",
+    policy1,
   });
 
   return res

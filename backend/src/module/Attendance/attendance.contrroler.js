@@ -78,6 +78,7 @@ const getAttendanceController = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, attendance, "Attendance fetched successfully"));
 });
+
 const getMonthlyAttendanceController = asyncHandler(async (req, res) => {
   const { month, employeeId, branchId, departmentId } = req.query;
 
@@ -132,8 +133,9 @@ const getMonthlyAttendanceController = asyncHandler(async (req, res) => {
       ),
     );
 });
+
 const markAttendanceController = asyncHandler(async (req, res) => {
-  const employeeId = req.user?.id;
+  const employeeId = 70;
   const { attendanceDate, punchIn } = req.body;
 
   if (!employeeId) {
@@ -155,8 +157,9 @@ const markAttendanceController = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, result, "Attendance marked successfully"));
 });
+
 const updatePunchOutController = asyncHandler(async (req, res) => {
-  const employeeId = 12;
+  const employeeId = 24;
 
   const { attendanceDate, punchOut, punch_out } = req.body;
 
@@ -186,6 +189,7 @@ const updatePunchOutController = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, result, "Punch-out updated successfully"));
 });
+
 const updateStatusController = asyncHandler(async (req, res) => {
   const { employeeId, attendanceDate, status } = req.body;
   if (!employeeId || !attendanceDate || !status) {
@@ -214,6 +218,7 @@ const updateStatusController = asyncHandler(async (req, res) => {
       new ApiResponse(200, result, "Attendance status updated successfully"),
     );
 });
+
 const triggerAutoAttendanceController = asyncHandler(async (req, res) => {
   const role = req.user.access_role;
 
