@@ -765,7 +765,6 @@ export const updatePunchOut = async ({
   employeeId,
   attendanceDate,
   punch_out,
-  status,
 }) => {
   try {
     const [rows] = await pool.execute(
@@ -891,7 +890,7 @@ export const updatePunchOut = async ({
       UPDATE attendance
       SET
           punch_out = ?,
-          status = COALESCE(?, status),
+          
           worked_minutes = ?,
           overtime_minutes = ?,
           short_minutes = ?,
@@ -902,7 +901,7 @@ export const updatePunchOut = async ({
 
     const [result] = await pool.execute(sql, [
       punch_out,
-      status ?? null,
+
       workedMinutes,
       overtimeMinutes,
       shortMinutes,

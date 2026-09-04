@@ -23,7 +23,7 @@ export const getDutyRosterList = async ({ isActive, employeeId } = {}) => {
       SELECT
         dr.id,
         dr.employee_id,
-        u.full_name,
+        u.first_name,
         dr.duty_date,
         dr.duty_type,
         dr.duty_timing,

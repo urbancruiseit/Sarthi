@@ -1,5 +1,3 @@
-
-
 import { pool } from "../../config/mySqlDB.js";
 import { createCompOffIfEligible } from "../CompOff/compOff.model.js";
 import { markAttendance, updatePunchOut } from "./attendance.model.js";
@@ -85,7 +83,6 @@ const syncOfficeAttendance = async (officeKey) => {
     return;
   }
 
-
   const punchesWithParsed = response.PunchData.map((punch) => ({
     punch,
     parsed: parsePunch(punch.PunchDate),
@@ -122,7 +119,6 @@ const syncOfficeAttendance = async (officeKey) => {
       );
 
       if (!attendance.length) {
-        
         await markAttendance({
           employeeId,
           attendanceDate,
@@ -130,7 +126,6 @@ const syncOfficeAttendance = async (officeKey) => {
           punchIn: time,
         });
       } else {
-      
         const punchInTime = new Date(
           `${attendanceDate}T${attendance[0].punch_in}`,
         );
@@ -140,7 +135,6 @@ const syncOfficeAttendance = async (officeKey) => {
             employeeId,
             attendanceDate,
             punch_out: time,
-            status: "Present",
           });
           await createCompOffIfEligible(employeeId, attendanceDate);
         } else {

@@ -220,7 +220,7 @@ export default function AttendanceCalendar() {
                   {date.getDate()}
                 </span>
                 {holidayName && (
-                  <span className="text-[8px] leading-tight text-muted-foreground text-center px-0.5 truncate w-full">
+                  <span className="text-[12px] leading-tight text-muted-foreground text-center px-0.5 truncate w-full">
                     {holidayName}
                   </span>
                 )}
