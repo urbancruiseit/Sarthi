@@ -22,16 +22,27 @@ export const getDutyRosterList = async ({ isActive, employeeId } = {}) => {
     const sql = `
       SELECT
         dr.id,
+        dr.branch_id,
         dr.employee_id,
-        u.first_name,
         dr.duty_date,
-        dr.duty_type,
-        dr.duty_timing,
-        dr.location,
-        dr.remarks,
-        dr.is_active
+        dr.status,
+        dr.is_active,
+        u.firstName,
+        u.lastName,
+        CONCAT(
+          COALESCE(u.firstName, ''),
+          CASE WHEN u.lastName IS NOT NULL AND u.lastName != ''
+               THEN CONCAT(' ', u.lastName)
+               ELSE ''
+          END
+        ) AS full_name,
+        u.department_id,
+        dept.department_name AS department_name,
+        b.branch_name AS branch_name
       FROM duty_roster dr
       LEFT JOIN users u ON u.id = dr.employee_id
+      LEFT JOIN departments dept ON dept.id = u.department_id
+      LEFT JOIN branches b ON b.id = dr.branch_id
       ${whereClause}
       ORDER BY dr.duty_date DESC, dr.id DESC
     `;
@@ -45,14 +56,22 @@ export const getDutyRosterList = async ({ isActive, employeeId } = {}) => {
   }
 };
 
-export const createDutyRoster = async ({
-  branchId,
-  employeeId,
-  dutyDate,
-  status,
-  isActive = 1,
-}) => {
+// Add this alongside your existing createDutyRoster function in the same file.
+// Add this alongside your existing createDutyRoster function in the same file.
+
+export const createDutyRosterBulk = async (entries) => {
+  // entries = [{ branchId, employeeId, dutyDate, status, isActive }, ...]
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error("entries must be a non-empty array");
+  }
+
+  const connection = await pool.getConnection();
+
   try {
+    await connection.beginTransaction();
+
+    const insertedIds = [];
+
     const sql = `
       INSERT INTO duty_roster
       (
@@ -65,14 +84,24 @@ export const createDutyRoster = async ({
       VALUES (?, ?, ?, ?, ?)
     `;
 
-    const [result] = await pool.execute(sql, [
-      branchId,
-      employeeId,
-      dutyDate,
-      status,
-      isActive,
-    ]);
+    for (const entry of entries) {
+      const { branchId, employeeId, dutyDate, status, isActive = 1 } = entry;
 
+      const [result] = await connection.execute(sql, [
+        branchId,
+        employeeId,
+        dutyDate,
+        status,
+        isActive,
+      ]);
+
+      insertedIds.push(result.insertId);
+    }
+
+    await connection.commit();
+
+    // Fetch all newly created rows in one query (individual rows, not JSON)
+    const placeholders = insertedIds.map(() => "?").join(",");
     const [rows] = await pool.execute(
       `
       SELECT
@@ -80,7 +109,8 @@ export const createDutyRoster = async ({
         dr.branch_id,
         b.branch_name,
         dr.employee_id,
-        u.full_name,
+        u.firstName,
+        u.lastName,
         dr.duty_date,
         dr.status,
         dr.is_active,
@@ -91,17 +121,22 @@ export const createDutyRoster = async ({
         ON u.id = dr.employee_id
       LEFT JOIN branches b
         ON b.id = dr.branch_id
-      WHERE dr.id = ?
+      WHERE dr.id IN (${placeholders})
+      ORDER BY dr.id ASC
       `,
-      [result.insertId],
+      insertedIds,
     );
 
-    return rows[0];
+    return rows;
   } catch (error) {
-    console.error("createDutyRoster error:", error);
+    await connection.rollback();
+    console.error("createDutyRosterBulk error:", error);
     throw error;
+  } finally {
+    connection.release();
   }
 };
+
 export const updateDutyRoster = async ({
   id,
   employeeId,
@@ -178,4 +213,37 @@ export const deactivateDutyRoster = async (id) => {
     console.error("deactivateDutyRoster error:", error);
     throw error;
   }
+};
+
+export const getEmployeeListDutyroster = async (
+  branchId = null,
+  departmentId = null,
+) => {
+  let sql = `
+  SELECT
+    id,
+    firstName,
+    lastName
+  FROM users
+  WHERE is_active = 1
+`;
+  const params = [];
+
+  // Branch filter
+  if (branchId) {
+    sql += ` AND branchOffice_id = ?`;
+    params.push(branchId);
+  }
+
+  // Department filter
+  if (departmentId) {
+    sql += ` AND department_id = ?`;
+    params.push(departmentId);
+  }
+
+  sql += ` ORDER BY firstName ASC`;
+
+  const [rows] = await pool.query(sql, params);
+
+  return rows;
 };

@@ -138,8 +138,8 @@ export default function AttendanceTable({
                 <tr
                   key={
                     isDrillDown
-                      ? `${emp.id}-${emp.attendanceDate ?? idx}`
-                      : emp.id
+                      ? `${emp.id}-${emp.attendanceDate ?? "no-date"}-${idx}`
+                      : `${emp.id}-${idx}`
                   }
                   className={
                     "hover:bg-muted/30 transition-colors" +
@@ -181,9 +181,6 @@ export default function AttendanceTable({
                         </span>
                       )}
 
-                      {/* Agar aaj ka actual shift permanent shift se alag hai
-                          (jaise fixed Sunday shift), to permanent shift ko
-                          chhota/muted reference ke taur pe dikhao */}
                       {emp.todayShiftTiming &&
                         emp.todayShiftTiming !== emp.permanentShiftTiming &&
                         !emp.temporaryShiftTiming && (

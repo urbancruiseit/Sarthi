@@ -23,7 +23,7 @@ import {
   deleteHolidayThunk,
 } from "@/redux/features/Calendar/calendarSlice";
 
-import { LeaveRequest, TAB_CONTENT } from "@/components/Leave/Leaveutils";
+import { TAB_CONTENT } from "@/components/Leave/Leaveutils";
 import LeaveRequestsTab from "@/components/Leave/LeaveRequestsTab";
 import AssignLeaveTab, {
   AssignLeaveFormData,
@@ -33,10 +33,24 @@ import DutyRoster from "@/components/Leave/Dutyroster";
 
 import {
   applyLeaveThunk,
-  getMyLeavesThunk,
+  getAllLeavesThunk,
+  updateLeaveStatusThunk,
 } from "@/redux/features/Leave/leaveSlice";
 import CompOffTable from "@/components/Leave/Compofftable";
 import { useAccessControl } from "@/utils/Accesscontrol";
+import { Pagination } from "@/components/Pagination/Pagination";
+import LeaveManagementTable from "@/components/Leave/LeaveManagementTable";
+import UpdateLeaveStatusDialog from "@/components/Leave/UpdateLeaveStatusDialog";
+// apna actual path se update kar lena
+
+interface LeaveFilters {
+  branchId?: string;
+  departmentId?: string;
+  employeeId?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
 
 function Leave() {
   const dispatch = useAppDispatch();
@@ -49,40 +63,67 @@ function Leave() {
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const currentEmployeeName = "You";
-  const currentEmployeeDept = "—";
+  const {
+    leaves,
+    loading: leavesLoading,
+    total = 0,
+    totalPages = 1,
+    hasNextPage = false,
+    hasPrevPage = false,
+    actionLoadingId = null,
+  } = useAppSelector((s: RootState) => s.leave);
 
-  const { myLeaves, loading: leavesLoading } = useAppSelector(
-    (s: RootState) => s.leave,
-  );
-
-  // Super admin ke liye default "leave" tab, baaki sab ke liye "compoff"
   useEffect(() => {
     setActiveTab(isSuperAdmin ? "leave" : "compoff");
   }, [isSuperAdmin]);
 
+  const [leaveBranchId, setLeaveBranchId] = useState<string>("");
+  const [leaveDepartmentId, setLeaveDepartmentId] = useState<string>("");
+  const [leaveEmployeeId, setLeaveEmployeeId] = useState<string>("");
+  const [leaveStatus, setLeaveStatus] = useState<string>("");
+
+  // ---------- Leave tab ki pagination state ----------
+  const [leavePage, setLeavePage] = useState<number>(1);
+  const [leaveLimit, setLeaveLimit] = useState<number>(10);
+
+  // ---------- Approve/Reject dialog state ----------
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [targetLeave, setTargetLeave] = useState<{
+    id: string | number;
+    name?: string;
+  } | null>(null);
+
+  // koi bhi filter change ho to page ko wapas 1 pe reset kar do
+  useEffect(() => {
+    setLeavePage(1);
+  }, [leaveBranchId, leaveDepartmentId, leaveEmployeeId, leaveStatus]);
+
+  // filters ko memoize karo taaki empty values thunk ko na jayein
+  // aur useEffect ka dependency array stable rahe
+  const leaveFilters: LeaveFilters = useMemo(
+    () => ({
+      ...(leaveBranchId && { branchId: leaveBranchId }),
+      ...(leaveDepartmentId && { departmentId: leaveDepartmentId }),
+      ...(leaveEmployeeId && { employeeId: leaveEmployeeId }),
+      ...(leaveStatus && { status: leaveStatus }),
+      page: leavePage,
+      limit: leaveLimit,
+    }),
+    [
+      leaveBranchId,
+      leaveDepartmentId,
+      leaveEmployeeId,
+      leaveStatus,
+      leavePage,
+      leaveLimit,
+    ],
+  );
+
   useEffect(() => {
     if (activeTab === "leave") {
-      dispatch(getMyLeavesThunk());
+      dispatch(getAllLeavesThunk(leaveFilters));
     }
-  }, [dispatch, activeTab]);
-
-  const requests: LeaveRequest[] = useMemo(
-    () =>
-      myLeaves.map((l) => ({
-        id: l.uuid,
-        employeeName: currentEmployeeName,
-        department: currentEmployeeDept,
-        leaveType: l.leave_type,
-        fromDate: l.from_date,
-        toDate: l.to_date,
-        days: l.total_days,
-        reason: l.reason ?? "",
-        status: l.status,
-        appliedOn: l.applied_at?.slice(0, 10) ?? "",
-      })),
-    [myLeaves],
-  );
+  }, [dispatch, activeTab, leaveFilters]);
 
   const handleApply = async (data: {
     leaveType: string;
@@ -102,7 +143,8 @@ function Leave() {
       ).unwrap();
 
       setModalOpen(false);
-      dispatch(getMyLeavesThunk());
+      // apply ke baad bhi current filters ke saath hi refetch karo
+      dispatch(getAllLeavesThunk(leaveFilters));
     } catch (err) {
       console.error("Failed to apply leave:", err);
     }
@@ -112,19 +154,49 @@ function Leave() {
     console.log("Assign leave (not yet wired to API):", data);
   };
 
+  // ---------- Approve/Reject handlers ----------
+  const openStatusDialog = (id: string | number, name?: string) => {
+    setTargetLeave({ id, name });
+    setStatusDialogOpen(true);
+  };
+
+  const handleConfirmStatus = async (
+    status: "Approved" | "Rejected",
+    rejectionReason: string | null,
+  ) => {
+    if (!targetLeave) return;
+
+    const result = await dispatch(
+      updateLeaveStatusThunk({
+        leaveId: targetLeave.id,
+        status,
+        rejectionReason,
+      }),
+    );
+
+    // agar success hua, dialog band karo aur list refresh karo
+    if (updateLeaveStatusThunk.fulfilled.match(result)) {
+      setStatusDialogOpen(false);
+      setTargetLeave(null);
+      dispatch(getAllLeavesThunk(leaveFilters));
+    }
+    // agar fail hua, dialog khula rahega taaki user dubara try kare
+  };
+
   const filteredRequests = useMemo(() => {
     const keyword = search.toLowerCase();
-    return requests.filter(
+    if (!keyword) return leaves;
+    return leaves.filter(
       (r) =>
-        r.employeeName.toLowerCase().includes(keyword) ||
-        r.leaveType.toLowerCase().includes(keyword) ||
-        r.department.toLowerCase().includes(keyword),
+        r.employeeName?.toLowerCase().includes(keyword) ||
+        r.leave_type?.toLowerCase().includes(keyword) ||
+        r.department?.toLowerCase().includes(keyword),
     );
-  }, [requests, search]);
+  }, [leaves, search]);
 
   const recentlyAssigned = useMemo(
-    () => requests.filter((r) => r.reason === "Assigned by admin").slice(0, 5),
-    [requests],
+    () => leaves.filter((r) => r.reason === "Assigned by admin").slice(0, 5),
+    [leaves],
   );
 
   const branches = useAppSelector((s: RootState) => s.branch.branches) ?? [];
@@ -226,13 +298,13 @@ function Leave() {
 
           <TabsList
             className={`grid w-fit bg-white border border-orange-200 ${
-              isSuperAdmin ? "grid-cols-5" : "grid-cols-1"
+              isSuperAdmin ? "grid-cols-6" : "grid-cols-1"
             }`}
           >
             {/* Super admin ke alawa sabko sirf ye ek tab dikhega */}
             <TabsTrigger
               value="compoff"
-              className="gap-1.5 data-[state=active]:bg-teal-600 data-[state=active]:text-white"
+              className="gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white"
             >
               <CalendarClock size={14} />
               Comp Off
@@ -242,7 +314,7 @@ function Leave() {
               <>
                 <TabsTrigger
                   value="leave"
-                  className="gap-1.5 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+                  className="gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white"
                 >
                   <Users size={14} />
                   Leave
@@ -263,31 +335,115 @@ function Leave() {
                 </TabsTrigger>
                 <TabsTrigger
                   value="duty-roster"
-                  className="gap-1.5 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+                  className="gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white"
                 >
                   <ClipboardList size={14} />
                   Duty Roster
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="leave-management"
+                  className="gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white"
+                >
+                  <ClipboardList size={14} />
+                  Leave Management
                 </TabsTrigger>
               </>
             )}
           </TabsList>
         </div>
 
-        {/* ---------- Comp Off Tab — sabko dikhta hai ---------- */}
         <TabsContent value="compoff" className="mt-6">
           <CompOffTable />
         </TabsContent>
 
-        {/* ---------- Baaki sab tabs sirf Super Admin ke liye ---------- */}
         {isSuperAdmin && (
           <>
-            <TabsContent value="leave" className="mt-6">
+            <TabsContent value="leave" className="mt-6 space-y-4">
+              {/* ---------- Leave filters ---------- */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Building2 size={16} className="text-muted-foreground" />
+                  <BranchFilter
+                    value={leaveBranchId}
+                    onChange={setLeaveBranchId}
+                  />
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Department ID"
+                  value={leaveDepartmentId}
+                  onChange={(e) => setLeaveDepartmentId(e.target.value)}
+                  className="h-9 rounded-md border border-orange-200 px-3 text-sm"
+                />
+
+                <input
+                  type="text"
+                  placeholder="Employee ID"
+                  value={leaveEmployeeId}
+                  onChange={(e) => setLeaveEmployeeId(e.target.value)}
+                  className="h-9 rounded-md border border-orange-200 px-3 text-sm"
+                />
+
+                <select
+                  value={leaveStatus}
+                  onChange={(e) => setLeaveStatus(e.target.value)}
+                  className="h-9 rounded-md border border-orange-200 px-3 text-sm"
+                >
+                  <option value="">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+
+                {(leaveBranchId ||
+                  leaveDepartmentId ||
+                  leaveEmployeeId ||
+                  leaveStatus) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLeaveBranchId("");
+                      setLeaveDepartmentId("");
+                      setLeaveEmployeeId("");
+                      setLeaveStatus("");
+                    }}
+                    className="h-9 rounded-md border border-orange-200 px-3 text-sm text-orange-600 hover:bg-orange-50"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+
               <LeaveRequestsTab
                 requests={filteredRequests}
                 search={search}
                 onSearchChange={setSearch}
                 onApplyClick={() => setModalOpen(true)}
+                onApprove={(id, name) => {
+                  setTargetLeave({ id, name });
+
+                  setStatusDialogOpen(true);
+                }}
+                onReject={(id, name) => openStatusDialog(id, name)}
+                actionLoadingId={actionLoadingId}
                 loading={leavesLoading}
+              />
+
+              {/* ---------- Pagination ---------- */}
+              <Pagination
+                currentPage={leavePage}
+                totalPages={totalPages}
+                total={total}
+                limit={leaveLimit}
+                hasPrevPage={hasPrevPage}
+                hasNextPage={hasNextPage}
+                onPageChange={setLeavePage}
+                onLimitChange={(newLimit) => {
+                  setLeaveLimit(newLimit);
+                  setLeavePage(1);
+                }}
               />
             </TabsContent>
 
@@ -320,6 +476,9 @@ function Leave() {
             <TabsContent value="duty-roster" className="mt-6">
               <DutyRoster />
             </TabsContent>
+            <TabsContent value="leave-management" className="mt-6">
+              <LeaveManagementTable />
+            </TabsContent>
           </>
         )}
       </Tabs>
@@ -328,6 +487,17 @@ function Leave() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={handleApply}
+      />
+
+      <UpdateLeaveStatusDialog
+        open={statusDialogOpen}
+        employeeName={targetLeave?.name}
+        onClose={() => {
+          setStatusDialogOpen(false);
+          setTargetLeave(null);
+        }}
+        onConfirm={handleConfirmStatus}
+        loading={actionLoadingId === targetLeave?.id}
       />
     </div>
   );

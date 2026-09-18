@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -23,7 +24,7 @@ export default function DepartmentFilter({
   onChange,
   placeholder = "Department",
   includeAllOption = true,
-  className = "w-full sm:w-[180px] h-9 text-sm",
+  className,
 }: DepartmentFilterProps) {
   const dispatch = useAppDispatch();
   const { departments } = useAppSelector(
@@ -38,10 +39,17 @@ export default function DepartmentFilter({
 
   const departmentOptions = departments ?? [];
 
+  const hasCustomStyle = Boolean(className && className.trim().length > 0);
+
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
-        className={`w-full sm:w-[180px] h-10 rounded-xl border border-orange-200 hover:bg-orange-100 text-orange-700 shadow-sm transition-all focus:ring-2 focus:ring-orange-300 ${className}`}
+        className={cn(
+          "w-full sm:w-[180px] h-10 rounded-xl shadow-sm transition-all",
+          hasCustomStyle
+            ? className
+            : "border border-orange-200 hover:bg-orange-100 text-orange-700 focus:ring-2 focus:ring-orange-300",
+        )}
       >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

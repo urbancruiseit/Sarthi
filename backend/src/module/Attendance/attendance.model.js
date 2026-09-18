@@ -273,7 +273,9 @@ export const getAttendanceByMonth = async (filters = {}) => {
     const sql = `
       WITH RECURSIVE calendar AS (
         SELECT CAST(? AS DATE) AS dt
+
         UNION ALL
+
         SELECT DATE_ADD(dt, INTERVAL 1 DAY)
         FROM calendar
         WHERE dt < CAST(? AS DATE)
@@ -284,11 +286,11 @@ export const getAttendanceByMonth = async (filters = {}) => {
 
         TRIM(
           CONCAT(
-            COALESCE(u.firstName,''),
+            COALESCE(u.firstName, ''),
             ' ',
-            COALESCE(u.middleName,''),
+            COALESCE(u.middleName, ''),
             ' ',
-            COALESCE(u.lastName,'')
+            COALESCE(u.lastName, '')
           )
         ) AS full_name,
 
@@ -313,7 +315,7 @@ export const getAttendanceByMonth = async (filters = {}) => {
         eso.from_date,
         eso.to_date,
 
-        /* Final Shift */
+        /* Final Shift (LIVE / current, for display only) */
         COALESCE(eso.shift_type, u.workShift) AS shift_type,
         COALESCE(eso.shift_timing, u.shiftTiming) AS shift_timing,
 
@@ -325,18 +327,23 @@ export const getAttendanceByMonth = async (filters = {}) => {
         a.id AS attendance_id,
         calendar.dt AS attendance_date,
 
-        COALESCE(a.status,'Absent') AS status,
+        COALESCE(a.status, 'Absent') AS status,
         a.punch_in,
         a.punch_out,
         a.leave_type,
         a.remarks,
 
+        /* Shift jo us din punch-in ke time attendance row me FREEZE ho chuka tha.
+           Late calculation isी se hoga — baad me shift change hone se
+           purane din ka late status nahi badlega. */
+        a.shift_timing AS stored_shift_timing,
+
         /* Attendance Calculation */
-        COALESCE(a.late_minutes,0) AS late_minutes,
-        COALESCE(a.early_exit_minutes,0) AS early_exit_minutes,
-        COALESCE(a.worked_minutes,0) AS worked_minutes,
-        COALESCE(a.overtime_minutes,0) AS overtime_minutes,
-        COALESCE(a.short_minutes,0) AS short_minutes
+        COALESCE(a.late_minutes, 0) AS late_minutes,
+        COALESCE(a.early_exit_minutes, 0) AS early_exit_minutes,
+        COALESCE(a.worked_minutes, 0) AS worked_minutes,
+        COALESCE(a.overtime_minutes, 0) AS overtime_minutes,
+        COALESCE(a.short_minutes, 0) AS short_minutes
 
       FROM calendar
 
@@ -367,6 +374,9 @@ export const getAttendanceByMonth = async (filters = {}) => {
 
     const [rows] = await pool.execute(sql, params);
 
+    // --------------------------------------------------
+    // Format Minutes
+    // --------------------------------------------------
     const formatMinutes = (minutes) => {
       if (minutes == null) return "00:00";
 
@@ -379,46 +389,71 @@ export const getAttendanceByMonth = async (filters = {}) => {
       )}`;
     };
 
-    // ---------- Helper: shift_timing string se start time (minutes) nikalo ----------
+    // --------------------------------------------------
+    // Shift Start Time
+    // --------------------------------------------------
     const getShiftStartMinutes = (shiftTiming) => {
       if (!shiftTiming) return null;
 
       const startPart = shiftTiming.split("-")[0]?.trim();
+
       if (!startPart) return null;
 
       const match = startPart.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+
       if (!match) return null;
 
       let [, hh, mm, meridian] = match;
+
       hh = parseInt(hh, 10);
       mm = parseInt(mm, 10);
 
       if (meridian) {
         meridian = meridian.toUpperCase();
-        if (meridian === "PM" && hh !== 12) hh += 12;
-        if (meridian === "AM" && hh === 12) hh = 0;
+
+        if (meridian === "PM" && hh !== 12) {
+          hh += 12;
+        }
+
+        if (meridian === "AM" && hh === 12) {
+          hh = 0;
+        }
       }
 
       return hh * 60 + mm;
     };
 
-    // ---------- Helper: punch_in (HH:MM:SS ya HH:MM) se minutes nikalo ----------
+    // --------------------------------------------------
+    // Punch In Time
+    // --------------------------------------------------
     const getPunchInMinutes = (punchIn) => {
       if (!punchIn) return null;
 
       const parts = String(punchIn).split(":");
+
       const hh = parseInt(parts[0], 10);
       const mm = parseInt(parts[1], 10);
 
-      if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+      if (Number.isNaN(hh) || Number.isNaN(mm)) {
+        return null;
+      }
+
       return hh * 60 + mm;
     };
 
-    const LATE_GRACE_MINUTES = 10; // 10 minute grace period
+    const LATE_GRACE_MINUTES = 10;
 
-    // ---------- Row-level: isLate flag add karo ----------
+    // --------------------------------------------------
+    // Enrich Rows
+    // --------------------------------------------------
     const enrichedRows = rows.map((row) => {
-      const shiftStartMinutes = getShiftStartMinutes(row.shift_timing);
+      // Late calculation ke liye us din ka FROZEN shift use karo.
+      // Agar attendance row me shift_timing store nahi hai (purane records,
+      // ya attendance hi mark nahi hui), to live/current shift pe fallback karo.
+      const shiftForLateCalc = row.stored_shift_timing || row.shift_timing;
+
+      const shiftStartMinutes = getShiftStartMinutes(shiftForLateCalc);
+
       const punchInMinutes = getPunchInMinutes(row.punch_in);
 
       let isLate = false;
@@ -429,21 +464,26 @@ export const getAttendanceByMonth = async (filters = {}) => {
         punchInMinutes != null
       ) {
         const diff = punchInMinutes - shiftStartMinutes;
+
         isLate = diff > LATE_GRACE_MINUTES;
       }
 
       return {
         ...row,
+
         late_time: formatMinutes(row.late_minutes),
         early_exit_time: formatMinutes(row.early_exit_minutes),
         worked_time: formatMinutes(row.worked_minutes),
         overtime_time: formatMinutes(row.overtime_minutes),
         short_time: formatMinutes(row.short_minutes),
+
         is_late: isLate,
       };
     });
 
-    // ---------- Employee-wise Month Summary ----------
+    // --------------------------------------------------
+    // Employee-wise Month Summary
+    // --------------------------------------------------
     const summaryMap = new Map();
 
     for (const row of enrichedRows) {
@@ -451,51 +491,102 @@ export const getAttendanceByMonth = async (filters = {}) => {
         summaryMap.set(row.employee_id, {
           employeeId: row.employee_id,
           fullName: row.full_name,
+
           totalMinutes: 0,
+
           present: 0,
           absent: 0,
-          lateMarks: 0,
           halfDay: 0,
+
+          leave: 0,
+          compOff: 0,
+          extraWork: 0,
+
+          lateMarks: 0,
         });
       }
 
       const emp = summaryMap.get(row.employee_id);
 
+      // Total worked minutes
       emp.totalMinutes += row.worked_minutes || 0;
+
+      // -----------------------------------------------
+      // Status Counts
+      // -----------------------------------------------
 
       if (row.status === "Present") {
         emp.present++;
-        if (row.is_late) emp.lateMarks++;
+
+        if (row.is_late) {
+          emp.lateMarks++;
+        }
       } else if (row.status === "Absent") {
         emp.absent++;
       } else if (row.status === "Half Day") {
         emp.halfDay++;
+      } else if (row.status === "Leave") {
+        emp.leave++;
+      } else if (row.status === "CompOff") {
+        emp.compOff++;
+      } else if (row.status === "Extra Work") {
+        emp.extraWork++;
       }
     }
 
+    // --------------------------------------------------
+    // Final Employee Summary
+    // --------------------------------------------------
     const summary = Array.from(summaryMap.values()).map((emp) => ({
       ...emp,
+
       totalHours: formatMinutes(emp.totalMinutes),
     }));
 
-    // ---------- Overall totals (poore filter-set ke liye) ----------
+    // --------------------------------------------------
+    // Overall Summary
+    // --------------------------------------------------
     const overallSummary = summary.reduce(
       (acc, emp) => {
         acc.totalMinutes += emp.totalMinutes;
+
         acc.present += emp.present;
         acc.absent += emp.absent;
-        acc.lateMarks += emp.lateMarks;
         acc.halfDay += emp.halfDay;
+
+        acc.leave += emp.leave;
+        acc.compOff += emp.compOff;
+        acc.extraWork += emp.extraWork;
+
+        acc.lateMarks += emp.lateMarks;
+
         return acc;
       },
-      { totalMinutes: 0, present: 0, absent: 0, lateMarks: 0, halfDay: 0 },
+      {
+        totalMinutes: 0,
+
+        present: 0,
+        absent: 0,
+        halfDay: 0,
+
+        leave: 0,
+        compOff: 0,
+        extraWork: 0,
+
+        lateMarks: 0,
+      },
     );
 
     overallSummary.totalHours = formatMinutes(overallSummary.totalMinutes);
 
+    // --------------------------------------------------
+    // Return
+    // --------------------------------------------------
     return {
       data: enrichedRows,
+
       summary,
+
       overallSummary,
     };
   } catch (error) {
@@ -602,9 +693,6 @@ export const markAttendance = async ({
   punchIn = null,
 }) => {
   try {
-    // Get Employee Shift (Temporary > Permanent) + branchOffice_id + employee's own weekly-off day
-    // users.weeklyoff stores the day name e.g. 'Sunday', 'Monday', 'Friday' ...
-    // Some employees have NULL — handled below (isWeekOff stays false for them).
     const [shiftRows] = await pool.execute(
       `
       SELECT
@@ -692,9 +780,6 @@ export const markAttendance = async ({
       finalStatus = "Extra Work";
       // lateMinutes stays as calculated above (not zeroed)
     }
-    // If it's their week-off/holiday and employee did NOT punch in,
-    // finalStatus stays as whatever was passed in (existing auto-attendance
-    // logic elsewhere in your codebase should already set Week Off / Holiday)
 
     const sql = `
       INSERT INTO attendance

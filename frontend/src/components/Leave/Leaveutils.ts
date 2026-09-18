@@ -11,7 +11,7 @@ export interface LeaveRequest {
   to_date: string;
   total_days: number;
   reason: string | null;
-  status: "Pending" | "Approved" | "Rejected";
+  status: LeaveStatus;
   applied_at: string;
   approved_by: number | null;
   approved_at: string | null;
@@ -19,9 +19,10 @@ export interface LeaveRequest {
   created_at: string;
   updated_at: string;
 }
+
 export interface LeaveFilters {
   employeeId?: number;
-  status?: "Pending" | "Approved" | "Rejected";
+  status?: LeaveStatus;
   leaveType?: string;
   fromDate?: string;
   toDate?: string;
@@ -52,49 +53,90 @@ export interface Holiday {
 
 export const LEAVE_TYPES = ["Short PL", "Long PL", "Comp Off", "Unpaid Leave"];
 
-export const STATUS_STYLES: Record<LeaveStatus, { bg: string; color: string }> =
-  {
-    Pending: { bg: "#FEF3C7", color: "#B45309" },
-    Approved: { bg: "#DCFCE7", color: "#166534" },
-    Rejected: { bg: "#FEE2E2", color: "#B91C1C" },
-  };
+export const STATUS_STYLES: Record<LeaveStatus, { bg: string; color: string }> = {
+  Pending: { bg: "#FEF3C7", color: "#B45309" },
+  Approved: { bg: "#DCFCE7", color: "#166534" },
+  Rejected: { bg: "#FEE2E2", color: "#B91C1C" },
+};
 
+export const DEFAULT_STATUS_STYLE = { bg: "#E5E7EB", color: "#374151" };
+
+
+export function normalizeLeaveStatus(raw: unknown): LeaveStatus | null {
+  if (typeof raw !== "string") return null;
+  const cleaned = raw.trim().toLowerCase();
+  switch (cleaned) {
+    case "pending":
+      return "Pending";
+    case "approved":
+      return "Approved";
+    case "rejected":
+      return "Rejected";
+    default:
+      return null;
+  }
+}
+
+// Mock data kept in the same shape as the real LeaveRequest interface,
+// so this can be swapped in/out for the live API response without
+// breaking the table.
 export const INITIAL_REQUESTS: LeaveRequest[] = [
   {
-    id: "LR-1042",
+    id: 1042,
+    uuid: "LR-1042",
+    employee_id: 101,
     employeeName: "Aditi Sharma",
+    leave_type: "Casual Leave",
     department: "Sales",
-    leaveType: "Casual Leave",
-    fromDate: "2026-07-18",
-    toDate: "2026-07-19",
-    days: 2,
+    from_date: "2026-07-18",
+    to_date: "2026-07-19",
+    total_days: 2,
     reason: "Family function",
     status: "Pending",
-    appliedOn: "2026-07-14",
+    applied_at: "2026-07-14",
+    approved_by: null,
+    approved_at: null,
+    rejection_reason: null,
+    created_at: "2026-07-14",
+    updated_at: "2026-07-14",
   },
   {
-    id: "LR-1041",
+    id: 1041,
+    uuid: "LR-1041",
+    employee_id: 102,
     employeeName: "Rohit Verma",
+    leave_type: "Sick Leave",
     department: "IT",
-    leaveType: "Sick Leave",
-    fromDate: "2026-07-12",
-    toDate: "2026-07-12",
-    days: 1,
+    from_date: "2026-07-12",
+    to_date: "2026-07-12",
+    total_days: 1,
     reason: "Fever",
     status: "Approved",
-    appliedOn: "2026-07-11",
+    applied_at: "2026-07-11",
+    approved_by: 5,
+    approved_at: "2026-07-11",
+    rejection_reason: null,
+    created_at: "2026-07-11",
+    updated_at: "2026-07-11",
   },
   {
-    id: "LR-1040",
+    id: 1040,
+    uuid: "LR-1040",
+    employee_id: 103,
     employeeName: "Priya Nair",
+    leave_type: "Earned Leave",
     department: "Finance",
-    leaveType: "Earned Leave",
-    fromDate: "2026-07-05",
-    toDate: "2026-07-09",
-    days: 5,
+    from_date: "2026-07-05",
+    to_date: "2026-07-09",
+    total_days: 5,
     reason: "Personal travel",
     status: "Rejected",
-    appliedOn: "2026-06-28",
+    applied_at: "2026-06-28",
+    approved_by: 5,
+    approved_at: "2026-06-29",
+    rejection_reason: "Insufficient balance",
+    created_at: "2026-06-28",
+    updated_at: "2026-06-29",
   },
 ];
 
@@ -116,18 +158,17 @@ export const INITIAL_HOLIDAYS: Holiday[] = [
 ];
 
 // Tab-wise header content.
-export const TAB_CONTENT: Record<string, { title: string; subtitle: string }> =
-  {
-    leave: {
-      title: "Leave Management",
-      subtitle: "Apply for leave and track request status",
-    },
-    assign: {
-      title: "Leave Assignment",
-      subtitle: "Assign leave directly to an employee",
-    },
-    holiday: {
-      title: "Company Holidays",
-      subtitle: "List of official company holidays",
-    },
-  };
+export const TAB_CONTENT: Record<string, { title: string; subtitle: string }> = {
+  leave: {
+    title: "Leave Management",
+    subtitle: "Apply for leave and track request status",
+  },
+  assign: {
+    title: "Leave Assignment",
+    subtitle: "Assign leave directly to an employee",
+  },
+  holiday: {
+    title: "Company Holidays",
+    subtitle: "List of official company holidays",
+  },
+};

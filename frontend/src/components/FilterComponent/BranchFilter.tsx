@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Building2 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -24,7 +25,7 @@ export default function BranchFilter({
   onChange,
   placeholder = "Branch",
   includeAllOption = true,
-  className = "",
+  className,
 }: BranchFilterProps) {
   const dispatch = useAppDispatch();
 
@@ -38,10 +39,17 @@ export default function BranchFilter({
 
   const branchOptions = branches ?? [];
 
+  const hasCustomStyle = Boolean(className && className.trim().length > 0);
+
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
-        className={`w-full sm:w-[180px] h-10 rounded-xl border border-orange-200 hover:bg-orange-100 text-orange-700 shadow-sm transition-all focus:ring-2 focus:ring-orange-300 ${className}`}
+        className={cn(
+          "w-full sm:w-[180px] h-10 rounded-xl shadow-sm transition-all",
+          hasCustomStyle
+            ? className
+            : "border border-orange-200 hover:bg-orange-100 text-orange-700 focus:ring-2 focus:ring-orange-300",
+        )}
       >
         <div className="flex items-center gap-2">
           <Building2 className="h-4 w-4 text-orange-600" />

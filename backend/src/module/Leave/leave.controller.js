@@ -3,13 +3,14 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import {
   applyLeave,
+  getAllLeaves,
   getLeaveById,
   getLeavesByEmployee,
   updateLeaveStatus,
 } from "./leave.model.js";
 
 const applyLeaveController = asyncHandler(async (req, res) => {
-  const employeeId = req.user?.id;
+  const employeeId = 70;
   const { leaveType, fromDate, toDate, totalDays, reason } = req.body;
 
   if (!employeeId) {
@@ -39,7 +40,9 @@ const applyLeaveController = asyncHandler(async (req, res) => {
 
 const updateLeaveStatusController = asyncHandler(async (req, res) => {
   const approvedBy = req.user?.id;
-  const { leaveId, status, rejectionReason } = req.body;
+  const { leaveId } = req.params;
+
+  const { status, rejectionReason } = req.body;
 
   if (!approvedBy) {
     throw new ApiError(401, "Unauthorized: approver id not found on request");

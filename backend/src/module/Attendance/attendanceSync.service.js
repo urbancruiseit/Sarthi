@@ -148,8 +148,7 @@ const syncOfficeAttendance = async (officeKey) => {
         `Failed to process punch for emp_code ${punch.Empcode} (${officeKey}):`,
         punchErr,
       );
-      // Stop advancing last_record past this point so the failed punch
-      // gets retried on the next sync run instead of being lost forever.
+    
       hadFailure = true;
       break;
     }

@@ -8,7 +8,13 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LeaveRequest, LeaveStatus, STATUS_STYLES } from "./Leaveutils";
+import {
+  LeaveRequest,
+  LeaveStatus,
+  STATUS_STYLES,
+  DEFAULT_STATUS_STYLE,
+  normalizeLeaveStatus,
+} from "./Leaveutils";
 
 const STATUS_ICONS: Record<LeaveStatus, any> = {
   Pending: HourglassIcon,
@@ -21,7 +27,17 @@ interface LeaveRequestsTabProps {
   search: string;
   onSearchChange: (value: string) => void;
   onApplyClick: () => void;
+  onApprove: (id: string | number, name?: string) => void;
+  onReject: (id: string | number, name?: string) => void;
+  actionLoadingId?: string | number | null;
   loading?: boolean;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 }
 
 export default function LeaveRequestsTab({
@@ -29,6 +45,9 @@ export default function LeaveRequestsTab({
   search,
   onSearchChange,
   onApplyClick,
+  onApprove,
+  onReject,
+  actionLoadingId = null,
   loading = false,
 }: LeaveRequestsTabProps) {
   return (
@@ -74,6 +93,7 @@ export default function LeaveRequestsTab({
                   "Reason",
                   "Applied On",
                   "Status",
+                  "Actions",
                 ].map((h) => (
                   <th
                     key={h}
@@ -87,7 +107,7 @@ export default function LeaveRequestsTab({
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center">
+                  <td colSpan={10} className="px-4 py-10 text-center">
                     <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 size={16} className="animate-spin" />
                       Loading leave requests…
@@ -99,7 +119,7 @@ export default function LeaveRequestsTab({
               {!loading && requests.length === 0 && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-4 py-10 text-center text-sm text-muted-foreground"
                   >
                     No leave requests found.
@@ -109,42 +129,41 @@ export default function LeaveRequestsTab({
 
               {!loading &&
                 requests.map((r) => {
-                  const sc = STATUS_STYLES[r.status];
-                  const StatusIcon = STATUS_ICONS[r.status];
+                  const normalizedStatus = normalizeLeaveStatus(r.status);
+                  const sc = normalizedStatus
+                    ? STATUS_STYLES[normalizedStatus]
+                    : DEFAULT_STATUS_STYLE;
+                  const StatusIcon = normalizedStatus
+                    ? STATUS_ICONS[normalizedStatus]
+                    : HourglassIcon;
+
+                  const rowId: string | number = r.id ?? r.uuid;
+                  const isPending = normalizedStatus === "Pending";
+                  const isRowLoading = actionLoadingId === rowId;
+
                   return (
                     <tr
-                      key={r.id}
+                      key={rowId}
                       className="border-b border-border/50 hover:bg-muted/30"
                     >
-                      <td className="px-4 py-3 font-medium">{r.full_name}</td>
-                      <td className="px-4 py-3">{r.department}</td>
-                      <td className="px-4 py-3">{r.leave_Type}</td>
-                      <td className="px-4 py-3">
-                        {new Date(r.fromDate).toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                        })}
+                      <td className="px-4 py-3 font-medium">
+                        {r.full_name ?? "—"}
                       </td>
-                      <td className="px-4 py-3">
-                        {new Date(r.toDate).toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                        })}
-                      </td>
-                      <td className="px-4 py-3">{r.days}</td>
+                      <td className="px-4 py-3">{r.department_name}</td>
+                      <td className="px-4 py-3">{r.leave_type}</td>
+                      <td className="px-4 py-3">{formatDate(r.from_date)}</td>
+                      <td className="px-4 py-3">{formatDate(r.to_date)}</td>
+                      <td className="px-4 py-3">{r.total_days}</td>
                       <td
                         className="px-4 py-3 max-w-[220px] truncate"
-                        title={r.reason}
+                        title={r.reason ?? undefined}
                       >
-                        {r.reason}
+                        {r.reason ?? "—"}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                           <CalendarDays size={13} />
-                          {new Date(r.appliedOn).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                          })}
+                          {formatDate(r.applied_at)}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -153,8 +172,42 @@ export default function LeaveRequestsTab({
                           style={{ background: sc.bg, color: sc.color }}
                         >
                           <StatusIcon size={12} />
-                          {r.status}
+                          {normalizedStatus ?? r.status ?? "Unknown"}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {isPending ? (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="h-8 text-xs gap-1 text-white border-none hover:opacity-90"
+                              style={{ background: "#16A34A" }}
+                              disabled={isRowLoading}
+                              onClick={() => onApprove(rowId, r.full_name)}
+                            >
+                              {isRowLoading ? (
+                                <Loader2 size={13} className="animate-spin" />
+                              ) : (
+                                <CheckCircle2 size={13} />
+                              )}
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs gap-1 border-red-300 text-red-600 hover:bg-red-50"
+                              disabled={isRowLoading}
+                              onClick={() => onReject(rowId, r.full_name)}
+                            >
+                              <XCircle size={13} />
+                              Reject
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

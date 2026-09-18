@@ -22,9 +22,10 @@ export const applyLeave = async (payload: ApplyLeavePayload) => {
 
 export const updateLeaveStatus = async (payload: UpdateLeaveStatusPayload) => {
   try {
+    const { leaveId, ...rest } = payload;
     const response = await axiosInstance.patch(
-      "/leaves/update-status",
-      payload,
+      `/leaves/update-status/${leaveId}`,
+      rest,
     );
 
     if (response.data?.success) {
@@ -85,6 +86,7 @@ export const getAllLeaves = async (filters: LeaveFilters = {}) => {
     });
 
     if (response.data?.success) {
+      console.log(" response.data.data ", response.data.data);
       return response.data.data;
     }
 

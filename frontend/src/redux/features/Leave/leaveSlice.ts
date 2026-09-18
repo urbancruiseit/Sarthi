@@ -89,6 +89,12 @@ interface LeaveState {
   myLeaves: LeaveRequest[];
   currentLeave: LeaveRequest | null;
   loading: boolean;
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
   error: string | null;
 }
 
@@ -97,6 +103,12 @@ const initialState: LeaveState = {
   myLeaves: [],
   currentLeave: null,
   loading: false,
+  total: 0,
+  totalPages: 1,
+  page: 1,
+  limit: 10,
+  hasNextPage: false,
+  hasPrevPage: false,
   error: null,
 };
 
@@ -189,16 +201,24 @@ const leaveSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(
-        getAllLeavesThunk.fulfilled,
-        (state, action: PayloadAction<LeaveRequest[]>) => {
-          state.loading = false;
-          state.leaves = action.payload;
-        },
-      )
+      .addCase(getAllLeavesThunk.fulfilled, (state, action) => {
+        const payload = action.payload || {};
+        const pagination = payload.pagination || {};
+
+        state.loading = false;
+        state.leaves = payload.leaves || [];
+        state.total = pagination.total || 0;
+        state.totalPages = pagination.totalPages || 1;
+        state.page = pagination.page || 1;
+        state.limit = pagination.limit || 10;
+        state.hasNextPage =
+          pagination.hasNextPage ?? state.page < state.totalPages;
+        state.hasPrevPage = pagination.hasPrevPage ?? state.page > 1;
+      })
       .addCase(getAllLeavesThunk.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        state.leaves = [];
+        state.error = (action.payload as string) || "Failed to fetch leaves";
       });
   },
 });

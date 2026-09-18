@@ -56,7 +56,7 @@ export const STATUS_COLORS: Record<
   },
 
   "Extra Work": {
-    bg: "bg-green-600",
+    bg: " bg-orange-600",
     text: "text-white",
   },
 };

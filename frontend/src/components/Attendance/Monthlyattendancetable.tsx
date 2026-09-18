@@ -53,7 +53,7 @@ const STATUS_TO_CODE: Record<string, string> = {
   "Half Day": "HD",
   Leave: "L",
   "Week Off": "WO",
-  WeekOff: "WO", // <-- naya alias add kiya
+  WeekOff: "WO",
   "Comp Off": "COF",
   Holiday: "HOL",
   "Extra Work": "XW",
@@ -68,7 +68,7 @@ const CODE_STYLE: Record<string, string> = {
   WO: "bg-sky-100 text-sky-700",
   COF: "bg-[#5b3a22] text-white",
   HOL: "bg-purple-100 text-purple-700",
-  XW: "bg-green-100 text-green-700",
+  XW: "bg-orange-100 text-orange-700",
 };
 
 const AVATAR_COLORS = [
@@ -116,11 +116,10 @@ function timeToMinutes(t: string | null | undefined) {
   return h * 60 + m;
 }
 
-function parseShiftStartMinutes(shiftTiming: string | null | undefined) {
-  if (!shiftTiming) return null;
-  const start = shiftTiming.split("-")[0]?.trim();
-  if (!start) return null;
-  const match = start.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
+// Generic "hh:mm am/pm" -> minutes-from-midnight parser
+function parseTimeStringToMinutes(timeStr: string | null | undefined) {
+  if (!timeStr) return null;
+  const match = timeStr.trim().match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
   if (!match) return null;
   let [, hStr, mStr, ampm] = match;
   let h = parseInt(hStr, 10);
@@ -128,6 +127,22 @@ function parseShiftStartMinutes(shiftTiming: string | null | undefined) {
   if (ampm.toLowerCase() === "pm" && h !== 12) h += 12;
   if (ampm.toLowerCase() === "am" && h === 12) h = 0;
   return h * 60 + m;
+}
+
+function parseShiftStartMinutes(shiftTiming: string | null | undefined) {
+  if (!shiftTiming) return null;
+  const start = shiftTiming.split("-")[0];
+  return parseTimeStringToMinutes(start);
+}
+
+// NEW: shift ke start aur end dono minutes-from-midnight me nikalta hai
+// e.g. "11:30 am - 8:00 pm" -> { startMinutes: 690, endMinutes: 1200 }
+function parseShiftRange(shiftTiming: string | null | undefined) {
+  if (!shiftTiming) return { startMinutes: null, endMinutes: null };
+  const parts = shiftTiming.split("-");
+  const startMinutes = parseTimeStringToMinutes(parts[0]);
+  const endMinutes = parts[1] ? parseTimeStringToMinutes(parts[1]) : null;
+  return { startMinutes, endMinutes };
 }
 
 interface ApiAttendanceRecord {
@@ -148,6 +163,9 @@ interface ApiAttendanceRecord {
   shift_timing?: string | null;
   shift_type?: string | null;
   shift_source?: string | null;
+
+  // Us din attendance mark hote waqt jo shift freeze ho chuka tha
+  stored_shift_timing?: string | null;
 
   attendance_date: string | null;
   status: string;
@@ -178,6 +196,12 @@ type DayCell = {
   wh: string;
   ot: string;
   f: string;
+  isEarlyIn: boolean; // NEW — punch-in shift start se 10 min PEHLE hua (BLUE)
+  isLateIn: boolean; // NEW — punch-in shift start se 10 min grace ke baad hua (RED)
+  isOnTimeIn: boolean; // NEW — early window aur grace ke beech (GRAY)
+  isEarlyOut: boolean; // NEW — punch-out shift end se pehle hua (RED)
+  isOnTimeOut: boolean; // NEW — punch-out shift end se OUT_GRACE_MINUTES ke andar (GREEN)
+  isExtendedOut: boolean; // NEW — punch-out shift end se OUT_GRACE_MINUTES se zyada baad (BLUE)
 };
 
 type ProcessedEmployee = {
@@ -192,6 +216,9 @@ type ProcessedEmployee = {
   totalAbsent: number;
   totalLate: number;
   totalHalfDay: number;
+  extraWork: number;
+  compOff: number;
+  leave: number;
   totalOT: string;
   totalShort: string;
 };
@@ -203,7 +230,17 @@ const EMPTY_DAY_CELL_BASE = {
   wh: "-",
   ot: "-",
   f: "-",
+  isEarlyIn: false,
+  isLateIn: false,
+  isOnTimeIn: false,
+  isEarlyOut: false,
+  isOnTimeOut: false,
+  isExtendedOut: false,
 };
+
+const LATE_GRACE_MINUTES = 10; // shift start ke baad kitni der tak grace (gray/red boundary for IN)
+const EARLY_ARRIVAL_MINUTES = 10; // shift start se kitna pehle aana "early/blue" maana jaayega
+const OUT_GRACE_MINUTES = 10; // shift end ke baad kitni der tak "on-time" (green), uske baad "extended" (blue)
 
 function processRecords(
   records: ApiAttendanceRecord[],
@@ -213,9 +250,6 @@ function processRecords(
 ): ProcessedEmployee[] {
   const byEmployee = new Map<number, ApiAttendanceRecord[]>();
 
-  // Backend se jitne din tak ka actual data (attendance_date) aa raha hai,
-  // us sabse aakhri (latest) din ka number yaha track karenge.
-  // Isse aage ke saare din, sabhi employees ke liye "-" force honge.
   let maxDataDay = 0;
 
   for (const r of records) {
@@ -254,6 +288,9 @@ function processRecords(
     let absentCount = 0;
     let lateCount = 0;
     let halfDayCount = 0;
+    let extraWorkCount = 0;
+    let compOffCount = 0;
+    let leaveCount = 0;
     let totalWorkMinutes = 0;
     let totalOTMinutes = 0;
     let totalShortMinutes = 0;
@@ -261,8 +298,6 @@ function processRecords(
     const days: DayCell[] = Array.from({ length: daysInMonth }, (_, i) => {
       const day = i + 1;
 
-      // Backend se data jitne din tak aaya hai, uske baad ke sabhi din
-      // har employee ke liye "-" hi rahenge (record me kuch bhi ho, ignore karo).
       if (maxDataDay > 0 && day > maxDataDay) {
         return { day, ...EMPTY_DAY_CELL_BASE };
       }
@@ -280,12 +315,14 @@ function processRecords(
       if (rec.status === "Present") presentCount += 1;
       if (rec.status === "Absent") absentCount += 1;
       if (rec.status === "Half Day") halfDayCount += 1;
+      if (rec.status === "Extra Work") extraWorkCount += 1;
+      if (rec.status === "Comp Off" || rec.status === "CompOff")
+        compOffCount += 1;
+      if (rec.status === "Leave") leaveCount += 1;
 
       const inMin = timeToMinutes(rec.punch_in);
       const outMin = timeToMinutes(rec.punch_out);
 
-      // "00:00:00" jaisi zero-duration string ko bhi "no data" maano —
-      // isse WH/OT/F columns me khali/zero time pe "00:00" ki jagah "-" dikhega.
       const isZeroTime = (t: string | null | undefined) =>
         !t || t.slice(0, 5) === "00:00";
 
@@ -317,9 +354,71 @@ function processRecords(
         totalOTMinutes += rec.overtime_minutes;
       }
 
-      if (rec.is_late) {
+      // is_late field ko primary source maanenge, agar wo undefined/missing ho
+      // to late_minutes > 0 ko fallback ke roop me use karenge
+      const isLateRecord =
+        typeof rec.is_late === "boolean"
+          ? rec.is_late
+          : (rec.late_minutes ?? 0) > 0;
+
+      if (rec.status === "Present" && isLateRecord) {
         lateCount += 1;
       }
+
+      // ------------------------------------------------
+      // NEW: IN / OUT cell red highlight logic
+      // Us din ka FROZEN shift (stored_shift_timing) use karo,
+      // warna current/live shift pe fallback karo.
+      // ------------------------------------------------
+      const shiftForCellCheck = rec.stored_shift_timing || rec.shift_timing;
+      const { startMinutes: shiftStartMin, endMinutes: shiftEndMin } =
+        parseShiftRange(shiftForCellCheck);
+
+      // IN: 3 states
+      // - shift start se EARLY_ARRIVAL_MINUTES (10) min ya usse zyada PEHLE -> GREEN
+      // - us window (start-10) se lekar grace (start+10) tak -> BLUE
+      // - grace (start+10) se zyada baad -> RED
+      const isEarlyIn =
+        rec.status === "Present" &&
+        shiftStartMin != null &&
+        inMin != null &&
+        inMin < shiftStartMin - EARLY_ARRIVAL_MINUTES;
+
+      const isLateIn =
+        rec.status === "Present" &&
+        shiftStartMin != null &&
+        inMin != null &&
+        inMin > shiftStartMin + LATE_GRACE_MINUTES;
+
+      const isOnTimeIn =
+        rec.status === "Present" &&
+        shiftStartMin != null &&
+        inMin != null &&
+        !isEarlyIn &&
+        !isLateIn;
+
+      // OUT: 3 states
+      // - shift end se PEHLE gaya -> RED
+      // - shift end se OUT_GRACE_MINUTES (10) ke andar gaya -> GREEN
+      // - shift end se OUT_GRACE_MINUTES se ZYADA baad gaya -> BLUE
+      const isEarlyOut =
+        rec.status === "Present" &&
+        shiftEndMin != null &&
+        outMin != null &&
+        outMin < shiftEndMin;
+
+      const isExtendedOut =
+        rec.status === "Present" &&
+        shiftEndMin != null &&
+        outMin != null &&
+        outMin > shiftEndMin + OUT_GRACE_MINUTES;
+
+      const isOnTimeOut =
+        rec.status === "Present" &&
+        shiftEndMin != null &&
+        outMin != null &&
+        !isEarlyOut &&
+        !isExtendedOut;
 
       let f = "-";
 
@@ -343,6 +442,12 @@ function processRecords(
         wh,
         ot,
         f,
+        isEarlyIn,
+        isLateIn,
+        isOnTimeIn,
+        isEarlyOut,
+        isOnTimeOut,
+        isExtendedOut,
       };
     });
 
@@ -360,6 +465,9 @@ function processRecords(
       totalAbsent: absentCount,
       totalLate: lateCount,
       totalHalfDay: halfDayCount,
+      extraWork: extraWorkCount,
+      compOff: compOffCount,
+      leave: leaveCount,
       totalOT: minutesToHHMM(totalOTMinutes),
       totalShort: minutesToHHMM(totalShortMinutes),
     });
@@ -375,6 +483,7 @@ const Monthlyattendancetable = () => {
   const { monthlyList, loading } = useAppSelector(
     (state: RootState) => state.attendance,
   );
+  console.log("monthlyList-----", monthlyList);
 
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear().toString(),
@@ -444,6 +553,29 @@ const Monthlyattendancetable = () => {
 
   return (
     <div className="">
+      <style>{`
+      .custom-scrollbar::-webkit-scrollbar {
+        height: 14px;   /* horizontal scrollbar height/thickness */
+        width: 14px;    /* vertical scrollbar width */
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #4b5563; /* dark gray (tailwind gray-600) */
+        border-radius: 8px;
+        border: 3px solid #f1f1f1;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: #374151; /* gray-700 on hover */
+      }
+
+      /* Firefox support */
+      .custom-scrollbar {
+        scrollbar-width: auto;
+        scrollbar-color: #4b5563 #f1f1f1;
+      }
+    `}</style>
       {/* HEADER (filters) */}
       <div className="sticky top-0 z-30 bg-white shadow-sm">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-center gap-5 w-full py-3">
@@ -501,7 +633,7 @@ const Monthlyattendancetable = () => {
       </div>
 
       <div
-        className="bg-white rounded-xl mt-2 shadow overflow-auto border border-slate-200"
+        className="custom-scrollbar bg-white rounded-xl mt-2 shadow overflow-auto border border-slate-200"
         style={{ maxHeight: "calc(100vh - 260px)" }}
       >
         {loading && employees.length === 0 ? (
@@ -565,6 +697,21 @@ const Monthlyattendancetable = () => {
                   <span className="font-semibold">Total</span>
                   <br />
                   Half Day
+                </th>
+                <th className="sticky top-0 z-30 border border-white p-2 bg-orange-800 text-white min-w-[70px]">
+                  <span className="font-semibold">Total</span>
+                  <br />
+                  extraWork
+                </th>
+                <th className="sticky top-0 z-30 border border-white p-2 bg-orange-800 text-white min-w-[70px]">
+                  <span className="font-semibold">Total</span>
+                  <br />
+                  compOff
+                </th>
+                <th className="sticky top-0 z-30 border border-white p-2 bg-orange-800 text-white min-w-[70px]">
+                  <span className="font-semibold">Total</span>
+                  <br />
+                  leave
                 </th>
               </tr>
             </thead>
@@ -666,16 +813,40 @@ const Monthlyattendancetable = () => {
                                     ? d.ot
                                     : d.f;
 
+                          // IN: early(blue) / on-time-window(gray) / grace ke baad(red)
+                          // OUT: shift end se pehle(red) / grace ke andar(green) / grace se zyada baad(blue)
+                          let cellClass = "text-slate-700";
+
+                          if (rowType === "F") {
+                            cellClass = "text-red-600 font-semibold bg-red-50";
+                          } else if (rowType === "OT") {
+                            cellClass = "text-green-700 bg-green-50";
+                          } else if (rowType === "IN") {
+                            if (d.isLateIn) {
+                              cellClass = "text-red-600 font-bold bg-red-50";
+                            } else if (d.isOnTimeIn) {
+                              cellClass =
+                                "text-gray-700 font-semibold bg-gray-100";
+                            } else if (d.isEarlyIn) {
+                              cellClass =
+                                "text-blue-700 font-semibold bg-blue-50";
+                            }
+                          } else if (rowType === "OUT") {
+                            if (d.isEarlyOut) {
+                              cellClass = "text-red-600 font-bold bg-red-50";
+                            } else if (d.isExtendedOut) {
+                              cellClass =
+                                "text-blue-700 font-semibold bg-blue-50";
+                            } else if (d.isOnTimeOut) {
+                              cellClass =
+                                "text-gray-700 font-semibold bg-gray-100";
+                            }
+                          }
+
                           return (
                             <td
                               key={d.day}
-                              className={`border text-center ${
-                                rowType === "F"
-                                  ? "text-red-600 font-semibold bg-red-50"
-                                  : rowType === "OT"
-                                    ? "text-green-700 bg-green-50"
-                                    : "text-slate-700"
-                              }`}
+                              className={`border text-center ${cellClass}`}
                             >
                               {value || "-"}
                             </td>
@@ -683,12 +854,6 @@ const Monthlyattendancetable = () => {
                         })}
 
                         {(() => {
-                          // Total Hours column: Status/IN/OUT/WH rows merge
-                          // into a single cell showing the total worked
-                          // hours. OT row shows total OT, F row shows total
-                          // short — no extra "-" filler rows, sab ek hi
-                          // "Total Hours" column ke andar hai, koi naya
-                          // column add nahi kiya.
                           if (rowType === "OT") {
                             return (
                               <td className="border text-center font-bold bg-green-50 text-green-700">
@@ -736,11 +901,30 @@ const Monthlyattendancetable = () => {
                             >
                               {employee.totalLate}
                             </td>
+
                             <td
                               rowSpan={ROW_TYPES.length}
                               className="border text-center align-middle font-bold text-orange-800 bg-orange-50"
                             >
                               {employee.totalHalfDay}
+                            </td>
+                            <td
+                              rowSpan={ROW_TYPES.length}
+                              className="border text-center align-middle font-bold text-pink-700 bg-pink-50"
+                            >
+                              {employee.extraWork}
+                            </td>
+                            <td
+                              rowSpan={ROW_TYPES.length}
+                              className="border text-center align-middle font-bold text-pink-700 bg-pink-50"
+                            >
+                              {employee.compOff}
+                            </td>
+                            <td
+                              rowSpan={ROW_TYPES.length}
+                              className="border text-center align-middle font-bold text-pink-700 bg-pink-50"
+                            >
+                              {employee.leave}
                             </td>
                           </>
                         )}

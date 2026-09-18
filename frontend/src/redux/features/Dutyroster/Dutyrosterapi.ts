@@ -32,10 +32,16 @@ export interface DutyRosterListParams {
   branchId?: string;
 }
 
+/* =========================
+   GET DUTY ROSTER LIST
+========================= */
+
 export const getDutyRosterList = async (
   params?: DutyRosterListParams,
 ): Promise<DutyRosterRecord[]> => {
-  const response = await axiosInstance.get("/duty-roster", { params });
+  const response = await axiosInstance.get("/duty-roster", {
+    params,
+  });
 
   if (!response.data?.success) {
     throw new Error(response.data?.message || "Failed to fetch duty roster");
@@ -44,20 +50,60 @@ export const getDutyRosterList = async (
   return response.data.data;
 };
 
+/* =========================
+   GET EMPLOYEES FOR DUTY ROSTER
+========================= */
+
+export interface DutyRosterEmployee {
+  id: number;
+  full_name: string;
+}
+
+export const getEmployeesDutyRoster = async (
+  branchId?: number | string,
+  departmentId?: number | string,
+): Promise<DutyRosterEmployee[]> => {
+  const response = await axiosInstance.get("/duty-roster/empleedutyroster", {
+    params: {
+      branchId: branchId || undefined,
+      departmentId: departmentId || undefined,
+    },
+  });
+
+  if (!response.data?.success) {
+    throw new Error(response.data?.message || "Failed to fetch employees");
+  }
+  
+  return response.data.data;
+};
+
+/* =========================
+   CREATE DUTY ROSTER
+========================= */
+
+// api/dutyRosterApi.ts (ya jahan bhi ye function hai)
+
+
+
 export const createDutyRoster = async (
-  payload: DutyRosterPayload,
-): Promise<DutyRosterRecord> => {
-  console.log(" payload ", payload);
-  const response = await axiosInstance.post("/duty-roster", payload);
+  entries: DutyRosterPayload[],
+): Promise<DutyRosterRecord[]> => {
+  
+
+  const response = await axiosInstance.post("/duty-roster", { entries });
 
   if (!response.data?.success) {
     throw new Error(
-      response.data?.message || "Failed to create duty roster entry",
+      response.data?.message || "Failed to create duty roster entries",
     );
   }
 
   return response.data.data;
 };
+
+/* =========================
+   UPDATE DUTY ROSTER
+========================= */
 
 export const updateDutyRoster = async (
   payload: DutyRosterPayload & { id: number },
@@ -72,6 +118,10 @@ export const updateDutyRoster = async (
 
   return response.data.data;
 };
+
+/* =========================
+   DEACTIVATE DUTY ROSTER
+========================= */
 
 export const deactivateDutyRoster = async (id: number): Promise<number> => {
   const response = await axiosInstance.put("/duty-roster/deactivate", { id });

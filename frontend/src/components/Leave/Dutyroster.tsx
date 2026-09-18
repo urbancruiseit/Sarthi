@@ -33,6 +33,7 @@ import {
   updateDutyRosterThunk,
   deleteDutyRosterThunk,
   clearDutyRosterError,
+  fetchDutyRosterEmployees, // ADD
   DutyRosterRecord,
 } from "@/redux/features/Dutyroster/Dutyrosterslice";
 import { fetchHolidays } from "@/redux/features/Calendar/calendarSlice";
@@ -40,7 +41,7 @@ import { fetchHolidays } from "@/redux/features/Calendar/calendarSlice";
 import { RootState } from "@/redux/store";
 import BranchFilter from "@/components/FilterComponent/BranchFilter";
 import DepartmentFilter from "@/components/FilterComponent/DepartmentFilter";
-import EmployeeFilter from "../FilterComponent/EmployeeFilter";
+
 import DutyRosterForm, {
   EMPTY_FORM,
   FormState,
@@ -54,6 +55,8 @@ export default function DutyRoster() {
     list: rows,
     loading,
     error,
+    employees,
+    employeesLoading,
   } = useAppSelector((state: RootState) => state.dutyRoster);
   const { list: holidays } = useAppSelector((s: RootState) => s.holiday);
 
@@ -85,11 +88,6 @@ export default function DutyRoster() {
     );
   }, [dispatch, activeFilter]);
 
-  // Fetch holidays for the branch picked inside the modal, as soon as the
-  // branch is chosen (not just once a date is picked) so the Holiday
-  // dropdown is already populated for the user to choose from. Uses the
-  // selected duty date's year if present, else falls back to the current
-  // year, and refetches whenever the date's year changes.
   useEffect(() => {
     if (!form.branchId) return;
     const year = form.dutyDate
@@ -99,15 +97,24 @@ export default function DutyRoster() {
     dispatch(fetchHolidays({ branchId: form.branchId, year }));
   }, [dispatch, form.branchId, form.dutyDate]);
 
-  // All holidays for the branch currently picked inside the modal.
+  useEffect(() => {
+    if (!formOpen) return;
+
+    if (!form.branchId || !form.departmentId) return;
+
+    dispatch(
+      fetchDutyRosterEmployees({
+        branchId: form.branchId,
+        departmentId: form.departmentId,
+      }),
+    );
+  }, [dispatch, formOpen, form.branchId, form.departmentId]);
+
   const branchHolidays = useMemo(() => {
     if (!form.branchId) return [];
     return holidays.filter((h) => String(h.branch_id) === form.branchId);
   }, [holidays, form.branchId]);
 
-  // Holiday (if any) matching the selected branch + duty date. Uses
-  // toDateInputValue (local-timezone date) instead of slicing the raw UTC
-  // string, since the API stores midnight IST as the previous day's UTC time.
   const matchedHoliday = useMemo(() => {
     if (!form.branchId || !form.dutyDate) return null;
     return (
@@ -116,8 +123,6 @@ export default function DutyRoster() {
     );
   }, [branchHolidays, form.dutyDate]);
 
-  // Called when the user picks a holiday from the dropdown inside the form —
-  // auto-fills the Duty Date field with that holiday's date.
   const handleSelectHoliday = (holidayId: string) => {
     const holiday = branchHolidays.find((h) => String(h.id) === holidayId);
     if (holiday?.date) {
@@ -169,6 +174,32 @@ export default function DutyRoster() {
     dateFilter,
   ]);
 
+  const groupedByDepartment = useMemo(() => {
+    const groups: Record<string, DutyRosterRecord[]> = {};
+    filteredRows.forEach((row) => {
+      const anyRow = row as any;
+      const deptName = anyRow.department_name || "Unassigned";
+      if (!groups[deptName]) groups[deptName] = [];
+      groups[deptName].push(row);
+    });
+    return groups;
+  }, [filteredRows]);
+
+  // Finds the holiday (if any) matching a given row's branch + duty date, so
+  // each card can show a holiday badge when the duty date falls on one.
+  const getHolidayForRow = (row: DutyRosterRecord) => {
+    const anyRow = row as any;
+    if (!row.duty_date || !anyRow.branch_id) return null;
+    const dutyDateValue = toDateInputValue(row.duty_date);
+    return (
+      holidays.find(
+        (h) =>
+          String(h.branch_id) === String(anyRow.branch_id) &&
+          toDateInputValue(h.date) === dutyDateValue,
+      ) ?? null
+    );
+  };
+
   const openCreateForm = () => {
     setForm(EMPTY_FORM);
     setFormError(null);
@@ -179,27 +210,25 @@ export default function DutyRoster() {
     const anyRow = row as any;
     const dutyDate = toDateInputValue(row.duty_date);
     const branchId = String(anyRow.branch_id ?? "");
+    const departmentId = String(anyRow.department_id ?? "");
 
-    // Try to preselect the matching holiday (if this duty date happens to
-    // land on one) so the Holiday dropdown stays in sync when editing.
     const matched = holidays.find(
       (h) =>
         String(h.branch_id) === branchId &&
         toDateInputValue(h.date) === dutyDate,
     );
 
+    // Edit mode is single-entry: only fields defined on FormState are used.
     setForm({
       id: row.id,
       branchId,
+      departmentId,
       employeeId: String(row.employee_id),
       dutyDate,
       holidayId: matched ? String(matched.id) : "",
       status: anyRow.status ?? "",
-      dutyType: row.duty_type ?? "",
-      dutyTiming: row.duty_timing ?? "",
-      location: row.location ?? "",
-      remarks: row.remarks ?? "",
       isActive: Number(row.is_active) === 1,
+      presentEmployeeIds: [],
     });
 
     setFormError(null);
@@ -211,11 +240,21 @@ export default function DutyRoster() {
     setFormOpen(false);
   };
 
+  // Bulk-create mode uses departmentId + presentEmployeeIds instead of a
+  // single employeeId, so validation must branch on isEditing.
   const validateForm = (): string | null => {
     if (!form.branchId) return "Please select a branch.";
-    if (!form.employeeId) return "Please select an employee.";
     if (!form.dutyDate) return "Duty date is required.";
-    if (!form.status) return "Please select present or absent.";
+
+    if (isEditing) {
+      if (!form.employeeId) return "Please select an employee.";
+      if (!form.status) return "Please select present or absent.";
+    } else {
+      if (!form.departmentId) return "Please select a department.";
+      if (!employees || employees.length === 0) {
+        return "No employees found for this department.";
+      }
+    }
 
     return null;
   };
@@ -237,21 +276,35 @@ export default function DutyRoster() {
     setSaving(true);
     setFormError(null);
 
-    const payload = {
-      branchId: Number(form.branchId),
-      employeeId: Number(form.employeeId),
-      dutyDate: form.dutyDate,
-      status: form.status,
-      isActive: form.isActive ? 1 : 0,
-    };
-
     try {
       if (isEditing && form.id !== null) {
+        const payload = {
+          branchId: Number(form.branchId),
+          employeeId: Number(form.employeeId),
+          dutyDate: form.dutyDate,
+          status: form.status,
+          isActive: form.isActive ? 1 : 0,
+        };
+
         await dispatch(
           updateDutyRosterThunk({ id: form.id, payload }),
         ).unwrap();
       } else {
-        await dispatch(createDutyRosterThunk(payload)).unwrap();
+        // Bulk create: one entry per department employee — Present if
+        // picked in the form, Absent otherwise (everyone else is absent).
+        // Sent as a single request: { entries: [...] } — backend inserts
+        // each as an individual row.
+        const presentSet = new Set(form.presentEmployeeIds.map(String));
+
+        const entries = (employees ?? []).map((emp: any) => ({
+          branchId: Number(form.branchId),
+          employeeId: Number(emp.id),
+          dutyDate: form.dutyDate,
+          status: presentSet.has(String(emp.id)) ? "Present" : "Absent",
+          isActive: form.isActive ? 1 : 0,
+        }));
+
+        await dispatch(createDutyRosterThunk(entries)).unwrap();
       }
 
       setFormOpen(false);
@@ -267,8 +320,6 @@ export default function DutyRoster() {
     }
   };
 
-  // Inline Active/Inactive toggle straight from the table — reuses the same
-  // update/deactivate thunks so no separate endpoint is needed.
   const handleToggleActive = async (row: DutyRosterRecord, next: boolean) => {
     const anyRow = row as any;
     setTogglingId(row.id);
@@ -320,30 +371,21 @@ export default function DutyRoster() {
       {/* Filters — same components/pattern as Attendance.tsx */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-          <div className="relative max-w-xs w-full">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search employee or department…"
-              className="w-full pl-9 pr-4 h-9 rounded-lg border border-input bg-background text-sm"
-            />
-          </div>
-
-          <BranchFilter value={branchFilter} onChange={setBranchFilter} />
+          <BranchFilter
+            value={branchFilter}
+            onChange={(value) => {
+              setBranchFilter(value);
+              setDepartmentFilter("all");
+              setEmployeeFilter("all");
+            }}
+          />
 
           <DepartmentFilter
             value={departmentFilter}
-            onChange={setDepartmentFilter}
-          />
-
-          <EmployeeFilter
-            value={employeeFilter}
-            onChange={setEmployeeFilter}
-            branchId={branchFilter}
+            onChange={(value) => {
+              setDepartmentFilter(value);
+              setEmployeeFilter("all");
+            }}
           />
 
           <Select value={activeFilter} onValueChange={setActiveFilter}>
@@ -384,8 +426,7 @@ export default function DutyRoster() {
 
         {/* Right Side */}
         <Button
-          className="gap-2 text-white border-none hover:opacity-90"
-          style={{ background: "#9333EA" }}
+          className="gap-2 text-white border-none hover:opacity-90 bg-green-700"
           onClick={openCreateForm}
         >
           <Plus size={16} />
@@ -405,155 +446,170 @@ export default function DutyRoster() {
         </div>
       )}
 
-      {/* Table */}
-      <div
-        className="rounded-xl border-2 bg-card overflow-hidden"
-        style={{ borderColor: "#E9D5FF" }}
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ background: "#6B21A8" }}>
-                {[
-                  "Employee",
-                  "Department",
-                  "Branch",
-                  "Duty Date",
-                  "Status",
-                  "Active",
-                  "Actions",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="text-left px-4 py-3 text-xs font-semibold text-white uppercase whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading && filteredRows.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center">
-                    <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
-                      <Loader2 size={16} className="animate-spin" />
-                      Loading duty roster…
-                    </div>
-                  </td>
-                </tr>
-              )}
+      {/* Department-wise Cards */}
+      <div className="space-y-6">
+        {loading && filteredRows.length === 0 && (
+          <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm py-10">
+            <Loader2 size={16} className="animate-spin" />
+            Loading duty roster…
+          </div>
+        )}
 
-              {!loading && filteredRows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-8 text-center text-sm text-muted-foreground"
-                  >
-                    No duty roster entries found.
-                  </td>
-                </tr>
-              )}
+        {!loading && filteredRows.length === 0 && (
+          <div className="text-center text-sm text-muted-foreground py-10">
+            No duty roster entries found.
+          </div>
+        )}
 
-              {filteredRows.map((row) => {
-                const anyRow = row as any;
-                const isActive = Number(row.is_active) === 1;
+        {Object.entries(groupedByDepartment).map(([deptName, deptRows]) => {
+          const branchNames = Array.from(
+            new Set(
+              deptRows.map((row) => (row as any).branch_name).filter(Boolean),
+            ),
+          );
+          const isSingleEmployee = deptRows.length === 1;
 
-                return (
-                  <tr
-                    key={row.id}
-                    className="border-b border-border/50 hover:bg-muted/30"
-                  >
-                    <td className="px-4 py-3 font-medium">
-                      {row.full_name ||
-                        row.employee_name ||
-                        `#${row.employee_id ?? "-"}`}
-                    </td>
+          return (
+            <div
+              key={deptName}
+              className="rounded-xl border-2 bg-card overflow-hidden"
+              style={{ borderColor: "#BBF7D0" }}
+            >
+              {/* Department header */}
+              <div className="px-4 py-2 flex items-center justify-between gap-3 flex-wrap bg-green-800">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-md font-semibold text-white uppercase tracking-wide">
+                    {deptName}
+                  </h3>
+                  {branchNames.length > 0 && (
+                    <span className="text-md font-medium text-white">
+                      · {branchNames.join(", ")}
+                    </span>
+                  )}
+                </div>
+                <span className="text-md font-medium text-white">
+                  {deptRows.length}{" "}
+                  {deptRows.length === 1 ? "Entry" : "Entries"}
+                </span>
+              </div>
 
-                    <td className="px-4 py-3">
-                      {anyRow.department_name || "-"}
-                    </td>
+              <div
+                className={
+                  isSingleEmployee
+                    ? "p-4"
+                    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4"
+                }
+              >
+                {deptRows.map((row) => {
+                  const anyRow = row as any;
+                  const isActive = Number(row.is_active) === 1;
+                  const holiday = getHolidayForRow(row);
 
-                    <td className="px-4 py-3">{anyRow.branch_name || "-"}</td>
-
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {row.duty_date ? formatDateLabel(row.duty_date) : "-"}
-                    </td>
-
-                    <td className="px-4 py-3">
-                      <span
-                        className="px-3 py-1 rounded-full text-xs font-medium"
-                        style={
-                          anyRow.status === "Present"
-                            ? {
-                                background: "hsl(var(--success) / 0.12)",
-                                color: "hsl(var(--success))",
-                              }
-                            : {
-                                background: "#FEE2E2",
-                                color: "#B91C1C",
-                              }
-                        }
-                      >
-                        {anyRow.status || "-"}
-                      </span>
-                    </td>
-
-                    {/* Inline active/inactive edit toggle */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={isActive}
-                          disabled={togglingId === row.id}
-                          onCheckedChange={(next) =>
-                            handleToggleActive(row, next)
-                          }
-                        />
+                  return (
+                    <div
+                      key={row.id}
+                      className="rounded-lg border border-border/60 bg-background p-4 space-y-3 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      {/* Employee name + branch */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-sm">
+                            {row.full_name ||
+                              row.employee_name ||
+                              `#${row.employee_id ?? "-"}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {anyRow.branch_name || "-"}
+                          </p>
+                        </div>
                         <span
-                          className="text-xs font-medium"
-                          style={{
-                            color: isActive ? "#16A34A" : "#6B7280",
-                          }}
+                          className="px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap"
+                          style={
+                            anyRow.status === "Present"
+                              ? {
+                                  background: "hsl(var(--success) / 0.12)",
+                                  color: "hsl(var(--success))",
+                                }
+                              : {
+                                  background: "#FEE2E2",
+                                  color: "#B91C1C",
+                                }
+                          }
                         >
-                          {togglingId === row.id
-                            ? "..."
-                            : isActive
-                              ? "Active"
-                              : "Inactive"}
+                          {anyRow.status || "-"}
                         </span>
                       </div>
-                    </td>
 
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 gap-1.5"
-                          onClick={() => openEditForm(row)}
-                        >
-                          <Pencil size={13} />
-                          Edit
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          className="h-8 gap-1.5 text-white border-none hover:opacity-90"
-                          style={{ background: "#DC2626" }}
-                          onClick={() => setDeleteTarget(row)}
-                          disabled={!isActive}
-                        >
-                          <Trash2 size={13} />
-                          Deactivate
-                        </Button>
+                      {/* Duty date + holiday badge */}
+                      <div className="flex items-center gap-2 text-sm flex-wrap">
+                        <CalendarDays
+                          size={14}
+                          className="text-muted-foreground"
+                        />
+                        <span>
+                          {row.duty_date ? formatDateLabel(row.duty_date) : "-"}
+                        </span>
+                        {holiday && (
+                          <span
+                            className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                            style={{ background: "#FEF3C7", color: "#92400E" }}
+                          >
+                            {holiday.name || "Holiday"}
+                          </span>
+                        )}
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+
+                      {/* Active toggle + Actions */}
+                      <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={isActive}
+                            disabled={togglingId === row.id}
+                            onCheckedChange={(next) =>
+                              handleToggleActive(row, next)
+                            }
+                          />
+                          <span
+                            className="text-xs font-medium"
+                            style={{
+                              color: isActive ? "#16A34A" : "#6B7280",
+                            }}
+                          >
+                            {togglingId === row.id
+                              ? "..."
+                              : isActive
+                                ? "Active"
+                                : "Inactive"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1 px-2"
+                            onClick={() => openEditForm(row)}
+                          >
+                            <Pencil size={12} />
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-7 gap-1 px-2 text-white border-none hover:opacity-90"
+                            style={{ background: "#DC2626" }}
+                            onClick={() => setDeleteTarget(row)}
+                            disabled={!isActive}
+                          >
+                            <Trash2 size={12} />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Create / Edit Modal — extracted into its own component */}
@@ -569,6 +625,8 @@ export default function DutyRoster() {
         branchHolidays={branchHolidays}
         onSelectHoliday={handleSelectHoliday}
         isEditing={isEditing}
+        departmentEmployees={employees ?? []}
+        departmentEmployeesLoading={employeesLoading}
       />
 
       {/* Deactivate Confirmation Modal */}

@@ -136,7 +136,7 @@ export const getAllLeaves = async ({
     }
 
     if (branchId) {
-      conditions.push("u.branch_id = ?");
+      conditions.push("u.branchOffice_id = ?");
       params.push(branchId);
     }
 
@@ -156,11 +156,17 @@ export const getAllLeaves = async ({
     }
 
     if (search) {
-      // ab branch name se bhi search hoga
       conditions.push(
-        "(u.name LIKE ? OR u.employee_code LIKE ? OR b.name LIKE ?)",
+        "(u.firstName LIKE ? OR u.lastName LIKE ? OR u.employeeId LIKE ? OR b.branch_name LIKE ? OR d.department_name LIKE ?)",
       );
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+
+      params.push(
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+      );
     }
 
     const whereClause = conditions.length
@@ -169,43 +175,74 @@ export const getAllLeaves = async ({
 
     const offset = (Number(page) - 1) * Number(limit);
 
-    // Total count for pagination
+    // =========================
+    // Total count
+    // =========================
     const [countRows] = await pool.execute(
       `
       SELECT COUNT(*) AS total
       FROM leaves l
-      LEFT JOIN users u ON u.id = l.employee_id
-      LEFT JOIN branches b ON b.id = u.branch_id
+
+      LEFT JOIN users u
+        ON u.id = l.employee_id
+
+      LEFT JOIN branches b
+        ON b.id = u.branchOffice_id
+
+      LEFT JOIN departments d
+        ON d.id = u.department_id
+
       ${whereClause}
       `,
       params,
     );
 
-    const total = countRows[0]?.total || 0;
+    const total = Number(countRows[0]?.total || 0);
 
-    // Actual rows
+    // =========================
+    // Actual leaves
+    // =========================
     const [rows] = await pool.execute(
       `
       SELECT
         l.*,
+
         TRIM(
           CONCAT(
-            COALESCE(u.firstName,''),
+            COALESCE(u.firstName, ''),
             ' ',
-            COALESCE(u.lastName,'')
+            COALESCE(u.lastName, '')
           )
         ) AS full_name,
-        u.employee_code,
+
+        u.employeeId,
         u.department_id,
-        u.branch_id,
-        b.name AS branch_name,
-        approver.name AS approved_by_name
+        u.branchOffice_id,
+
+        b.branch_name AS branch_name,
+
+        d.department_name AS department_name,
+
+        approver.firstName AS approved_by_name
+
       FROM leaves l
-      LEFT JOIN users u ON u.id = l.employee_id
-      LEFT JOIN branches b ON b.id = u.branch_id
-      LEFT JOIN users approver ON approver.id = l.approved_by
+
+      LEFT JOIN users u
+        ON u.id = l.employee_id
+
+      LEFT JOIN branches b
+        ON b.id = u.branchOffice_id
+
+      LEFT JOIN departments d
+        ON d.id = u.department_id
+
+      LEFT JOIN users approver
+        ON approver.id = l.approved_by
+
       ${whereClause}
+
       ORDER BY l.applied_at DESC
+
       LIMIT ? OFFSET ?
       `,
       [...params, Number(limit), offset],

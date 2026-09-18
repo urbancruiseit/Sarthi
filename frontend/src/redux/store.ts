@@ -18,7 +18,7 @@ import bgvReducer from "../redux/features/BackgroundVerification/BackgroundVerif
 import atendanceReducer from "../redux/features/Attendance/attendanceSlice";
 import shiftAssignmentReducer from "../redux/features/Shiftassignment/shiftassignmentSlice";
 import holidayReducer from "../redux/features/Calendar/calendarSlice";
-import dutyrosterReducer from "../redux/features/Calendar/calendarSlice";
+import dutyrosterReducer from "../redux/features/Dutyroster/Dutyrosterslice";
 import leaveReducer from "../redux/features/Leave/leaveSlice";
 import compOffsReducer from "../redux/features/Compoff/Compoffslice";
 
