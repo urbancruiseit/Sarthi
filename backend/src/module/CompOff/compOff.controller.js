@@ -1,7 +1,7 @@
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { applyRoleBasedFilters } from "../../utils/applyRoleBasedFilters.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { getCompOffs } from "./compOff.model.js";
+import { getCompOffBalance, getCompOffs } from "./compOff.model.js";
 
 const getCompOffController = asyncHandler(async (req, res) => {
   const { month, employeeId, branchId, departmentId, status, page, limit } =
@@ -39,4 +39,22 @@ const getCompOffController = asyncHandler(async (req, res) => {
 
   return res.status(200).json(response);
 });
-export { getCompOffController };
+
+const getCompOffBalanceByEmployee = asyncHandler(async (req, res) => {
+  const { employeeId } = req.params;
+
+  if (!employeeId) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "employeeId is required"));
+  }
+
+  const balance = await getCompOffBalance(employeeId);
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, balance, "Comp-off balance fetched successfully"),
+    );
+});
+export { getCompOffController, getCompOffBalanceByEmployee };

@@ -21,7 +21,7 @@ const initialState: CompOffState = {
     total: 0,
     page: 1,
     limit: 10,
-    totalPages: 1,
+    totalPages: 1,       
     hasPrevPage: false,
     hasNextPage: false,
   },

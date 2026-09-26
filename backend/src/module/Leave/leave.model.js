@@ -55,6 +55,17 @@ export const updateLeaveStatus = async ({
   rejectionReason = null,
 }) => {
   try {
+    // 1. Fetch the leave row first so we have leaveType, employeeId, totalDays
+    const [rows] = await pool.execute(`SELECT * FROM leaves WHERE id = ?`, [
+      leaveId,
+    ]);
+
+    const leave = rows[0];
+    if (!leave) {
+      return null; // let controller handle "not found"
+    }
+
+    // 2. Now update
     const sql = `
       UPDATE leaves
       SET
@@ -65,14 +76,20 @@ export const updateLeaveStatus = async ({
       WHERE id = ?
     `;
 
-    const [result] = await pool.execute(sql, [
+    await pool.execute(sql, [
       status,
       approvedBy,
       status === "Rejected" ? rejectionReason : null,
       leaveId,
     ]);
 
-    return result;
+    // 3. Return the merged data (original row + updated fields)
+    return {
+      ...leave,
+      status,
+      approved_by: approvedBy,
+      rejection_reason: status === "Rejected" ? rejectionReason : null,
+    };
   } catch (error) {
     console.error("updateLeaveStatus error:", error);
     throw error;

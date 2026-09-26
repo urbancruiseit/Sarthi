@@ -89,8 +89,8 @@ export const getCompOffs = async (filters = {}) => {
   const values = [];
 
   if (managerId) {
-    conditions.push("u.manager_id = ?");
-    values.push(managerId);
+    conditions.push("(u.manager_id = ? OR c.employee_id = ?)");
+    values.push(managerId, managerId);
   }
 
   if (employeeId) {
@@ -177,14 +177,15 @@ export const getCompOffs = async (filters = {}) => {
   };
 };
 
+// model
 export const getCompOffBalance = async (employeeId) => {
-  const [rows] = await hrmsPool.execute(
+  const [rows] = await pool.execute(
     `
     SELECT
       COALESCE(
         SUM(
           CASE
-            WHEN status='Available'
+            WHEN status = 'Available'
             THEN days
             ELSE 0
           END
@@ -197,4 +198,69 @@ export const getCompOffBalance = async (employeeId) => {
   );
 
   return rows[0];
+};
+
+export const useCompOffBalance = async (employeeId, totalDays, leaveId) => {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [availableCompOffs] = await connection.execute(
+      `
+      SELECT id, days
+      FROM comp_offs
+      WHERE employee_id = ? AND status = 'Available'
+      ORDER BY earned_date ASC
+      FOR UPDATE
+      `,
+      [employeeId],
+    );
+
+    let remainingDays = Number(totalDays);
+
+    for (const compOff of availableCompOffs) {
+      if (remainingDays <= 0) break;
+
+      if (Number(compOff.days) <= remainingDays) {
+        // Poora record consume ho gaya
+        await connection.execute(
+          `UPDATE comp_offs SET status = 'Used', leave_id = ? WHERE id = ?`,
+          [leaveId, compOff.id],
+        );
+        remainingDays -= Number(compOff.days);
+      } else {
+        // Partial consume — split karna padega
+        const usedDays = remainingDays;
+        const leftoverDays = Number(compOff.days) - usedDays;
+
+        await connection.execute(
+          `UPDATE comp_offs SET status = 'Used', days = ?, leave_id = ? WHERE id = ?`,
+          [usedDays, leaveId, compOff.id],
+        );
+
+        await connection.execute(
+          `
+          INSERT INTO comp_offs (employee_id, attendance_id, earned_date, days, status, remarks)
+          VALUES (?, NULL, ?, ?, 'Available', 'Split remainder')
+          `,
+          [employeeId, compOff.earned_date, leftoverDays],
+        );
+
+        remainingDays = 0;
+      }
+    }
+
+    if (remainingDays > 0) {
+      throw new Error("Insufficient comp-off balance to complete deduction");
+    }
+
+    await connection.commit();
+    return { success: true, deductedDays: totalDays };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 };

@@ -1,4 +1,5 @@
 import { pool } from "../../config/mySqlDB.js";
+import { createCompOffIfEligible } from "../CompOff/compOff.model.js";
 
 export const getAttendanceByDate = async (filters = {}) => {
   try {
@@ -994,7 +995,16 @@ export const updatePunchOut = async ({
       employeeId,
       attendanceDate,
     ]);
-
+    console.log("COMP-OFF CHECK:", {
+      employeeId,
+      attendanceDate,
+      workedMinutes,
+      willTriggerCompOff: workedMinutes >= 465,
+    });
+    if (workedMinutes >= 465) {
+      console.log("CREATING COMP-OFF NOW");
+      await createCompOffIfEligible(employeeId, attendanceDate);
+    }
     return {
       success: result.affectedRows > 0,
 
@@ -1172,10 +1182,6 @@ export const runAutoAttendanceMarking = async () => {
       } else {
         remarks = "Auto-marked by system (no punch-in till 1:00 PM)";
       }
-
-      console.log(
-        `Emp ${emp.employee_id}: source=${source}, weekOffRaw="${sourceWeekOffRaw}" -> [${weekOffDays}], today="${todayNormalized}", branch_id=${emp.branch_id}, isHoliday=${isHolidayToday}, result=${finalStatus}, shiftTiming=${shiftTimingToSave}`,
-      );
 
       await connection.execute(
         `INSERT INTO attendance

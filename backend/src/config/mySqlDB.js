@@ -8,7 +8,7 @@ const poolConfig = {
   database: process.env.DB_NAME,
   timezone: IST_TIMEZONE,
   waitForConnections: true,
-  connectionLimit: 20,
+  connectionLimit: 10,
   queueLimit: 0,
   connectTimeout: 10_000,
 };

@@ -1,8 +1,7 @@
 // utils/applyRoleBasedFilters.js (ya jahan bhi apne shared utils rakhte ho)
 
 /**
- * Role ke hisaab se filters object ko mutate/update karta hai.
- * Same logic jo pehle har controller mein alag-alag likha hua tha.
+ 
  *
  * @param {Object} filters - filters object (mutate hoga)
  * @param {Object} req - express request (req.user se role/userId/subDepartment nikalne ke liye)

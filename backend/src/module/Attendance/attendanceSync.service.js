@@ -1,5 +1,5 @@
 import { pool } from "../../config/mySqlDB.js";
-import { createCompOffIfEligible } from "../CompOff/compOff.model.js";
+
 import { markAttendance, updatePunchOut } from "./attendance.model.js";
 import { getLatestPunches } from "./etimeoffice.service.js";
 
@@ -98,7 +98,6 @@ const syncOfficeAttendance = async (officeKey) => {
     try {
       const { attendanceDate, time, dateObj: currentPunchTime } = parsed;
 
-      // emp_code + branchOffice_id dono se match — cross-branch clash avoid karne ke liye
       const [users] = await pool.query(
         "SELECT id FROM users WHERE emp_code=? AND branchOffice_id=? LIMIT 1",
         [punch.Empcode, branchOfficeId],
@@ -136,7 +135,6 @@ const syncOfficeAttendance = async (officeKey) => {
             attendanceDate,
             punch_out: time,
           });
-          await createCompOffIfEligible(employeeId, attendanceDate);
         } else {
           console.log(
             `Punch ignored (not later than punch_in): emp ${employeeId} on ${attendanceDate}`,
@@ -148,7 +146,7 @@ const syncOfficeAttendance = async (officeKey) => {
         `Failed to process punch for emp_code ${punch.Empcode} (${officeKey}):`,
         punchErr,
       );
-    
+
       hadFailure = true;
       break;
     }

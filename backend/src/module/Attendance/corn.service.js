@@ -3,11 +3,11 @@ import { syncAttendance } from "./attendanceSync.service.js";
 import { runAutoAttendanceMarking } from "./attendance.model.js";
 
 const SYNC_CRON_EXPRESSION_SLOT1 = "35 11 * * *";
-const SYNC_CRON_EXPRESSION_SLOT2 = "15 14 * * *";
+const SYNC_CRON_EXPRESSION_SLOT2 = "16 13 * * *";
 const SYNC_CRON_EXPRESSION_SLOT3 = "35 18 * * *";
 const SYNC_CRON_EXPRESSION_SLOT4 = "10 22 * * *";
 
-const AUTO_ATTENDANCE_CRON_EXPRESSION = "10 16 * * *";
+const AUTO_ATTENDANCE_CRON_EXPRESSION = "10 17 * * *";
 
 let tasks = [];
 

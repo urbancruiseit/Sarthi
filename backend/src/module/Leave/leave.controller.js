@@ -2,6 +2,10 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import {
+  getCompOffBalance,
+  useCompOffBalance,
+} from "../CompOff/compOff.model.js";
+import {
   applyLeave,
   getAllLeaves,
   getLeaveById,
@@ -24,6 +28,26 @@ const applyLeaveController = asyncHandler(async (req, res) => {
     );
   }
 
+  // Comp Off leave ke liye balance check
+  if (leaveType === "Comp Off") {
+    const compOffBalance = await getCompOffBalance(employeeId);
+    const availableBalance = Number(compOffBalance?.balance || 0);
+
+    if (availableBalance <= 0) {
+      throw new ApiError(
+        400,
+        "No comp-off balance available for this employee",
+      );
+    }
+
+    if (availableBalance < Number(totalDays)) {
+      throw new ApiError(
+        400,
+        `Insufficient comp-off balance. Available: ${availableBalance} day(s), Requested: ${totalDays} day(s)`,
+      );
+    }
+  }
+
   const result = await applyLeave({
     employeeId,
     leaveType,
@@ -38,10 +62,9 @@ const applyLeaveController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, result, "Leave applied successfully"));
 });
 
-const updateLeaveStatusController = asyncHandler(async (req, res) => {
+const updateLeaveStatusController = asyncHandler(async (req, res) => {  
   const approvedBy = req.user?.id;
   const { leaveId } = req.params;
-
   const { status, rejectionReason } = req.body;
 
   if (!approvedBy) {
@@ -67,6 +90,24 @@ const updateLeaveStatusController = asyncHandler(async (req, res) => {
     rejectionReason,
   });
 
+  if (!result) {
+    throw new ApiError(404, "Leave not found");
+  }
+
+  // ✅ snake_case field names use karo
+  if (status === "Approved" && result.leave_type === "Comp Off") {
+    const availableBalance = await getCompOffBalance(result.employee_id);
+
+    if (Number(availableBalance?.balance || 0) < Number(result.total_days)) {
+      throw new ApiError(
+        400,
+        "Insufficient comp-off balance to approve this leave",
+      );
+    }
+
+    await useCompOffBalance(result.employee_id, result.total_days, result.id);
+  }
+
   return res
     .status(200)
     .json(
@@ -77,7 +118,6 @@ const updateLeaveStatusController = asyncHandler(async (req, res) => {
       ),
     );
 });
-
 const getMyLeavesController = asyncHandler(async (req, res) => {
   const employeeId = req.user?.id;
 
