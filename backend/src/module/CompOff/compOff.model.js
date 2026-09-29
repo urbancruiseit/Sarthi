@@ -2,7 +2,11 @@ import { pool } from "../../config/mySqlDB.js";
 
 import { randomUUID } from "crypto";
 
-export const createCompOffIfEligible = async (employeeId, attendanceDate) => {
+export const createCompOffIfEligible = async (
+  employeeId,
+  attendanceDate,
+  workedMinutes,
+) => {
   const [rows] = await pool.execute(
     `
     SELECT 
@@ -29,44 +33,30 @@ export const createCompOffIfEligible = async (employeeId, attendanceDate) => {
 
   const dayName = new Date(`${attendanceDate}T00:00:00`).toLocaleDateString(
     "en-US",
-    {
-      weekday: "long",
-    },
+    { weekday: "long" },
   );
 
   const isWeekOff = rows[0].week_off === dayName;
   const isHoliday = !!rows[0].holiday_id;
 
-  // Neither holiday nor weekly off
+  // Neither holiday nor weekly off -> not eligible
   if (!isWeekOff && !isHoliday) return;
+
+  // Holiday/Week-off hai, lekin 7:45 (465 min) se kam kaam kiya -> not eligible
+  const REQUIRED_MINUTES = 465; // 7:45 hrs
+  if (workedMinutes < REQUIRED_MINUTES) return;
 
   const remarks = isHoliday ? "Worked on Holiday" : "Worked on Weekly Off";
 
   const uuid = randomUUID();
 
-  // One employee + one date = only one CompOff
   await pool.execute(
     `
     INSERT INTO comp_offs
-    (
-      uuid,
-      employee_id,
-      earned_date,
-      days,
-      status,
-      remarks
-    )
-    VALUES
-    (
-      ?,
-      ?,
-      ?,
-      1,
-      'Available',
-      ?
-    )
+    (uuid, employee_id, earned_date, days, status, remarks)
+    VALUES (?, ?, ?, 1, 'Available', ?)
     ON DUPLICATE KEY UPDATE
-      employee_id = employee_id
+      remarks = VALUES(remarks)
     `,
     [uuid, employeeId, attendanceDate, remarks],
   );

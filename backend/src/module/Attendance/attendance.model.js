@@ -711,13 +711,12 @@ export const markAttendance = async ({
     );
 
     let lateMinutes = 0;
-    let shiftTimingToSave = null; // <-- naya variable
+    let shiftTimingToSave = null;
     let finalStatus = status;
 
     const branchId = shiftRows.length ? shiftRows[0].branch_id : null;
-    const weekOffDay = shiftRows.length ? shiftRows[0].week_off_day : null; // e.g. "Sunday"
+    const weekOffDay = shiftRows.length ? shiftRows[0].week_off_day : null;
 
-    // Day name for attendanceDate, e.g. "Sunday", "Monday" ...
     const dayNames = [
       "Sunday",
       "Monday",
@@ -729,10 +728,13 @@ export const markAttendance = async ({
     ];
     const attendanceDayName = dayNames[new Date(attendanceDate).getDay()];
 
-    // Is this employee's own weekly-off day (dynamic, per-employee — not hardcoded Sunday)
+    // Employee ka apna weekly-off day match ho raha hai ya nahi (kisi bhi din ho sakta hai)
     const isWeekOff =
       !!weekOffDay &&
       weekOffDay.trim().toLowerCase() === attendanceDayName.toLowerCase();
+
+    // Sirf Sunday hone ka check (fixed timing ke liye)
+    const isSunday = attendanceDayName === "Sunday";
 
     // Branch-wise holiday check
     let isHoliday = false;
@@ -751,9 +753,9 @@ export const markAttendance = async ({
       isHoliday = holidayRows.length > 0;
     }
 
-    if (isWeekOff) {
-      // Week-off shift fixed timing
-      shiftTimingToSave = "10:30 AM - 06:30 PM"; // apna actual week-off timing yaha likho
+    // Sirf Sunday ko fixed timing lagao, kisi aur week-off din ko nahi
+    if (isSunday) {
+      shiftTimingToSave = "10:30 AM - 06:30 PM";
     } else if (shiftRows.length && shiftRows[0].shift_timing) {
       shiftTimingToSave = shiftRows[0].shift_timing;
     }
@@ -761,7 +763,7 @@ export const markAttendance = async ({
     if (punchIn && shiftTimingToSave) {
       let shiftStart;
 
-      if (isWeekOff) {
+      if (isSunday) {
         shiftStart = "10:30 AM";
       } else {
         shiftStart = shiftTimingToSave.split("-")[0].trim();
@@ -776,10 +778,9 @@ export const markAttendance = async ({
       );
     }
 
-    // Extra Work logic: employee punches in on THEIR own weekly-off day OR branch holiday
+    // Extra Work logic: employee apne weekly-off din pe aaya YA branch holiday pe aaya
     if (punchIn && (isWeekOff || isHoliday)) {
       finalStatus = "Extra Work";
-      // lateMinutes stays as calculated above (not zeroed)
     }
 
     const sql = `
@@ -995,15 +996,9 @@ export const updatePunchOut = async ({
       employeeId,
       attendanceDate,
     ]);
-    console.log("COMP-OFF CHECK:", {
-      employeeId,
-      attendanceDate,
-      workedMinutes,
-      willTriggerCompOff: workedMinutes >= 465,
-    });
+
     if (workedMinutes >= 465) {
-      console.log("CREATING COMP-OFF NOW");
-      await createCompOffIfEligible(employeeId, attendanceDate);
+      await createCompOffIfEligible(employeeId, attendanceDate, workedMinutes);
     }
     return {
       success: result.affectedRows > 0,
