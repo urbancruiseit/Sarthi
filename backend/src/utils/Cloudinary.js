@@ -21,8 +21,6 @@ const uploadOnCloudinary = async (localFilePath) => {
       folder: `hrms/employees`,
     });
 
-    console.log("Cloudinary upload response:", response);
-
     if (fs.existsSync(localFilePath)) {
       fs.unlinkSync(localFilePath);
     }

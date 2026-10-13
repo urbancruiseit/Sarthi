@@ -3,6 +3,7 @@ import {
   getAttendanceController,
   getMonthlyAttendanceController,
   markAttendanceController,
+  updateEarlyExitDetailsController,
   updatePunchOutController,
   updateStatusController,
 } from "./attendance.contrroler.js";
@@ -17,5 +18,6 @@ router
 router.route("/monthly").get(verifyJWT, getMonthlyAttendanceController);
 router.route("/update").put(updatePunchOutController);
 router.route("/status").patch(updateStatusController);
+router.route("/early-exit").patch(verifyJWT, updateEarlyExitDetailsController);
 
 export default router;

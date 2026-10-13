@@ -17,6 +17,7 @@ import {
   markEmployeeAttendance,
   updateEmployeeAttendanceStatus,
   AttendanceRecord,
+  updateEmployeeEarlyExit,
 } from "@/redux/features/Attendance/attendanceSlice";
 import { getAttendance } from "@/redux/features/Attendance/attendanceApi";
 import ShiftAssignment from "@/components/addFromModels/Shiftassignment";
@@ -24,7 +25,10 @@ import BranchFilter from "@/components/FilterComponent/BranchFilter";
 import DepartmentFilter from "@/components/FilterComponent/DepartmentFilter";
 import EmployeeFilter from "@/components/FilterComponent/EmployeeFilter";
 // CHANGED: naya multi-select status filter import kiya
+// Agar sonner use karte ho (shadcn ka naya default)
+import { toast } from "sonner";
 
+// Agar shadcn ka purana useToast hai, to ye alag tarika hai (neeche likha hai)
 import {
   ModalState,
   Override,
@@ -72,7 +76,7 @@ export default function Attendance() {
   const [employeeFilter, setEmployeeFilter] = useState<string>("all");
   const [overrides, setOverrides] = useState<Record<string, Override>>({});
   const [modal, setModal] = useState<ModalState>(null);
-  
+
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
   const [activeTab, setActiveTab] = useState("attendance");
@@ -314,6 +318,25 @@ export default function Attendance() {
     }
   };
 
+  const handleSaveNote = async (attendanceId: number, note: string) => {
+    try {
+      await dispatch(
+        updateEmployeeEarlyExit({
+          attendanceId,
+          earlyExitReason: note,
+        }),
+      ).unwrap();
+
+      toast.success("Note saved successfully");
+      refetchCurrentView(); // drill-down view me bhi nayi value dikhane ke liye
+    } catch (err: any) {
+      const message =
+        typeof err === "string" ? err : err?.message || "Failed to save note";
+      toast.error(message);
+      throw err; // taaki modal khula rahe aur user dobara try kar sake
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Tabs
@@ -522,6 +545,7 @@ export default function Attendance() {
             loading={isDrillDown ? employeeMonthLoading : loading}
             onRowClick={openEmployeeMonth}
             onUpdateStatus={openStatusModal}
+            onSaveNote={handleSaveNote}
           />
         </TabsContent>
 

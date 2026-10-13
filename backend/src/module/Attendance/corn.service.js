@@ -84,13 +84,6 @@ export const startAttendanceSyncCron = () => {
   );
 
   tasks = [slot1Task, slot2Task, slot3Task, slot4Task, autoAttendanceTask];
-
-  console.log(
-    `[AttendanceSyncCron] started with schedules "${SYNC_CRON_EXPRESSION_SLOT1}", "${SYNC_CRON_EXPRESSION_SLOT2}", "${SYNC_CRON_EXPRESSION_SLOT3}", "${SYNC_CRON_EXPRESSION_SLOT4}"`,
-  );
-  console.log(
-    `[AutoAttendanceMarkingCron] started with schedule "${AUTO_ATTENDANCE_CRON_EXPRESSION}" (1:00 PM)`,
-  );
 };
 
 export const stopAttendanceSyncCron = () => {

@@ -185,7 +185,9 @@ interface ApiAttendanceRecord {
   worked_time?: string | null;
   overtime_time?: string | null;
   short_time?: string | null;
-  is_late?: boolean; // NEW — backend se aata hai (10 min grace ke saath calculated)
+  is_late?: boolean;
+
+  early_exit_reason?: string | null; // NEW
 }
 
 type DayCell = {
@@ -202,6 +204,7 @@ type DayCell = {
   isEarlyOut: boolean; // NEW — punch-out shift end se pehle hua (RED)
   isOnTimeOut: boolean; // NEW — punch-out shift end se OUT_GRACE_MINUTES ke andar (GREEN)
   isExtendedOut: boolean; // NEW — punch-out shift end se OUT_GRACE_MINUTES se zyada baad (BLUE)
+  note: string | null;
 };
 
 type ProcessedEmployee = {
@@ -236,6 +239,7 @@ const EMPTY_DAY_CELL_BASE = {
   isEarlyOut: false,
   isOnTimeOut: false,
   isExtendedOut: false,
+  note: null,
 };
 
 const LATE_GRACE_MINUTES = 10; // shift start ke baad kitni der tak grace (gray/red boundary for IN)
@@ -448,6 +452,7 @@ function processRecords(
         isEarlyOut,
         isOnTimeOut,
         isExtendedOut,
+        note: rec.early_exit_reason?.trim() || null,
       };
     });
 
@@ -791,14 +796,28 @@ const Monthlyattendancetable = () => {
                                 key={d.day}
                                 className="border text-center p-1"
                               >
-                                <Badge
-                                  className={`rounded-md px-2 py-1 text-[15px] font-extrabold tracking-wide border-none justify-center w-full ${
-                                    CODE_STYLE[d.code] ??
-                                    "bg-slate-100 text-slate-700"
-                                  }`}
-                                >
-                                  {d.code}
-                                </Badge>
+                                <div className="group relative">
+                                  <Badge
+                                    className={`relative rounded-md px-2 py-1 text-[15px] font-extrabold tracking-wide border-none justify-center w-full ${
+                                      CODE_STYLE[d.code] ??
+                                      "bg-slate-100 text-slate-700"
+                                    }`}
+                                  >
+                                    {d.code}
+                                    {d.note && (
+                                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-white" />
+                                    )}
+                                  </Badge>
+
+                                  {d.note && (
+                                    <div className="pointer-events-none absolute left-1/2 top-full z-[60] mt-1 hidden w-48 -translate-x-1/2 whitespace-normal rounded-md bg-slate-900 px-3 py-2 text-left text-[11px] font-normal leading-snug text-white shadow-lg group-hover:block">
+                                      <p className="mb-0.5 font-semibold text-orange-300">
+                                        {pad(d.day)}-{pad(monthNum)} Note
+                                      </p>
+                                      {d.note}
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                             );
                           }

@@ -53,14 +53,14 @@ export interface Holiday {
 
 export const LEAVE_TYPES = ["Short PL", "Long PL", "Comp Off", "Unpaid Leave"];
 
-export const STATUS_STYLES: Record<LeaveStatus, { bg: string; color: string }> = {
-  Pending: { bg: "#FEF3C7", color: "#B45309" },
-  Approved: { bg: "#DCFCE7", color: "#166534" },
-  Rejected: { bg: "#FEE2E2", color: "#B91C1C" },
-};
+export const STATUS_STYLES: Record<LeaveStatus, { bg: string; color: string }> =
+  {
+    Pending: { bg: "#FEF3C7", color: "#B45309" },
+    Approved: { bg: "#DCFCE7", color: "#166534" },
+    Rejected: { bg: "#FEE2E2", color: "#B91C1C" },
+  };
 
 export const DEFAULT_STATUS_STYLE = { bg: "#E5E7EB", color: "#374151" };
-
 
 export function normalizeLeaveStatus(raw: unknown): LeaveStatus | null {
   if (typeof raw !== "string") return null;
@@ -76,69 +76,6 @@ export function normalizeLeaveStatus(raw: unknown): LeaveStatus | null {
       return null;
   }
 }
-
-// Mock data kept in the same shape as the real LeaveRequest interface,
-// so this can be swapped in/out for the live API response without
-// breaking the table.
-export const INITIAL_REQUESTS: LeaveRequest[] = [
-  {
-    id: 1042,
-    uuid: "LR-1042",
-    employee_id: 101,
-    employeeName: "Aditi Sharma",
-    leave_type: "Casual Leave",
-    department: "Sales",
-    from_date: "2026-07-18",
-    to_date: "2026-07-19",
-    total_days: 2,
-    reason: "Family function",
-    status: "Pending",
-    applied_at: "2026-07-14",
-    approved_by: null,
-    approved_at: null,
-    rejection_reason: null,
-    created_at: "2026-07-14",
-    updated_at: "2026-07-14",
-  },
-  {
-    id: 1041,
-    uuid: "LR-1041",
-    employee_id: 102,
-    employeeName: "Rohit Verma",
-    leave_type: "Sick Leave",
-    department: "IT",
-    from_date: "2026-07-12",
-    to_date: "2026-07-12",
-    total_days: 1,
-    reason: "Fever",
-    status: "Approved",
-    applied_at: "2026-07-11",
-    approved_by: 5,
-    approved_at: "2026-07-11",
-    rejection_reason: null,
-    created_at: "2026-07-11",
-    updated_at: "2026-07-11",
-  },
-  {
-    id: 1040,
-    uuid: "LR-1040",
-    employee_id: 103,
-    employeeName: "Priya Nair",
-    leave_type: "Earned Leave",
-    department: "Finance",
-    from_date: "2026-07-05",
-    to_date: "2026-07-09",
-    total_days: 5,
-    reason: "Personal travel",
-    status: "Rejected",
-    applied_at: "2026-06-28",
-    approved_by: 5,
-    approved_at: "2026-06-29",
-    rejection_reason: "Insufficient balance",
-    created_at: "2026-06-28",
-    updated_at: "2026-06-29",
-  },
-];
 
 // Placeholder branches — backend ready hone tak local list.
 export const MOCK_BRANCHES = [
@@ -158,17 +95,18 @@ export const INITIAL_HOLIDAYS: Holiday[] = [
 ];
 
 // Tab-wise header content.
-export const TAB_CONTENT: Record<string, { title: string; subtitle: string }> = {
-  leave: {
-    title: "Leave Management",
-    subtitle: "Apply for leave and track request status",
-  },
-  assign: {
-    title: "Leave Assignment",
-    subtitle: "Assign leave directly to an employee",
-  },
-  holiday: {
-    title: "Company Holidays",
-    subtitle: "List of official company holidays",
-  },
-};
+export const TAB_CONTENT: Record<string, { title: string; subtitle: string }> =
+  {
+    leave: {
+      title: "Leave Management",
+      subtitle: "Apply for leave and track request status",
+    },
+    assign: {
+      title: "Leave Assignment",
+      subtitle: "Assign leave directly to an employee",
+    },
+    holiday: {
+      title: "Company Holidays",
+      subtitle: "List of official company holidays",
+    },
+  };

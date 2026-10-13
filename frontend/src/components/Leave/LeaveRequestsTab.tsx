@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Search,
   Plus,
@@ -6,6 +7,8 @@ import {
   XCircle,
   HourglassIcon,
   Loader2,
+  X,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +24,8 @@ const STATUS_ICONS: Record<LeaveStatus, any> = {
   Approved: CheckCircle2,
   Rejected: XCircle,
 };
+
+const REASON_LIMIT = 20;
 
 interface LeaveRequestsTabProps {
   requests: LeaveRequest[];
@@ -50,21 +55,15 @@ export default function LeaveRequestsTab({
   actionLoadingId = null,
   loading = false,
 }: LeaveRequestsTabProps) {
+  // Modal ke liye selected reason (null = modal band)
+  const [selectedReason, setSelectedReason] = useState<{
+    name: string;
+    reason: string;
+  } | null>(null);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="relative max-w-xs w-full sm:w-[260px]">
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          />
-          <input
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search leave requests…"
-            className="w-full pl-9 pr-4 h-9 rounded-lg border border-input bg-background text-sm"
-          />
-        </div>
         <Button
           className="gap-2 text-white border-none hover:opacity-90 w-fit"
           style={{ background: "#16A34A" }}
@@ -141,6 +140,9 @@ export default function LeaveRequestsTab({
                   const isPending = normalizedStatus === "Pending";
                   const isRowLoading = actionLoadingId === rowId;
 
+                  const reasonText = r.reason ?? "";
+                  const isLongReason = reasonText.length > REASON_LIMIT;
+
                   return (
                     <tr
                       key={rowId}
@@ -154,11 +156,30 @@ export default function LeaveRequestsTab({
                       <td className="px-4 py-3">{formatDate(r.from_date)}</td>
                       <td className="px-4 py-3">{formatDate(r.to_date)}</td>
                       <td className="px-4 py-3">{r.total_days}</td>
-                      <td
-                        className="px-4 py-3 max-w-[220px] truncate"
-                        title={r.reason ?? undefined}
-                      >
-                        {r.reason ?? "—"}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {reasonText ? (
+                          <>
+                            {isLongReason
+                              ? `${reasonText.slice(0, REASON_LIMIT)}… `
+                              : reasonText}
+                            {isLongReason && (
+                              <button
+                                type="button"
+                                className="text-xs font-medium text-green-600 hover:underline"
+                                onClick={() =>
+                                  setSelectedReason({
+                                    name: r.full_name ?? "Employee",
+                                    reason: reasonText,
+                                  })
+                                }
+                              >
+                                Read more
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5 text-muted-foreground">
@@ -216,6 +237,65 @@ export default function LeaveRequestsTab({
           </table>
         </div>
       </div>
+      {/* Reason Modal */}
+      {selectedReason && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => setSelectedReason(null)}
+        >
+          <div
+            className="w-full max-w-md overflow-hidden rounded-2xl bg-background shadow-2xl border animate-in zoom-in-95 slide-in-from-bottom-2 duration-200"
+            style={{ borderColor: "#BBF7D0" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              className="flex items-center justify-between gap-3 px-5 py-4"
+              style={{
+                background: "linear-gradient(135deg, #166534, #16A34A)",
+              }}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 text-white font-semibold ring-2 ring-white/30">
+                  {selectedReason.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold text-white leading-tight">
+                    Leave Reason
+                  </h3>
+                  <p className="text-xs text-green-100 truncate">
+                    {selectedReason.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 rounded-full bg-white/20 p-1.5 text-white transition hover:bg-red-500 hover:rotate-90 duration-200"
+                onClick={() => setSelectedReason(null)}
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5">
+              <div
+                className="rounded-xl border p-4"
+                style={{ background: "#F0FDF4", borderColor: "#BBF7D0" }}
+              >
+                <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-green-800">
+                  <FileText size={13} />
+                  Reason
+                </div>
+                <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words max-h-[50vh] overflow-y-auto pr-1">
+                  {selectedReason.reason}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

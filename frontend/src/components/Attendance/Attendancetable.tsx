@@ -1,5 +1,20 @@
-import { Loader2, ClipboardCheck } from "lucide-react";
+import { useState } from "react";
+import {
+  Loader2,
+  ClipboardCheck,
+  NotebookPen,
+  MessageSquarePlus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AttendanceStatus,
   DisplayRow,
@@ -14,6 +29,7 @@ interface AttendanceTableProps {
   loading: boolean;
   onRowClick: (empId: string, empName: string) => void;
   onUpdateStatus: (empId: string, empName: string) => void;
+  onSaveNote: (attendanceId: number, note: string) => Promise<void>;
 }
 
 export default function AttendanceTable({
@@ -22,16 +38,55 @@ export default function AttendanceTable({
   loading,
   onRowClick,
   onUpdateStatus,
+  onSaveNote,
 }: AttendanceTableProps) {
   const { can } = useAccessControl();
   const canSeeFilters = can("ATTENDANCE_FILTERS");
-  const columnCount = isDrillDown
-    ? canSeeFilters
-      ? 10
-      : 9
-    : canSeeFilters
-      ? 9
-      : 8;
+  const canAddNote = canSeeFilters;
+
+  // ---- Note modal state ----
+  const [noteTarget, setNoteTarget] = useState<{
+    attendanceId: number;
+    name: string;
+    date: string | null;
+    hasNote: boolean;
+  } | null>(null);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const openNote = (emp: DisplayRow) => {
+    if (!emp.attendanceId) return;
+    setNoteTarget({
+      attendanceId: emp.attendanceId,
+      name: emp.fullName,
+      date: emp.attendanceDate,
+      hasNote: !!emp.earlyExitReason,
+    });
+    setDraft(emp.earlyExitReason ?? "");
+  };
+
+  const closeNote = () => {
+    if (saving) return;
+    setNoteTarget(null);
+    setDraft("");
+  };
+
+  const saveNote = async () => {
+    if (!noteTarget || !draft.trim()) return;
+    try {
+      setSaving(true);
+      await onSaveNote(noteTarget.attendanceId, draft.trim());
+      setSaving(false);
+      setNoteTarget(null);
+      setDraft("");
+    } catch {
+      // error toast parent me dikh raha hai, modal khula rehne do
+      setSaving(false);
+    }
+  };
+
+  const columnCount =
+    (isDrillDown ? 9 : 8) + (canAddNote ? 1 : 0) + (canSeeFilters ? 1 : 0);
 
   const headers = [
     "Employee",
@@ -43,6 +98,7 @@ export default function AttendanceTable({
     "Punch-Out",
     "Working Hrs",
     "Status",
+    ...(canAddNote ? ["Note"] : []),
     ...(canSeeFilters ? ["Actions"] : []),
   ];
 
@@ -65,6 +121,7 @@ export default function AttendanceTable({
                 <col className="w-[10%]" />
                 <col className="w-[11%]" />
                 <col className="w-[11%]" />
+                {canAddNote && <col className="w-[14%]" />}
                 {canSeeFilters && <col className="w-[9%]" />}
               </>
             ) : (
@@ -77,6 +134,7 @@ export default function AttendanceTable({
                 <col className="w-[11%]" />
                 <col className="w-[12%]" />
                 <col className="w-[12%]" />
+                {canAddNote && <col className="w-[14%]" />}
                 {canSeeFilters && <col className="w-[8%]" />}
               </>
             )}
@@ -304,6 +362,42 @@ export default function AttendanceTable({
                         : ""}
                     </span>
                   </td>
+
+                  {canAddNote && (
+                    <td
+                      className="px-3 py-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {!emp.attendanceId ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : emp.earlyExitReason ? (
+                        <button
+                          type="button"
+                          onClick={() => openNote(emp)}
+                          className="group flex w-full items-center gap-1.5 text-left"
+                          title={emp.earlyExitReason}
+                        >
+                          <span className="text-xs truncate">
+                            {emp.earlyExitReason}
+                          </span>
+                          <NotebookPen
+                            size={14}
+                            className="shrink-0 text-muted-foreground group-hover:text-green-700"
+                          />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openNote(emp)}
+                          className="inline-flex items-center gap-1 rounded-md border border-green-700/30 px-2 py-1 text-xs font-medium text-green-800 hover:bg-green-50 transition-colors"
+                        >
+                          <MessageSquarePlus size={13} />
+                          Add note
+                        </button>
+                      )}
+                    </td>
+                  )}
+
                   {canSeeFilters && (
                     <td className="px-3 py-2">
                       <div
@@ -328,6 +422,57 @@ export default function AttendanceTable({
           </tbody>
         </table>
       </div>
+
+      {/* ---- Note Modal ---- */}
+      <Dialog open={!!noteTarget} onOpenChange={(open) => !open && closeNote()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {noteTarget?.hasNote ? "Edit Note" : "Add Note"}
+            </DialogTitle>
+            <DialogDescription>
+              {noteTarget?.name}
+              {noteTarget?.date
+                ? ` · ${new Date(noteTarget.date).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-1.5">
+            <Textarea
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Write note here… (e.g. Doctor appointment, approved by manager)"
+              rows={4}
+              maxLength={255}
+              disabled={saving}
+            />
+            <p className="text-right text-[11px] text-muted-foreground">
+              {draft.length}/255
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeNote} disabled={saving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={saveNote}
+              disabled={saving || !draft.trim()}
+              className="text-white"
+              style={{ background: "#166534" }}
+            >
+              {saving && <Loader2 size={14} className="mr-1.5 animate-spin" />}
+              Save Note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

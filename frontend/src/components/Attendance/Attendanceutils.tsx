@@ -56,10 +56,11 @@ export const STATUS_COLORS: Record<
   },
 
   "Extra Work": {
-    bg: " bg-orange-600",
+    bg: "bg-orange-600",
     text: "text-white",
   },
 };
+
 export const LEAVE_TYPES = [
   "Sick Leave",
   "Casual Leave",
@@ -152,6 +153,7 @@ export function toDisplayRow(r: AttendanceRecord, override?: Override) {
 
   return {
     id: empId,
+    attendanceId: r.attendance_id ?? null, // NEW
     attendanceDate: r.attendance_date,
     fullName: r.full_name,
     department: r.department_name || "—",
@@ -186,5 +188,7 @@ export function toDisplayRow(r: AttendanceRecord, override?: Override) {
     overtimeMinutes,
     shortfall,
     overtime,
+
+    earlyExitReason: r.early_exit_reason ?? null, // NEW
   };
 }

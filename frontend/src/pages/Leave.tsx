@@ -15,6 +15,8 @@ import { RootState } from "@/redux/store";
 import { daysBetween } from "@/utils/leaveUtils";
 import ApplyLeaveModal from "@/components/Leave/ApplyLeaveModal";
 import BranchFilter from "@/components/FilterComponent/BranchFilter";
+import DepartmentFilter from "@/components/FilterComponent/DepartmentFilter";
+import EmployeeFilter from "@/components/FilterComponent/EmployeeFilter";
 
 import {
   fetchHolidays,
@@ -52,6 +54,9 @@ interface LeaveFilters {
   limit?: number;
 }
 
+// "all" ya empty value ka matlab: filter laga hi nahi
+const isActiveFilter = (v: string) => v !== "" && v !== "all";
+
 function Leave() {
   const dispatch = useAppDispatch();
   const { isSuperAdmin } = useAccessControl();
@@ -77,10 +82,17 @@ function Leave() {
     setActiveTab(isSuperAdmin ? "leave" : "compoff");
   }, [isSuperAdmin]);
 
-  const [leaveBranchId, setLeaveBranchId] = useState<string>("");
-  const [leaveDepartmentId, setLeaveDepartmentId] = useState<string>("");
-  const [leaveEmployeeId, setLeaveEmployeeId] = useState<string>("");
+  // ---------- Leave filters (Attendance page jaisa: default "all") ----------
+  const [leaveBranchId, setLeaveBranchId] = useState<string>("all");
+  const [leaveDepartmentId, setLeaveDepartmentId] = useState<string>("all");
+  const [leaveEmployeeId, setLeaveEmployeeId] = useState<string>("all");
   const [leaveStatus, setLeaveStatus] = useState<string>("");
+
+  const hasAnyLeaveFilter =
+    isActiveFilter(leaveBranchId) ||
+    isActiveFilter(leaveDepartmentId) ||
+    isActiveFilter(leaveEmployeeId) ||
+    leaveStatus !== "";
 
   // ---------- Leave tab ki pagination state ----------
   const [leavePage, setLeavePage] = useState<number>(1);
@@ -98,13 +110,15 @@ function Leave() {
     setLeavePage(1);
   }, [leaveBranchId, leaveDepartmentId, leaveEmployeeId, leaveStatus]);
 
-  // filters ko memoize karo taaki empty values thunk ko na jayein
+  // filters ko memoize karo taaki "all"/empty values thunk ko na jayein
   // aur useEffect ka dependency array stable rahe
   const leaveFilters: LeaveFilters = useMemo(
     () => ({
-      ...(leaveBranchId && { branchId: leaveBranchId }),
-      ...(leaveDepartmentId && { departmentId: leaveDepartmentId }),
-      ...(leaveEmployeeId && { employeeId: leaveEmployeeId }),
+      ...(isActiveFilter(leaveBranchId) && { branchId: leaveBranchId }),
+      ...(isActiveFilter(leaveDepartmentId) && {
+        departmentId: leaveDepartmentId,
+      }),
+      ...(isActiveFilter(leaveEmployeeId) && { employeeId: leaveEmployeeId }),
       ...(leaveStatus && { status: leaveStatus }),
       page: leavePage,
       limit: leaveLimit,
@@ -366,24 +380,22 @@ function Leave() {
                   <Building2 size={16} className="text-muted-foreground" />
                   <BranchFilter
                     value={leaveBranchId}
-                    onChange={setLeaveBranchId}
+                    onChange={(v) => {
+                      setLeaveBranchId(v);
+                      setLeaveEmployeeId("all"); // branch badalne par employee reset
+                    }}
                   />
                 </div>
 
-                <input
-                  type="text"
-                  placeholder="Department ID"
+                <DepartmentFilter
                   value={leaveDepartmentId}
-                  onChange={(e) => setLeaveDepartmentId(e.target.value)}
-                  className="h-9 rounded-md border border-orange-200 px-3 text-sm"
+                  onChange={setLeaveDepartmentId}
                 />
 
-                <input
-                  type="text"
-                  placeholder="Employee ID"
+                <EmployeeFilter
                   value={leaveEmployeeId}
-                  onChange={(e) => setLeaveEmployeeId(e.target.value)}
-                  className="h-9 rounded-md border border-orange-200 px-3 text-sm"
+                  onChange={setLeaveEmployeeId}
+                  branchId={leaveBranchId}
                 />
 
                 <select
@@ -397,16 +409,13 @@ function Leave() {
                   <option value="rejected">Rejected</option>
                 </select>
 
-                {(leaveBranchId ||
-                  leaveDepartmentId ||
-                  leaveEmployeeId ||
-                  leaveStatus) && (
+                {hasAnyLeaveFilter && (
                   <button
                     type="button"
                     onClick={() => {
-                      setLeaveBranchId("");
-                      setLeaveDepartmentId("");
-                      setLeaveEmployeeId("");
+                      setLeaveBranchId("all");
+                      setLeaveDepartmentId("all");
+                      setLeaveEmployeeId("all");
                       setLeaveStatus("");
                     }}
                     className="h-9 rounded-md border border-orange-200 px-3 text-sm text-orange-600 hover:bg-orange-50"
@@ -421,12 +430,8 @@ function Leave() {
                 search={search}
                 onSearchChange={setSearch}
                 onApplyClick={() => setModalOpen(true)}
-                onApprove={(id, name) => {
-                  setTargetLeave({ id, name });
-
-                  setStatusDialogOpen(true);
-                }}
-                onReject={(id, name) => openStatusDialog(id, name)}
+                onApprove={openStatusDialog}
+                onReject={openStatusDialog}
                 actionLoadingId={actionLoadingId}
                 loading={leavesLoading}
               />

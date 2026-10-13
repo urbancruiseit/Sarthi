@@ -6,6 +6,7 @@ import {
   markAttendance,
   updateAttendance,
   updateAttendanceStatus,
+  updateEarlyExitDetails,
 } from "./attendanceApi";
 
 export interface AttendanceRecord {
@@ -55,6 +56,10 @@ export interface AttendanceRecord {
 
   leave_type: string | null;
   remarks: string | null;
+  early_exit_reason?: string | null; // NEW
+  early_exit_approved_by?: number | null; // NEW
+  attendanceId?: number | null; // record.attendance_id
+  earlyExitReason?: string | null; // record.early_exit_reason
 }
 
 // ---- NEW: summary shape jo backend ab return karta hai ----
@@ -105,6 +110,10 @@ interface AttendanceState {
   error: string | null;
 }
 
+export interface MonthlyAttendanceResponse {
+  data: AttendanceRecord[];
+  overallSummary: AttendanceState["monthlyOverallSummary"];
+}
 const initialState: AttendanceState = {
   list: [],
   summary: null,
@@ -196,6 +205,20 @@ export const updateEmployeeAttendanceStatus = createAsyncThunk(
   ) => {
     try {
       return await updateAttendanceStatus(payload);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  },
+);
+
+export const updateEmployeeEarlyExit = createAsyncThunk(
+  "attendance/updateEmployeeEarlyExit",
+  async (
+    payload: Parameters<typeof updateEarlyExitDetails>[0],
+    { rejectWithValue },
+  ) => {
+    try {
+      return await updateEarlyExitDetails(payload);
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
@@ -318,6 +341,35 @@ const attendanceSlice = createSlice({
       })
 
       .addCase(updateEmployeeAttendanceStatus.rejected, (state, action) => {
+        state.marking = false;
+        state.error = action.payload as string;
+      })
+
+      .addCase(updateEmployeeEarlyExit.pending, (state) => {
+        state.marking = true;
+        state.error = null;
+      })
+
+      .addCase(updateEmployeeEarlyExit.fulfilled, (state, action) => {
+        state.marking = false;
+
+        // List me turant update kar do, dobara fetch ki zarurat nahi
+        const { attendanceId, earlyExitReason, earlyExitApprovedBy } =
+          action.payload;
+
+        const updateRecord = (record: AttendanceRecord) => {
+          if (record.attendance_id === attendanceId) {
+            record.early_exit_reason = earlyExitReason;
+            record.early_exit_approved_by = earlyExitApprovedBy ?? null;
+          }
+        };
+
+        state.list.forEach(updateRecord);
+        state.monthlyList.forEach(updateRecord);
+        state.myAttendance.forEach(updateRecord);
+      })
+
+      .addCase(updateEmployeeEarlyExit.rejected, (state, action) => {
         state.marking = false;
         state.error = action.payload as string;
       });

@@ -185,3 +185,34 @@ export const updateAttendanceStatus = async (
     throw error;
   }
 };
+
+export interface UpdateEarlyExitPayload {
+  attendanceId: number;
+  earlyExitReason: string;
+  earlyExitApprovedBy?: number | null;
+}
+
+export const updateEarlyExitDetails = async (
+  payload: UpdateEarlyExitPayload,
+) => {
+  try {
+    const response = await axiosInstance.patch(
+      "/attendance/early-exit",
+      payload,
+    );
+
+    if (response.data && response.data.success) {
+      return response.data.data;
+    } else {
+      throw new Error(
+        response.data.message || "Failed to update early exit details",
+      );
+    }
+  } catch (error: any) {
+    console.error(
+      "Update Early Exit Error:",
+      error.response?.data || error.message,
+    );
+    throw error;
+  }
+};

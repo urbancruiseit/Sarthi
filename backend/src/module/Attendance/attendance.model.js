@@ -333,7 +333,8 @@ export const getAttendanceByMonth = async (filters = {}) => {
         a.punch_out,
         a.leave_type,
         a.remarks,
-
+        a.early_exit_reason,
+        a.early_exit_approved_by,
         /* Shift jo us din punch-in ke time attendance row me FREEZE ho chuka tha.
            Late calculation isी se hoga — baad me shift change hone se
            purane din ka late status nahi badlega. */
@@ -1203,5 +1204,35 @@ export const runAutoAttendanceMarking = async () => {
     throw error;
   } finally {
     connection.release();
+  }
+};
+export const updateEarlyExitDetails = async ({
+  attendanceId,
+  earlyExitReason,
+  earlyExitApprovedBy,
+}) => {
+  try {
+    const sql = `
+      UPDATE attendance
+      SET
+        early_exit_reason = ?,
+        early_exit_approved_by = ?
+      WHERE id = ?
+    `;
+
+    const [result] = await pool.execute(sql, [
+      earlyExitReason,
+      earlyExitApprovedBy ?? null,
+      attendanceId,
+    ]);
+
+    if (result.affectedRows === 0) {
+      throw new Error("Attendance record not found");
+    }
+
+    return result;
+  } catch (error) {
+    console.error("updateEarlyExitDetails error:", error);
+    throw error;
   }
 };

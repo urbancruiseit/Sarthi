@@ -9,6 +9,7 @@ import {
   getAttendanceByMonth,
   markAttendance,
   runAutoAttendanceMarking,
+  updateEarlyExitDetails,
   updatePunchOut,
   updateStatus,
 } from "./attendance.model.js";
@@ -135,7 +136,7 @@ const getMonthlyAttendanceController = asyncHandler(async (req, res) => {
 });
 
 const markAttendanceController = asyncHandler(async (req, res) => {
-  const employeeId =81;
+  const employeeId = 102;
   const { attendanceDate, punchIn } = req.body;
 
   if (!employeeId) {
@@ -159,7 +160,7 @@ const markAttendanceController = asyncHandler(async (req, res) => {
 });
 
 const updatePunchOutController = asyncHandler(async (req, res) => {
-  const employeeId = 81;
+  const employeeId = 77;
 
   const { attendanceDate, punchOut, punch_out } = req.body;
 
@@ -232,6 +233,34 @@ const triggerAutoAttendanceController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, result, "Auto attendance marking completed"));
 });
 
+const updateEarlyExitDetailsController = asyncHandler(async (req, res) => {
+  const { attendanceId, earlyExitReason, earlyExitApprovedBy } = req.body;
+
+  if (!attendanceId || !earlyExitReason?.trim()) {
+    throw new ApiError(400, "attendanceId and earlyExitReason are required");
+  }
+
+  const result = await updateEarlyExitDetails({
+    attendanceId,
+    earlyExitReason: earlyExitReason.trim(),
+    earlyExitApprovedBy,
+  });
+
+  if (result.affectedRows === 0) {
+    throw new ApiError(404, "Attendance record not found");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { attendanceId, earlyExitReason, earlyExitApprovedBy },
+        "Early exit details updated successfully",
+      ),
+    );
+});
+
 export {
   getAttendanceController,
   getMonthlyAttendanceController,
@@ -239,4 +268,5 @@ export {
   updatePunchOutController,
   updateStatusController,
   triggerAutoAttendanceController,
+  updateEarlyExitDetailsController,
 };

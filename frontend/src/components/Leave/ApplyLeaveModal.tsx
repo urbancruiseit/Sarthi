@@ -3,6 +3,27 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LEAVE_TYPES } from "./Leaveutils";
 
+const COMP_OFF_TYPE = "Comp Off";
+const COMP_OFF_NOTICE_HOURS = 24;
+
+const LEAVE_START_HOUR = 9;
+
+const HOUR_MS = 60 * 60 * 1000;
+
+const getLeaveStart = (date: string) =>
+  new Date(`${date}T${String(LEAVE_START_HOUR).padStart(2, "0")}:00:00`);
+
+const getMinCompOffDate = () => {
+  const earliest = new Date(Date.now() + COMP_OFF_NOTICE_HOURS * HOUR_MS);
+
+  if (earliest.getHours() >= LEAVE_START_HOUR) {
+    earliest.setDate(earliest.getDate() + 1);
+  }
+  const y = earliest.getFullYear();
+  const m = String(earliest.getMonth() + 1).padStart(2, "0");
+  const d = String(earliest.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
 
 interface ApplyLeaveModalProps {
   open: boolean;
@@ -35,7 +56,21 @@ export default function ApplyLeaveModal({
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const isValid = form.fromDate && form.toDate && form.toDate >= form.fromDate;
+  const isCompOff = form.leaveType === COMP_OFF_TYPE;
+
+  const compOffError =
+    isCompOff &&
+    form.fromDate &&
+    getLeaveStart(form.fromDate).getTime() - Date.now() <
+      COMP_OFF_NOTICE_HOURS * HOUR_MS
+      ? `Comp Off must be applied at least ${COMP_OFF_NOTICE_HOURS} hours before the leave starts.`
+      : "";
+
+  const isValid =
+    form.fromDate &&
+    form.toDate &&
+    form.toDate >= form.fromDate &&
+    !compOffError;
 
   const handleSubmit = () => {
     if (!isValid) return;
@@ -93,6 +128,7 @@ export default function ApplyLeaveModal({
               <input
                 type="date"
                 value={form.fromDate}
+                min={isCompOff ? getMinCompOffDate() : undefined}
                 onChange={(e) => updateForm("fromDate", e.target.value)}
                 className={inputClass}
               />
@@ -104,11 +140,16 @@ export default function ApplyLeaveModal({
               <input
                 type="date"
                 value={form.toDate}
+                min={form.fromDate || undefined}
                 onChange={(e) => updateForm("toDate", e.target.value)}
                 className={inputClass}
               />
             </div>
           </div>
+
+          {compOffError && (
+            <p className="text-xs text-red-600">{compOffError}</p>
+          )}
 
           <div>
             <label className="text-xs font-medium text-muted-foreground">
