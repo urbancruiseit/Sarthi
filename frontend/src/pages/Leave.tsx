@@ -6,6 +6,7 @@ import {
   Building2,
   ClipboardList,
   CalendarClock,
+  Plus,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
@@ -374,62 +375,74 @@ function Leave() {
         {isSuperAdmin && (
           <>
             <TabsContent value="leave" className="mt-6 space-y-4">
-              {/* ---------- Leave filters ---------- */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Building2 size={16} className="text-muted-foreground" />
-                  <BranchFilter
-                    value={leaveBranchId}
-                    onChange={(v) => {
-                      setLeaveBranchId(v);
-                      setLeaveEmployeeId("all"); // branch badalne par employee reset
-                    }}
+              {/* ---------- Leave filters (left) + Apply Leave (right) ---------- */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* LEFT: filters */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Building2 size={16} className="text-muted-foreground" />
+                    <BranchFilter
+                      value={leaveBranchId}
+                      onChange={(v) => {
+                        setLeaveBranchId(v);
+                        setLeaveEmployeeId("all"); // branch badalne par employee reset
+                      }}
+                    />
+                  </div>
+
+                  <DepartmentFilter
+                    value={leaveDepartmentId}
+                    onChange={setLeaveDepartmentId}
                   />
+
+                  <EmployeeFilter
+                    value={leaveEmployeeId}
+                    onChange={setLeaveEmployeeId}
+                    branchId={leaveBranchId}
+                  />
+
+                  <select
+                    value={leaveStatus}
+                    onChange={(e) => setLeaveStatus(e.target.value)}
+                    className="h-9 rounded-md border border-orange-200 px-3 text-sm"
+                  >
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+
+                  {hasAnyLeaveFilter && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLeaveBranchId("all");
+                        setLeaveDepartmentId("all");
+                        setLeaveEmployeeId("all");
+                        setLeaveStatus("");
+                      }}
+                      className="h-9 rounded-md border border-orange-200 px-3 text-sm text-orange-600 hover:bg-orange-50"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
                 </div>
 
-                <DepartmentFilter
-                  value={leaveDepartmentId}
-                  onChange={setLeaveDepartmentId}
-                />
-
-                <EmployeeFilter
-                  value={leaveEmployeeId}
-                  onChange={setLeaveEmployeeId}
-                  branchId={leaveBranchId}
-                />
-
-                <select
-                  value={leaveStatus}
-                  onChange={(e) => setLeaveStatus(e.target.value)}
-                  className="h-9 rounded-md border border-orange-200 px-3 text-sm"
+                {/* RIGHT: Apply Leave */}
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(true)}
+                  className="ml-auto inline-flex h-9 items-center gap-2 rounded-md bg-green-600 px-4 text-sm font-medium text-white hover:bg-green-700"
                 >
-                  <option value="">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-
-                {hasAnyLeaveFilter && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLeaveBranchId("all");
-                      setLeaveDepartmentId("all");
-                      setLeaveEmployeeId("all");
-                      setLeaveStatus("");
-                    }}
-                    className="h-9 rounded-md border border-orange-200 px-3 text-sm text-orange-600 hover:bg-orange-50"
-                  >
-                    Clear Filters
-                  </button>
-                )}
+                  <Plus size={16} />
+                  Apply Leave
+                </button>
               </div>
 
               <LeaveRequestsTab
                 requests={filteredRequests}
                 search={search}
                 onSearchChange={setSearch}
-                onApplyClick={() => setModalOpen(true)}
                 onApprove={openStatusDialog}
                 onReject={openStatusDialog}
                 actionLoadingId={actionLoadingId}

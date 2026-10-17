@@ -51,7 +51,17 @@ export interface Holiday {
   date: string;
 }
 
-export const LEAVE_TYPES = ["Short PL", "Long PL", "Comp Off", "Unpaid Leave"];
+export const LEAVE_TYPES = [
+  "Holiday Leaves (HL)",
+  "Personal Leaves (PL)",
+  "Emergency Leaves (EL)",
+  "Annual Leave (AL)",
+  "Marriage Leave (ML)",
+  "Maternity Leave (MTL)",
+  "Paternity Leave (PTL)",
+  "Comp Off",
+  "Unpaid Leave",
+];
 
 export const STATUS_STYLES: Record<LeaveStatus, { bg: string; color: string }> =
   {

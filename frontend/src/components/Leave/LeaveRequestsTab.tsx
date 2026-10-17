@@ -1,7 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Search,
-  Plus,
   CalendarDays,
   CheckCircle2,
   XCircle,
@@ -26,12 +24,12 @@ const STATUS_ICONS: Record<LeaveStatus, any> = {
 };
 
 const REASON_LIMIT = 20;
+const ANIMATION_MS = 250;
 
 interface LeaveRequestsTabProps {
   requests: LeaveRequest[];
   search: string;
   onSearchChange: (value: string) => void;
-  onApplyClick: () => void;
   onApprove: (id: string | number, name?: string) => void;
   onReject: (id: string | number, name?: string) => void;
   actionLoadingId?: string | number | null;
@@ -47,33 +45,54 @@ function formatDate(value: string | null | undefined) {
 
 export default function LeaveRequestsTab({
   requests,
-  search,
-  onSearchChange,
-  onApplyClick,
   onApprove,
   onReject,
   actionLoadingId = null,
   loading = false,
 }: LeaveRequestsTabProps) {
-  // Modal ke liye selected reason (null = modal band)
+  // Modal ka data (null = DOM mein hai hi nahi)
   const [selectedReason, setSelectedReason] = useState<{
     name: string;
     reason: string;
   } | null>(null);
 
+  // Animation ke liye alag flag: true = dikha raha hai, false = fade/slide out
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const openReason = (name: string, reason: string) => {
+    setSelectedReason({ name, reason });
+    // ek frame ruko taaki browser pehle "hidden" state paint kare, phir transition chale
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => setModalVisible(true)),
+    );
+  };
+
+  const closeReason = () => {
+    setModalVisible(false);
+    // animation khatam hone ke baad hi DOM se hatao
+    setTimeout(() => setSelectedReason(null), ANIMATION_MS);
+  };
+
+  // Esc dabane par band + background scroll lock
+  useEffect(() => {
+    if (!selectedReason) return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeReason();
+    };
+    window.addEventListener("keydown", onKey);
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [selectedReason]);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <Button
-          className="gap-2 text-white border-none hover:opacity-90 w-fit"
-          style={{ background: "#16A34A" }}
-          onClick={onApplyClick}
-        >
-          <Plus size={16} />
-          Apply Leave
-        </Button>
-      </div>
-
       <div
         className="rounded-xl border-2 bg-card overflow-hidden"
         style={{ borderColor: "#BBF7D0" }}
@@ -167,10 +186,10 @@ export default function LeaveRequestsTab({
                                 type="button"
                                 className="text-xs font-medium text-green-600 hover:underline"
                                 onClick={() =>
-                                  setSelectedReason({
-                                    name: r.full_name ?? "Employee",
-                                    reason: reasonText,
-                                  })
+                                  openReason(
+                                    r.full_name ?? "Employee",
+                                    reasonText,
+                                  )
                                 }
                               >
                                 Read more
@@ -237,15 +256,29 @@ export default function LeaveRequestsTab({
           </table>
         </div>
       </div>
-      {/* Reason Modal */}
+
+      {/* Reason Modal (smooth open/close) */}
       {selectedReason && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-          onClick={() => setSelectedReason(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{
+            backgroundColor: modalVisible ? "rgba(0,0,0,0.5)" : "rgba(0,0,0,0)",
+            backdropFilter: modalVisible ? "blur(4px)" : "blur(0px)",
+            transition: `background-color ${ANIMATION_MS}ms ease, backdrop-filter ${ANIMATION_MS}ms ease`,
+          }}
+          onClick={closeReason}
         >
           <div
-            className="w-full max-w-md overflow-hidden rounded-2xl bg-background shadow-2xl border animate-in zoom-in-95 slide-in-from-bottom-2 duration-200"
-            style={{ borderColor: "#BBF7D0" }}
+            className="w-full max-w-md overflow-hidden rounded-2xl bg-background shadow-2xl border"
+            style={{
+              borderColor: "#BBF7D0",
+              opacity: modalVisible ? 1 : 0,
+              transform: modalVisible
+                ? "translateY(0) scale(1)"
+                : "translateY(16px) scale(0.95)",
+              transition: `opacity ${ANIMATION_MS}ms cubic-bezier(0.16, 1, 0.3, 1), transform ${ANIMATION_MS}ms cubic-bezier(0.16, 1, 0.3, 1)`,
+              willChange: "transform, opacity",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -271,7 +304,7 @@ export default function LeaveRequestsTab({
               <button
                 type="button"
                 className="shrink-0 rounded-full bg-white/20 p-1.5 text-white transition hover:bg-red-500 hover:rotate-90 duration-200"
-                onClick={() => setSelectedReason(null)}
+                onClick={closeReason}
                 aria-label="Close"
               >
                 <X size={16} />
